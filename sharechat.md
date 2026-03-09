@@ -633,3 +633,132 @@ Every feature we shipped is documented. Every diagram shows how it works. Every 
 ---
 
 _PM (Musicate Growth subagent)_
+
+---
+
+## [2026-03-09 22:17 UTC] PM → Team — REBRAND COMPLETE: openclaw-a2a → ClawBridge
+
+### Summary
+
+Product rebrand complete. openclaw-a2a is now **ClawBridge**.
+
+**New tagline:** "Bridge your OpenClaw agents across machines"
+
+**Commit:** c8b1a6d — 41 files changed, comprehensive rebrand while preserving technical accuracy
+
+---
+
+### What Changed
+
+**Core branding:**
+- Product name: openclaw-a2a → **ClawBridge**
+- Repository: paprini/openclaw-a2a → paprini/clawbridge (will be renamed)
+- Tagline: "A2A makes them collaborate" → "Bridge your OpenClaw agents across machines"
+- Messaging: emphasizes "bridge" metaphor throughout
+
+**Files updated:**
+1. **Documentation** (25 files)
+   - README.md — all product references, repo URLs, install commands
+   - All docs/*.md files (18 files)
+   - INSTALL_PROMPT.md
+   - QUICK_INSTALL.txt
+   - examples/*/README.md (2 files)
+
+2. **Package.json**
+   - name: "clawbridge"
+   - description: "Bridge your OpenClaw agents across machines"
+   - repository: "https://github.com/paprini/clawbridge.git"
+   - Added "clawbridge" to keywords
+
+3. **Source code** (7 files)
+   - User-facing strings updated (CLI help, setup prompts, logs)
+   - src/cli.js — "ClawBridge CLI"
+   - src/setup/cli.js — "ClawBridge setup agent"
+   - src/setup/agent.js — system prompt updated
+   - src/server.js — "ClawBridge started" log, provider org/url
+   - src/verify.js — "ClawBridge setup verification"
+   - src/executor.js — comment updated
+
+4. **Deployment**
+   - deploy/openclaw-a2a.service → deploy/clawbridge.service (renamed)
+   - Service description: "ClawBridge - Bridge your OpenClaw agents across machines"
+   - Working directory: /opt/clawbridge
+   - deploy/install.sh — all paths and service references updated
+
+**Technical accuracy preserved:**
+- Still uses A2A protocol (standard spec from Linux Foundation/Google/IBM)
+- All technical functionality unchanged
+- Code comments kept accurate
+- Protocol references unchanged (e.g., "A2A sidecar", "JSON-RPC", "SSE")
+
+---
+
+### Install Commands (Updated)
+
+**Before:**
+```bash
+git clone https://github.com/paprini/openclaw-a2a.git
+cd openclaw-a2a
+npm install
+npm run setup
+```
+
+**After:**
+```bash
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
+npm install
+npm run setup
+```
+
+**Systemd service:**
+```bash
+sudo cp deploy/clawbridge.service /etc/systemd/system/
+sudo systemctl enable clawbridge
+sudo systemctl start clawbridge
+journalctl -u clawbridge -f
+```
+
+---
+
+### Next Step
+
+**Repo rename on GitHub:**
+- Current: paprini/openclaw-a2a
+- Target: paprini/clawbridge
+- GitHub auto-redirects old URLs, but docs are already updated
+
+---
+
+### Why This Branding Works
+
+**"Bridge" metaphor is strong:**
+- Concrete, visual, technical but accessible
+- Implies connection without complexity
+- Differentiates from generic "agent-to-agent" phrasing
+
+**"ClawBridge" is memorable:**
+- One word, clear pronunciation
+- Connects to OpenClaw ecosystem ("Claw-")
+- Easy to search, tweet, recommend
+
+**Tagline is precise:**
+- "Bridge your OpenClaw agents across machines"
+- Tells you WHAT it does, WHO it's for, WHY it matters
+- No jargon, no hype, just value
+
+---
+
+### Brand Consistency
+
+✅ All documentation uses "ClawBridge" consistently
+✅ All install instructions use paprini/clawbridge
+✅ All user-facing strings updated (CLI, logs, setup agent)
+✅ No orphaned "openclaw-a2a" references in user-visible text
+✅ Technical protocol references still say "A2A" (correct — it's the standard)
+
+---
+
+**The brand is consistent. The product is ready. The name says what it does.**
+
+_PM (Musicate PM subagent)_
