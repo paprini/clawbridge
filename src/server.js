@@ -99,14 +99,40 @@ function createServer() {
 
 // --- Start if run directly ---
 if (require.main === module) {
-  const app = createServer();
-  app.listen(PORT, BIND, () => {
+  let app;
+  try {
+    // L3 — Reject known-bad tokens
+    if (process.env.A2A_SHARED_TOKEN && process.env.A2A_SHARED_TOKEN.includes('CHANGE_ME')) {
+      console.error('[FATAL] A2A_SHARED_TOKEN contains "CHANGE_ME". Generate a real token:');
+      console.error('  openssl rand -hex 32');
+      process.exit(1);
+    }
+    app = createServer();
+  } catch (err) {
+    console.error(`[FATAL] ${err.message}`);
+    if (err.message.includes('Config file not found')) {
+      console.error('[HINT] Run `npm run setup` to create config files first.');
+    }
+    process.exit(1);
+  }
+
+  const server = app.listen(PORT, BIND, () => {
     console.log(`[INFO] openclaw-a2a v0.1.0`);
     console.log(`[INFO] A2A server listening on http://${BIND}:${PORT}`);
     console.log(`[INFO] Agent Card: http://${BIND}:${PORT}/${AGENT_CARD_PATH}`);
     console.log(`[INFO] JSON-RPC:   http://${BIND}:${PORT}/a2a`);
     console.log(`[INFO] Health:     http://${BIND}:${PORT}/health`);
   });
+
+  // M5 — Graceful shutdown
+  function shutdown() {
+    console.log('\n[INFO] Shutting down...');
+    server.close(() => process.exit(0));
+    // Force exit after 5s if connections don't close
+    setTimeout(() => process.exit(1), 5000);
+  }
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
 }
 
 module.exports = { createServer, buildAgentCard };

@@ -9,7 +9,8 @@ services:
     environment:
       - A2A_PORT=9100
       - A2A_BIND=0.0.0.0
-      - A2A_SHARED_TOKEN=a2a_docker_shared_token
+      # Generate with: openssl rand -hex 32
+      - A2A_SHARED_TOKEN=${A2A_SHARED_TOKEN:?Set A2A_SHARED_TOKEN env var (openssl rand -hex 32)}
       - A2A_CONFIG_DIR=/app/config
       - NODE_ENV=production
     volumes:
@@ -26,7 +27,8 @@ services:
     environment:
       - A2A_PORT=9100
       - A2A_BIND=0.0.0.0
-      - A2A_SHARED_TOKEN=a2a_docker_shared_token
+      # Must match alpha's token
+      - A2A_SHARED_TOKEN=${A2A_SHARED_TOKEN:?Set A2A_SHARED_TOKEN env var (openssl rand -hex 32)}
       - A2A_CONFIG_DIR=/app/config
       - NODE_ENV=production
     volumes:

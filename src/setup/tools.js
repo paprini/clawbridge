@@ -25,18 +25,20 @@ function getLocalSubnet() {
 
 /**
  * Scan a /24 subnet for A2A agents on port 9100.
- * Returns results progressively via callback.
+ * Limits concurrency to avoid flooding the network.
  * @param {string} subnet - e.g. "192.168.1"
  * @param {function} onFound - called with each discovered agent
  * @returns {Promise<Array>} all discovered agents
  */
 async function scanNetwork(subnet, onFound) {
   const found = [];
-  const promises = [];
+  const CONCURRENCY = 20;
+  const ips = [];
+  for (let i = 1; i < 255; i++) ips.push(`${subnet}.${i}`);
 
-  for (let i = 1; i < 255; i++) {
-    const ip = `${subnet}.${i}`;
-    const promise = (async () => {
+  for (let i = 0; i < ips.length; i += CONCURRENCY) {
+    const batch = ips.slice(i, i + CONCURRENCY);
+    await Promise.allSettled(batch.map(async (ip) => {
       try {
         const card = await fetchAgentCard(`http://${ip}:9100`);
         const agent = { ip, port: 9100, name: card.name, skills: card.skills?.map(s => s.id || s.name) || [] };
@@ -45,11 +47,9 @@ async function scanNetwork(subnet, onFound) {
       } catch {
         // not an A2A agent, skip
       }
-    })();
-    promises.push(promise);
+    }));
   }
 
-  await Promise.allSettled(promises);
   return found;
 }
 
@@ -154,6 +154,8 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
     })),
   };
   fs.writeFileSync(path.join(configDir, 'peers.json'), JSON.stringify(peersData, null, 2) + '\n');
+  // Restrict permissions — peers.json contains tokens
+  try { fs.chmodSync(path.join(configDir, 'peers.json'), 0o600); } catch { /* Windows doesn't support chmod */ }
 
   // skills.json (default safe skills)
   const skills = {

@@ -28,12 +28,16 @@ class OpenClawExecutor {
       } else if (skillName === 'get_status') {
         result = this._handleGetStatus();
       } else {
-        result = { error: `Unknown skill or request: "${text}". Available skills: ping, get_status` };
+        result = { error: `Unknown skill or request. Available skills: ping, get_status` };
       }
     } catch (err) {
       console.error('[EXECUTOR] Skill execution error:', err.message);
       result = { error: 'Internal skill execution error' };
     }
+
+    // Audit log
+    const peer = context.context?.user?.userName || 'unknown';
+    console.log(`[AUDIT] peer=${peer} skill=${skillName || 'none'} success=${!result.error}`);
 
     // Respond with a message
     const response = {
