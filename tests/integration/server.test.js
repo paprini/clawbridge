@@ -1,13 +1,24 @@
 'use strict';
 
 const path = require('path');
-process.env.A2A_CONFIG_DIR = path.join(__dirname, '..', '..', 'config');
+const fs = require('fs');
+const os = require('os');
+
+// Use temp config dir without restrictive permissions
+const tmpDir = path.join(os.tmpdir(), `a2a-int-test-${Date.now()}`);
+fs.mkdirSync(tmpDir, { recursive: true });
+fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'agent.json'), path.join(tmpDir, 'agent.json'));
+fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'skills.json'), path.join(tmpDir, 'skills.json'));
+fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'peers.json'), path.join(tmpDir, 'peers.json'));
+fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({ enabled: false }));
+process.env.A2A_CONFIG_DIR = tmpDir;
 process.env.A2A_SHARED_TOKEN = 'integration_test_token';
 
 const request = require('supertest');
 const { createServer } = require('../../src/server');
 
 describe('A2A Server Integration', () => {
+  afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
   let app;
 
   beforeAll(() => {

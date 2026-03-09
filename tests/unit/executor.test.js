@@ -1,12 +1,25 @@
 'use strict';
 
 const path = require('path');
-process.env.A2A_CONFIG_DIR = path.join(__dirname, '..', '..', 'config');
+const fs = require('fs');
+const os = require('os');
+
+// Use a temp config dir without restrictive permissions
+const tmpDir = path.join(os.tmpdir(), `a2a-exec-test-${Date.now()}`);
+fs.mkdirSync(tmpDir, { recursive: true });
+// Copy base configs without permissions.json
+fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'agent.json'), path.join(tmpDir, 'agent.json'));
+fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'skills.json'), path.join(tmpDir, 'skills.json'));
+fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'peers.json'), path.join(tmpDir, 'peers.json'));
+fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({ enabled: false }));
+process.env.A2A_CONFIG_DIR = tmpDir;
 
 const { OpenClawExecutor } = require('../../src/executor');
 
 describe('OpenClawExecutor', () => {
   let executor;
+
+  afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
 
   beforeEach(() => {
     executor = new OpenClawExecutor();
@@ -22,6 +35,7 @@ describe('OpenClawExecutor', () => {
       },
       taskId: 'test-task',
       contextId: 'test-context',
+      context: { user: { userName: '__shared__', isAuthenticated: true } },
     };
   }
 

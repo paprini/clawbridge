@@ -100,8 +100,6 @@ async function callPeerSkill(peerId, skillText) {
   return result;
 }
 
-module.exports = { fetchAgentCard, callPeerSkill, validatePeerUrl };
-
 /**
  * Call multiple peers in parallel (fan-out).
  * @param {Array<{peerId: string, skill: string}>} calls

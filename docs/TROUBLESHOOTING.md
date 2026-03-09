@@ -1,0 +1,109 @@
+# Troubleshooting — openclaw-a2a
+
+## Quick Diagnostics
+
+Run the verification tool first:
+```bash
+npm run verify
+```
+
+---
+
+## Connection Refused
+
+Symptoms: `ECONNREFUSED` when calling a peer or gateway.
+
+Causes:
+- Peer server not running
+- Wrong IP/port in peers.json
+- Firewall blocking port 9100
+
+Fixes:
+- Start the peer: `node src/server.js`
+- Check peers.json URL matches the peer's actual address
+- Verify port is open: `curl http://PEER_IP:9100/health`
+- In Docker: use container name, not localhost
+
+## 401 Unauthorized
+
+Symptoms: `Missing or invalid Authorization header`
+
+Causes:
+- No Authorization header in request
+- Using wrong auth scheme (Basic instead of Bearer)
+
+Fixes:
+- Add header: `Authorization: Bearer YOUR_TOKEN`
+- Check you're using `Bearer` not `Basic`
+
+## 403 Forbidden
+
+Symptoms: `Invalid bearer token`
+
+Causes:
+- Token doesn't match what the peer expects
+- Token expired or rotated
+
+Fixes:
+- Check token in peers.json matches the peer's A2A_SHARED_TOKEN or peers.json entry
+- Rotate token: use setup agent's `rotate_peer_token` tool
+- Verify: `curl -H "Authorization: Bearer TOKEN" http://PEER:9100/a2a`
+
+## 429 Rate Limited
+
+Symptoms: `Rate limited. Try again later.` or `Too many failed authentication attempts.`
+
+Causes:
+- Too many requests in a short time
+- Too many failed auth attempts (10/min per IP)
+
+Fixes:
+- Wait for the `retryAfter` period
+- Check config/rate-limits.json for current limits
+- Increase limits if needed for your use case
+
+## Permission Denied
+
+Symptoms: `Peer "X" not authorized for skill "Y"`
+
+Causes:
+- config/permissions.json restricts this peer's access
+
+Fixes:
+- Check permissions.json — add the skill to the peer's allowed list
+- Use wildcard `["*"]` for admin peers
+- Remove permissions.json entirely to allow all (Phase 1 default)
+
+## Bridge Failures
+
+Symptoms: `Bridge not configured`, `Gateway not running`, `Tool not in whitelist`
+
+Causes:
+- bridge.json not enabled
+- OpenClaw gateway not running
+- Tool not in exposed_tools list
+
+Fixes:
+- Set `"enabled": true` in config/bridge.json
+- Start gateway: `openclaw gateway start`
+- Add tool to `exposed_tools` array
+- Check gateway token: `cat ~/.openclaw/openclaw.json | jq '.gateway.auth.token'`
+
+## Config Not Found
+
+Symptoms: `Config file not found: agent.json`
+
+Fixes:
+- Run setup: `npm run setup`
+- Or create configs manually (see docs/API_REFERENCE.md)
+- Check A2A_CONFIG_DIR env var points to the right directory
+
+## Docker Issues
+
+Symptoms: Container starts but peers can't connect.
+
+Fixes:
+- Use container names in peers.json (not localhost): `http://openclaw-beta:9100`
+- Ensure both containers are on the same Docker network
+- Check healthcheck: `docker exec CONTAINER wget -qO- http://127.0.0.1:9100/health`
+- Use `A2A_BIND=0.0.0.0` (not 127.0.0.1) in container env

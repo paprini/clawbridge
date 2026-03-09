@@ -11,7 +11,8 @@
     "test:coverage": "jest --coverage",
     "lint": "eslint src/",
     "setup": "node src/setup/cli.js",
-    "setup:auto": "node src/setup/cli.js --non-interactive"
+    "setup:auto": "node src/setup/cli.js --non-interactive",
+    "verify": "node src/verify.js"
   },
   "keywords": [
     "a2a",

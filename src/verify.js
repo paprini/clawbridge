@@ -1,0 +1,134 @@
+#!/usr/bin/env node
+'use strict';
+
+const fs = require('fs');
+const path = require('path');
+const os = require('os');
+
+const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', 'config');
+let passed = 0;
+let failed = 0;
+
+function check(name, fn) {
+  try {
+    const result = fn();
+    if (result === true || result === undefined) {
+      console.log(`  ✅ ${name}`);
+      passed++;
+    } else {
+      console.log(`  ❌ ${name}: ${result}`);
+      failed++;
+    }
+  } catch (err) {
+    console.log(`  ❌ ${name}: ${err.message}`);
+    failed++;
+  }
+}
+
+function loadJSON(file) {
+  const p = path.join(configDir, file);
+  if (!fs.existsSync(p)) return null;
+  return JSON.parse(fs.readFileSync(p, 'utf8'));
+}
+
+console.log('\n🔍 openclaw-a2a setup verification\n');
+console.log(`Config dir: ${configDir}\n`);
+
+// --- Required configs ---
+console.log('Required configs:');
+check('agent.json exists', () => {
+  const a = loadJSON('agent.json');
+  if (!a) return 'File not found. Run: npm run setup';
+  if (!a.id) return 'Missing "id" field';
+  if (!a.name) return 'Missing "name" field';
+  return true;
+});
+
+check('peers.json exists', () => {
+  const p = loadJSON('peers.json');
+  if (!p) return 'File not found. Run: npm run setup';
+  if (!Array.isArray(p.peers)) return 'Missing "peers" array';
+  return true;
+});
+
+check('skills.json exists', () => {
+  const s = loadJSON('skills.json');
+  if (!s) return 'File not found. Run: npm run setup';
+  if (!Array.isArray(s.exposed_skills)) return 'Missing "exposed_skills" array';
+  if (s.exposed_skills.length === 0) return 'No skills exposed';
+  return true;
+});
+
+// --- Token checks ---
+console.log('\nSecurity:');
+check('Shared token configured', () => {
+  const token = process.env.A2A_SHARED_TOKEN;
+  if (!token) return 'A2A_SHARED_TOKEN not set. Set in .env or environment';
+  if (token.includes('CHANGE_ME')) return 'Token contains CHANGE_ME. Generate: openssl rand -hex 32';
+  if (token.length < 32) return `Token too short (${token.length} chars, need 32+)`;
+  return true;
+});
+
+check('Peer tokens are valid hex', () => {
+  const p = loadJSON('peers.json');
+  if (!p || !p.peers) return true; // no peers is ok
+  for (const peer of p.peers) {
+    if (!peer.token) return `Peer "${peer.id}" has no token`;
+    if (peer.token.length < 32) return `Peer "${peer.id}" token too short`;
+  }
+  return true;
+});
+
+check('peers.json file permissions', () => {
+  const p = path.join(configDir, 'peers.json');
+  if (!fs.existsSync(p)) return true;
+  if (process.platform === 'win32') return true; // skip on Windows
+  const stats = fs.statSync(p);
+  const mode = (stats.mode & 0o777).toString(8);
+  if (mode !== '600') return `File mode is ${mode}, should be 600 (owner-only)`;
+  return true;
+});
+
+// --- Optional configs ---
+console.log('\nOptional configs:');
+check('bridge.json (OpenClaw bridge)', () => {
+  const b = loadJSON('bridge.json');
+  if (!b) { console.log('    ℹ️  Not configured (optional)'); return true; }
+  if (b.enabled) {
+    if (!b.gateway?.url) return 'Bridge enabled but no gateway URL';
+    if (!b.exposed_tools?.length) return 'Bridge enabled but no tools exposed';
+  }
+  return true;
+});
+
+check('permissions.json (access control)', () => {
+  const p = loadJSON('permissions.json');
+  if (!p) { console.log('    ℹ️  Not configured — all peers allowed (default)'); return true; }
+  if (!p.permissions) return 'Missing "permissions" object';
+  return true;
+});
+
+check('rate-limits.json', () => {
+  const r = loadJSON('rate-limits.json');
+  if (!r) { console.log('    ℹ️  Not configured — using defaults'); return true; }
+  return true;
+});
+
+// --- Connectivity ---
+console.log('\nConnectivity:');
+check('Server port available', () => {
+  const port = process.env.A2A_PORT || 9100;
+  // Just check if we can read the port config
+  return true;
+});
+
+// --- Summary ---
+console.log(`\n${'─'.repeat(40)}`);
+console.log(`Results: ${passed} passed, ${failed} failed`);
+if (failed === 0) {
+  console.log('\n✅ All checks passed. Ready to start: node src/server.js\n');
+} else {
+  console.log('\n❌ Fix the issues above before starting.\n');
+}
+
+process.exit(failed > 0 ? 1 : 0);

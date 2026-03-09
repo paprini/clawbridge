@@ -4,6 +4,8 @@ const crypto = require('crypto');
 const { loadAgentConfig, loadSkillsConfig } = require('./config');
 const { checkPermission } = require('./permissions');
 const { callOpenClawTool, isBridgedTool, getBridgedTools } = require('./bridge');
+const { getRateLimiter } = require('./rate-limiter');
+const { getMetrics } = require('./metrics');
 
 /**
  * AgentExecutor implementation for openclaw-a2a.
@@ -20,15 +22,35 @@ class OpenClawExecutor {
    * @param {import('@a2a-js/sdk/server').ExecutionEventBus} eventBus
    */
   async execute(context, eventBus) {
+    const startTime = Date.now();
     const text = this._extractText(context.userMessage);
     const skillName = this._routeToSkill(text);
     const peer = context.context?.user?.userName || 'unknown';
+
+    // Rate limiting check
+    const rateLimiter = getRateLimiter();
+    const rateCheck = rateLimiter.check(peer, skillName || 'unknown');
+    if (!rateCheck.allowed) {
+      getMetrics().recordRateLimited();
+      console.warn(`[RATE] Limited: peer=${peer} retryAfter=${rateCheck.retryAfter}s`);
+      const response = {
+        kind: 'message',
+        messageId: crypto.randomUUID(),
+        role: 'agent',
+        parts: [{ kind: 'text', text: JSON.stringify({ error: 'Rate limited. Try again later.', retryAfter: rateCheck.retryAfter }) }],
+        contextId: context.contextId,
+      };
+      eventBus.publish(response);
+      eventBus.finished();
+      return;
+    }
 
     // Check permissions BEFORE execution
     if (skillName) {
       const perm = checkPermission(peer, skillName);
       if (!perm.allowed) {
         console.warn(`[PERM] Denied: ${perm.reason}`);
+        getMetrics().recordDenied();
         const response = {
           kind: 'message',
           messageId: crypto.randomUUID(),
@@ -61,8 +83,10 @@ class OpenClawExecutor {
       result = { error: 'Internal skill execution error' };
     }
 
-    // Audit log
-    console.log(`[AUDIT] peer=${peer} skill=${skillName || 'none'} success=${!result.error}`);
+    // Audit log + metrics
+    const durationMs = Date.now() - startTime;
+    console.log(`[AUDIT] peer=${peer} skill=${skillName || 'none'} success=${!result.error} duration=${durationMs}ms`);
+    getMetrics().recordCall(!result.error, durationMs);
 
     // Respond with a message
     const response = {
