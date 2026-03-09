@@ -25,6 +25,14 @@ class OpenClawExecutor {
    */
   async execute(context, eventBus) {
     const startTime = Date.now();
+
+    // Input validation
+    const textCheck = validateString(this._extractText(context.userMessage) || '', 5000);
+    if (!textCheck.valid) {
+      this._respond(eventBus, context, { error: `Invalid input: ${textCheck.reason}` });
+      return;
+    }
+
     const text = this._extractText(context.userMessage);
     const skillName = this._routeToSkill(text);
     const peer = context.context?.user?.userName || 'unknown';
@@ -107,6 +115,21 @@ class OpenClawExecutor {
    * Cancel a running task. Phase 1 tasks are instant, so this is a no-op.
    */
   async cancelTask(_taskId, eventBus) {
+    eventBus.finished();
+  }
+
+  /**
+   * Send a JSON response message and finish.
+   */
+  _respond(eventBus, context, result) {
+    const response = {
+      kind: 'message',
+      messageId: crypto.randomUUID(),
+      role: 'agent',
+      parts: [{ kind: 'text', text: JSON.stringify(result) }],
+      contextId: context.contextId,
+    };
+    eventBus.publish(response);
     eventBus.finished();
   }
 

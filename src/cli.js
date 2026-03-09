@@ -101,7 +101,12 @@ async function main() {
           }
         }
       } catch (err) {
-        console.error(`Registry error: ${err.message}`);
+        if (err.message.includes('fetch failed') || err.message.includes('ENOTFOUND') || err.message.includes('ECONNREFUSED')) {
+          console.log('Public agent registry not available. This is normal for private networks.');
+          console.log('Set A2A_REGISTRY_URL to point to your registry, or use `peers` to manage local peers.');
+        } else {
+          console.error(`Registry error: ${err.message}`);
+        }
       }
       break;
     }
