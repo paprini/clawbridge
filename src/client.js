@@ -101,3 +101,37 @@ async function callPeerSkill(peerId, skillText) {
 }
 
 module.exports = { fetchAgentCard, callPeerSkill, validatePeerUrl };
+
+/**
+ * Call multiple peers in parallel (fan-out).
+ * @param {Array<{peerId: string, skill: string}>} calls
+ * @returns {Promise<Array<{peerId: string, result?: object, error?: string}>>}
+ */
+async function callPeers(calls) {
+  return Promise.all(calls.map(async ({ peerId, skill }) => {
+    try {
+      const result = await callPeerSkill(peerId, skill);
+      return { peerId, result };
+    } catch (err) {
+      return { peerId, error: err.message };
+    }
+  }));
+}
+
+/**
+ * Chain calls sequentially, passing each result to the next.
+ * @param {Array<{peerId: string, skill: string}>} steps
+ * @returns {Promise<object>} Final result
+ */
+async function chainCalls(steps) {
+  let lastResult = null;
+  for (const step of steps) {
+    const skill = lastResult
+      ? `${step.skill} ${JSON.stringify(lastResult)}`
+      : step.skill;
+    lastResult = await callPeerSkill(step.peerId, skill);
+  }
+  return lastResult;
+}
+
+module.exports = { fetchAgentCard, callPeerSkill, validatePeerUrl, callPeers, chainCalls };
