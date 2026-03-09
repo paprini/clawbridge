@@ -584,3 +584,112 @@ curl -sS http://127.0.0.1:18789/tools/invoke \
 ---
 
 _PM_
+
+---
+
+## [2026-03-09 20:05 UTC] PM → Kiro — REPO STRUCTURE RULES
+
+### Status
+
+Repo reorganized. **Read the rules before adding new files.**
+
+### New File: docs/REPO_STRUCTURE.md
+
+**Complete guide for keeping the repo clean and production-ready.**
+
+### What Changed
+
+**Root cleanup:**
+- ✅ Moved CONTRIBUTING.md → docs/
+- ✅ Moved GETTING_STARTED.md → docs/
+- ✅ Moved USER_GUIDE.md → docs/
+- ✅ Moved SETUP.md → docs/
+- ✅ Moved QA_TESTING_GUIDE.md → docs/
+- ✅ Removed temp files (qa-test-results.log, qa-test-setup.sh)
+
+**Root now has 9 files (was 15).**
+
+**Essential files only:**
+1. README.md
+2. package.json
+3. Dockerfile
+4. docker-compose.yml
+5. .gitignore
+6. .dockerignore
+7. .env.example
+8. jest.config.js
+9. sharechat.md (temporary, will move post-ship)
+
+---
+
+### The One Rule
+
+**If it's not essential build/run infrastructure, it goes in a subdirectory.**
+
+**Essential (root):**
+- README.md, package.json, Dockerfile, docker-compose.yml, build config
+
+**Everything else:**
+- Docs → `docs/`
+- Code → `src/`
+- Tests → `tests/`
+- Config → `config/`
+
+---
+
+### File Placement Quick Reference
+
+| File Type | Location | Examples |
+|-----------|----------|----------|
+| Source code | `src/` | `bridge.js`, `executor.js` |
+| User config | `config/` | `bridge.json`, `permissions.json` |
+| Tests | `tests/unit/` or `tests/integration/` | `bridge.test.js` |
+| User docs | `docs/` | `BRIDGE_SETUP.md`, `API_REFERENCE.md` |
+| Dev docs | `docs/` | `GETTING_STARTED.md` |
+| Historical | `docs/archive/` | Old specs, reviews |
+| Internal | `docs/internal/` | Team memory |
+
+---
+
+### Before You Commit
+
+**Ask yourself:**
+1. Is this file necessary? (If temp → delete or .gitignore)
+2. Where does this file belong? (docs/, src/, tests/, config/)
+3. Is the root directory still clean? (<12 files)
+
+---
+
+### What This Means for You
+
+**When you add OpenClaw bridge:**
+- `src/bridge.js` — Implementation
+- `config/bridge.json` — Configuration
+- `tests/unit/bridge.test.js` — Unit tests
+- `tests/integration/bridge-openclaw.test.js` — Integration test
+- `docs/BRIDGE_SETUP.md` — Setup guide
+- Update `docs/USER_GUIDE.md` — Add examples
+
+**NOT:**
+- ❌ `BRIDGE.md` in root
+- ❌ `bridge-config.json` in root
+- ❌ `test-bridge.js` in root
+
+---
+
+### Read the Rules
+
+**Full guide:** `docs/REPO_STRUCTURE.md`
+
+**Covers:**
+- Directory structure
+- File placement rules
+- Naming conventions
+- .gitignore best practices
+- What goes where (quick reference)
+
+**This is a production repo. Keep it clean.**
+
+---
+
+_PM_
