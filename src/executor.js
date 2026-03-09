@@ -6,6 +6,8 @@ const { checkPermission } = require('./permissions');
 const { callOpenClawTool, isBridgedTool, getBridgedTools } = require('./bridge');
 const { getRateLimiter } = require('./rate-limiter');
 const { getMetrics } = require('./metrics');
+const { validateString } = require('./validation');
+const logger = require('./logger');
 
 /**
  * AgentExecutor implementation for openclaw-a2a.
@@ -32,7 +34,7 @@ class OpenClawExecutor {
     const rateCheck = rateLimiter.check(peer, skillName || 'unknown');
     if (!rateCheck.allowed) {
       getMetrics().recordRateLimited();
-      console.warn(`[RATE] Limited: peer=${peer} retryAfter=${rateCheck.retryAfter}s`);
+      logger.warn(`Rate limited: peer=${peer} retryAfter=${rateCheck.retryAfter}s`);
       const response = {
         kind: 'message',
         messageId: crypto.randomUUID(),
@@ -49,7 +51,7 @@ class OpenClawExecutor {
     if (skillName) {
       const perm = checkPermission(peer, skillName);
       if (!perm.allowed) {
-        console.warn(`[PERM] Denied: ${perm.reason}`);
+        logger.warn(`Permission denied: ${perm.reason}`);
         getMetrics().recordDenied();
         const response = {
           kind: 'message',
@@ -79,13 +81,13 @@ class OpenClawExecutor {
         result = { error: `Unknown skill or request. Available skills: ping, get_status` };
       }
     } catch (err) {
-      console.error('[EXECUTOR] Skill execution error:', err.message);
+      logger.error('Skill execution error', { error: err.message });
       result = { error: 'Internal skill execution error' };
     }
 
     // Audit log + metrics
     const durationMs = Date.now() - startTime;
-    console.log(`[AUDIT] peer=${peer} skill=${skillName || 'none'} success=${!result.error} duration=${durationMs}ms`);
+    logger.audit('Skill call', { peer, skill: skillName || 'none', success: !result.error, durationMs });
     getMetrics().recordCall(!result.error, durationMs);
 
     // Respond with a message

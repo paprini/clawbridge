@@ -84,6 +84,28 @@ async function main() {
       break;
     }
 
+    case 'search': {
+      const [query] = args;
+      if (!query) {
+        console.error('Usage: node src/cli.js search <skill>');
+        process.exit(1);
+      }
+      try {
+        const { searchPublicAgents } = require('./registry');
+        const agents = await searchPublicAgents(query);
+        if (agents.length === 0) {
+          console.log(`No public agents found with skill "${query}"`);
+        } else {
+          for (const a of agents) {
+            console.log(`${a.name}  ${a.url}  [${(a.skills || []).join(', ')}]`);
+          }
+        }
+      } catch (err) {
+        console.error(`Registry error: ${err.message}`);
+      }
+      break;
+    }
+
     default:
       console.log(`openclaw-a2a CLI
 
@@ -93,11 +115,13 @@ Commands:
   ping      Ping all peers
   call      Call a skill on a peer: call <peerId> <skill>
   card      Fetch agent card: card <url>
+  search    Search public agents by skill: search <skill>
 
 Examples:
   node src/cli.js status
   node src/cli.js call my-vps ping
   node src/cli.js card http://10.0.1.10:9100
+  node src/cli.js search web_search
 `);
   }
 }

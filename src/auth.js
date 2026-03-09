@@ -2,6 +2,8 @@
 
 const crypto = require('crypto');
 const { loadPeersConfig } = require('./config');
+const { validateAdvancedToken, scopeAllowsSkill } = require('./token-manager');
+const logger = require('./logger');
 
 /**
  * Constant-time string comparison to prevent timing attacks.
@@ -22,14 +24,23 @@ function safeEqual(a, b) {
 }
 
 /**
- * Validate a bearer token against configured peers.
- * Uses constant-time comparison to prevent timing attacks.
+ * Validate a bearer token against configured peers and advanced tokens.
+ * Checks: basic peers.json tokens, shared env token, AND tokens.json (expiry/scopes/revocation).
  * @param {string} token
  * @returns {string|null} Peer ID if valid, null otherwise
  */
 function validateToken(token) {
   if (!token || typeof token !== 'string') return null;
 
+  // Check advanced tokens first (tokens.json — expiry, scopes, revocation)
+  const advanced = validateAdvancedToken(token);
+  if (advanced.peerId) {
+    // Token found in tokens.json
+    if (!advanced.valid) return null; // expired or revoked
+    return advanced.peerId;
+  }
+
+  // Fall back to basic auth (peers.json + shared token)
   const peers = loadPeersConfig();
   const sharedToken = process.env.A2A_SHARED_TOKEN;
 
@@ -58,12 +69,11 @@ function createUserBuilder() {
     const peerId = validateToken(token);
 
     if (!peerId) {
-      console.warn(`[AUTH] Invalid token attempt: ${token.slice(0, 8)}...`);
+      logger.warn(`Invalid token attempt: ${token.slice(0, 8)}...`);
       return { get isAuthenticated() { return false; }, get userName() { return 'anonymous'; } };
     }
 
-    console.log(`[AUTH] Authenticated peer: ${peerId}`);
-    return { get isAuthenticated() { return true; }, get userName() { return peerId; } };
+    logger.info(`Authenticated peer: ${peerId}`);    return { get isAuthenticated() { return true; }, get userName() { return peerId; } };
   };
 }
 
@@ -110,7 +120,7 @@ function requireAuth(req, res, next) {
 
   if (!peerId) {
     recordAuthFailure(ip);
-    console.warn(`[AUTH] Rejected token: ${token.slice(0, 8)}...`);
+    logger.warn(`Rejected token: ${token.slice(0, 8)}...`);
     return res.status(403).json({ error: 'Invalid bearer token' });
   }
 
