@@ -1,6 +1,6 @@
 # openclaw-a2a
 
-**Connect your OpenClaw agents across machines. Share skills. Build a network.**
+**Connect your OpenClaw agents across machines (owned or friends!). Share skills. Build a network.**
 
 ---
 
