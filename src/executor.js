@@ -2,6 +2,7 @@
 
 const crypto = require('crypto');
 const { loadAgentConfig, loadSkillsConfig } = require('./config');
+const { checkPermission } = require('./permissions');
 
 /**
  * AgentExecutor implementation for openclaw-a2a.
@@ -20,6 +21,25 @@ class OpenClawExecutor {
   async execute(context, eventBus) {
     const text = this._extractText(context.userMessage);
     const skillName = this._routeToSkill(text);
+    const peer = context.context?.user?.userName || 'unknown';
+
+    // Check permissions BEFORE execution
+    if (skillName) {
+      const perm = checkPermission(peer, skillName);
+      if (!perm.allowed) {
+        console.warn(`[PERM] Denied: ${perm.reason}`);
+        const response = {
+          kind: 'message',
+          messageId: crypto.randomUUID(),
+          role: 'agent',
+          parts: [{ kind: 'text', text: JSON.stringify({ error: perm.reason }) }],
+          contextId: context.contextId,
+        };
+        eventBus.publish(response);
+        eventBus.finished();
+        return;
+      }
+    }
 
     let result;
     try {
@@ -36,7 +56,6 @@ class OpenClawExecutor {
     }
 
     // Audit log
-    const peer = context.context?.user?.userName || 'unknown';
     console.log(`[AUDIT] peer=${peer} skill=${skillName || 'none'} success=${!result.error}`);
 
     // Respond with a message

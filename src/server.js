@@ -72,11 +72,19 @@ function createServer() {
 
   // Health check (no auth required)
   app.get('/health', (_req, res) => {
+    const m = require('./metrics').getMetrics().getSnapshot();
     res.json({
       status: 'healthy',
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
+      ...m,
     });
+  });
+
+  // Prometheus metrics endpoint (no auth)
+  app.get('/metrics', (_req, res) => {
+    res.set('Content-Type', 'text/plain; charset=utf-8');
+    res.send(require('./metrics').getMetrics().toPrometheus());
   });
 
   // Agent Card endpoint (no auth — this is discovery)
