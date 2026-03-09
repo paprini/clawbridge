@@ -79,6 +79,10 @@ function createServer() {
 
   const app = express();
 
+  // DDoS protection (before everything else)
+  const { ddosProtection } = require('./ddos-protection');
+  app.use(ddosProtection);
+
   // Parse JSON bodies (explicit limit for defense in depth)
   app.use(express.json({ limit: '100kb' }));
 
