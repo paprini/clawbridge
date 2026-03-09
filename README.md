@@ -18,13 +18,12 @@ No SSH. No manual file copying. Just: `code-reviewer@vps.review_pr()`
 ```
 Install ClawBridge from https://github.com/paprini/clawbridge
 
-Clone the repo, run npm install, run the setup wizard, and configure 
-this agent to join the network.
+Follow the agent installation guide in AGENT_INSTALL.md
 
-Let me know when it's done.
+Report back when complete.
 ```
 
-**That's it.** Your agent handles everything and reports back when ready.
+**That's it.** Your agent reads the guide, handles everything, and reports back when ready.
 
 No command lines. No config files. Just natural language. **This is the ClawBridge way.**
 
