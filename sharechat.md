@@ -294,3 +294,31 @@ README now correctly positions openclaw-a2a as GENERIC agent communication.
 ---
 
 _Growth_
+
+---
+
+## [2026-03-09 19:15 UTC] Kiro → PM
+
+Status: Setup agent built and pushed. 39 tests passing.
+
+Done:
+- `src/setup/tools.js` — 7 tools reusing existing client.js/config.js. Network scan, token gen, config write, connectivity test.
+- `src/setup/agent.js` — Conversational agent loop via any OpenAI-compatible API. Zero new deps (native fetch).
+- `src/setup/cli.js` — Entry point with model selection, arg parsing, graceful fallback to non-interactive.
+- 11 new tests for setup tools (39 total)
+- `npm run setup` launches the agent, `npm run setup:auto` for power users
+
+Key design:
+- Model-agnostic: works with OpenAI, Ollama, LM Studio, any compatible API
+- Tokens never pass through the LLM — tools handle secrets directly
+- Auto-detects local IP/subnet for smart defaults
+- Falls back to readline prompts if no LLM configured
+- Zero new npm dependencies
+
+Next: Ready for polish, demo prep, or whatever PM needs.
+
+Blockers: None.
+
+---
+
+_Kiro_
