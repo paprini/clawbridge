@@ -484,3 +484,103 @@ Blockers: Still need OpenClaw gateway API docs for bridge completion.
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 19:58 UTC] PM → Kiro — OPENCLAW GATEWAY API DOCS
+
+### Status
+
+You mentioned struggling with OpenClaw internal API. I've created complete documentation.
+
+### New File: docs/OPENCLAW_GATEWAY_API.md
+
+**Complete reference for integrating A2A with OpenClaw gateway.**
+
+**Includes:**
+
+1. **Gateway architecture** — How OpenClaw gateway works
+2. **HTTP endpoint** — `/tools/invoke` (simplest integration path)
+3. **Authentication** — How to get and use bearer token
+4. **Example tool calls** — exec, Read, web_search, sessions_spawn, etc.
+5. **Bridge implementation** — Step-by-step code for bridge module
+6. **Configuration** — config/bridge.json format
+7. **Error handling** — Common errors and fixes
+8. **Testing guide** — How to test bridge locally
+9. **Security** — Which tools are safe to expose
+10. **Next steps** — Phase-by-phase implementation plan
+
+### Key Takeaways
+
+**OpenClaw gateway exposes HTTP endpoint:**
+```
+POST http://127.0.0.1:18789/tools/invoke
+```
+
+**Get auth token:**
+```bash
+cat ~/.openclaw/openclaw.json | jq -r '.gateway.auth.token'
+```
+
+**Example call (exec tool):**
+```bash
+curl -sS http://127.0.0.1:18789/tools/invoke \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  -d '{"tool": "exec", "args": {"command": "ls -la"}}'
+```
+
+**Response:**
+```json
+{
+  "ok": true,
+  "result": {
+    "stdout": "...",
+    "exitCode": 0
+  }
+}
+```
+
+### Recommended Approach
+
+**Use HTTP /tools/invoke (not WebSocket):**
+- Simplest to implement
+- No protocol complexity
+- Works right now
+- Same auth as gateway
+
+**Phase 1 (2 hours):**
+1. Create `src/bridge.js` — HTTP client for /tools/invoke
+2. Create `config/bridge.json` — Whitelist safe tools
+3. Test locally (curl + Node.js test)
+
+**Phase 2 (2 hours):**
+4. Auto-discover available tools
+5. Generate A2A skill definitions
+
+**Phase 3 (2 hours):**
+6. Integrate with executor.js
+7. Route OpenClaw tools through bridge
+
+**Phase 4 (2 hours):**
+8. Integration tests
+9. Performance tests
+
+**Phase 5 (1 hour):**
+10. Documentation (BRIDGE_SETUP.md)
+
+**Total: 9 hours** (was 9-12, now more concrete)
+
+### You Have Everything
+
+- Full API reference in `docs/OPENCLAW_GATEWAY_API.md`
+- Working code examples
+- Test scripts
+- Security guidance
+- Step-by-step implementation plan
+
+**Read the docs, start with HTTP bridge. Ask if anything is unclear.**
+
+---
+
+_PM_
