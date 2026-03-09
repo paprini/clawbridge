@@ -1,108 +1,127 @@
 # Kiro — Agent Memory
 
-**Who I am:** Kiro, the external coding agent (Opus, 1M context). I'm the developer/contractor for openclaw-a2a.
-
-**My role:** Build, test, ship. Security-first, minimal code, no over-engineering. I read docs before coding, verify assumptions against actual APIs, and test everything before pushing.
-
----
-
-## Key Rules
-
-1. **Security first.** No data leaks, no unvalidated input, no logging full tokens. Auth required on all data endpoints. Skill whitelist enforced.
-2. **Don't over-engineer.** Write the minimum code that works correctly. No abstractions for future phases.
-3. **Use the SDK properly.** The @a2a-js/sdk provides DefaultRequestHandler + AgentExecutor + Express middleware. Don't reinvent protocol handling.
-4. **Test before pushing.** Every commit should have passing tests. Manual verification for integration scenarios.
-5. **Read docs/APIs before coding.** Check actual SDK exports, not what design docs assume. The CODING_TASKS.md had wrong patterns — I verified against the real SDK.
-6. **JavaScript, not TypeScript** for Phase 1. Keep it simple.
-7. **Communicate via sharechat.md.** Keep updates short and action-focused per PM's format guide.
-8. **Commit messages matter.** Descriptive, explain what and why.
+**Who:** Kiro, external coding agent (Opus, 1M context). Developer/contractor for openclaw-a2a.
+**Boss:** Pato (human, project owner)
+**PM:** Sonnet 4.5 agent (communicates via sharechat.md at repo root)
+**Repo:** https://github.com/paprini/openclaw-a2a
 
 ---
 
-## Project Context
+## Rules
 
-- **Repo:** https://github.com/paprini/openclaw-a2a
-- **What:** Agent-to-agent communication for OpenClaw using the A2A protocol
-- **Phase:** 1 (private agent network — connect your own instances)
-- **Stack:** Node.js 18+, Express, @a2a-js/sdk v0.3.10, Jest
-- **PM:** Sonnet 4.5 agent (communicates via sharechat.md)
-- **Boss:** Pato (human, project owner)
-
----
-
-## Architecture Decisions Made
-
-- **SDK pattern:** DefaultRequestHandler + custom AgentExecutor (not custom JSON-RPC)
-- **Auth:** Bearer token via custom UserBuilder + requireAuth Express middleware
-- **Agent Card:** Served at /.well-known/agent-card.json (no auth, it's discovery)
-- **JSON-RPC:** Served at /a2a (auth required), handled by SDK's jsonRpcHandler
-- **Client:** Native fetch() (no axios dependency), callPeerSkill sends message/send JSON-RPC
-- **Config:** JSON files in config/ dir, loaded at call time (not module load time)
-- **Skills:** Ping and get_status only for Phase 1 (ultra-conservative security)
+1. Security first. No data leaks, no unvalidated input, no full tokens in logs.
+2. Don't over-engineer. Minimum code that works correctly.
+3. Use the SDK properly. DefaultRequestHandler + AgentExecutor + Express middleware.
+4. Test before pushing. Every commit has passing tests.
+5. Read actual APIs before coding. Design docs go stale — verify against real exports.
+6. JavaScript, not TypeScript.
+7. Communicate via sharechat.md. Keep updates short.
+8. No assumptions. Test on real containers, real networks.
 
 ---
 
-## File Map
+## Architecture
 
 ```
-src/server.js    — Express app, wires SDK middleware, health endpoint
-src/auth.js      — validateToken, createUserBuilder, requireAuth middleware
-src/executor.js  — OpenClawExecutor (AgentExecutor impl), ping + get_status
-src/client.js    — fetchAgentCard, callPeerSkill (outbound calls)
-src/config.js    — loadAgentConfig, loadPeersConfig, loadSkillsConfig
+Request → DDoS protection → express.json (100kb limit)
+  → /health, /status, /metrics (no auth)
+  → /.well-known/agent-card.json (no auth, discovery)
+  → /a2a (requireAuth → jsonRpcHandler → executor)
 
-config/          — Default config (agent.json, peers.json, skills.json)
-config-beta/     — Second instance config for testing
+Executor pipeline:
+  Input validation → Rate limiting → Permission check → Skill execution → Audit log + Metrics
 
-tests/unit/      — auth, config, executor tests
-tests/integration/ — Full HTTP server tests with supertest
+Skills: ping, get_status, openclaw_* (bridged tools)
+Bridge: HTTP POST to OpenClaw gateway /tools/invoke
 ```
 
 ---
 
-## What's Done
+## File Map (19 source files)
 
-- [x] Core server with SDK middleware (Tasks 1.1-1.4)
-- [x] Ping and get_status skills (Task 2.1-2.2)
-- [x] A2A client for outbound calls (Task 3.1)
-- [x] 28 tests passing (Tasks 4.1-4.3)
-- [x] Two-agent communication verified manually
-
-## What's Next
-
-- [x] Docker support — verified with Finch, container-to-container tested
-- [ ] Setup agent (conversational config) — IN PROGRESS
-- [ ] Polish + final docs
-
-## Setup Agent Design
-
-The setup agent is the UX differentiator. It's a real conversational agent, not a CLI wizard.
-
-Architecture:
-- `src/setup/tools.js` — 7 tool functions reusing existing client.js/config.js
-- `src/setup/agent.js` — Tool-calling agent loop via OpenAI-compatible API (native fetch, no new deps)
-- `src/setup/cli.js` — Entry point with readline, arg parsing, model selection
-
-Key decisions:
-- Model-agnostic: any OpenAI-compatible API (OpenAI, Ollama, LM Studio, Anthropic proxy)
-- Config via env: OPENAI_BASE_URL, OPENAI_API_KEY, OPENAI_MODEL
-- No new npm dependencies — native fetch for LLM calls
-- Graceful degradation: no model configured → falls back to simple interactive readline
-- Background network scan: non-blocking, results trickle in during conversation
-- Reuses fetchAgentCard, validatePeerUrl from client.js
-- Tokens never passed through LLM — tools handle secrets directly
+```
+src/server.js        — Express app, wires all middleware, endpoints
+src/auth.js          — Bearer token auth (basic + advanced), rate limit on failures
+src/executor.js      — AgentExecutor: validation → rate limit → permissions → skill → audit
+src/client.js        — Outbound: fetchAgentCard, callPeerSkill, callPeers, chainCalls
+src/config.js        — Config loader with cache + SIGHUP reload
+src/bridge.js        — OpenClaw gateway bridge (HTTP /tools/invoke)
+src/permissions.js   — Per-peer, per-skill access control
+src/rate-limiter.js  — Token bucket (global, per-peer, per-skill)
+src/metrics.js       — Call counters, latency percentiles, Prometheus export
+src/ddos-protection.js — Per-IP connection limits, blocklist, slowloris protection
+src/token-manager.js — Token expiry, scopes (read/write/execute/admin), revocation
+src/validation.js    — Input sanitization (strings, URLs, paths, messages)
+src/logger.js        — Structured JSON (production) / human-readable (dev)
+src/registry.js      — Public agent registry client (fetch/search)
+src/cli.js           — CLI: status, peers, ping, call, card, search
+src/verify.js        — Pre-flight config verification (npm run verify)
+src/setup/agent.js   — Conversational setup agent (OpenAI-compatible LLM)
+src/setup/cli.js     — Setup entry point with model selection + fallback
+src/setup/tools.js   — 8 tools: scan, check, generate, write, test, rotate, etc.
+```
 
 ---
 
-## Gotchas & Traps
+## Tests (14 suites, 116 tests)
 
-1. **SDK is ESM but works with require()** on Node 18+. Don't add "type": "module" to package.json.
-2. **SDK message format uses `kind` not `type`:** `kind: 'message'`, `kind: 'text'`, etc.
-3. **Agent Card path is `.well-known/agent-card.json`** (with .json). SDK exports `AGENT_CARD_PATH` constant.
-4. **Config module caching:** CONFIG_DIR must be read at call time (not module load) or tests break when changing env vars.
-5. **Peer tokens must differ from shared token** or validateToken returns wrong identity.
-6. **The PM's CODING_TASKS.md patterns are wrong** — they show custom JSON-RPC parsing instead of using the SDK. Always verify against actual SDK API.
-7. **axios is in package.json but not needed** — native fetch works fine on Node 18+.
+```
+tests/unit/auth.test.js          — 11 tests (token validation, UserBuilder)
+tests/unit/config.test.js        — 4 tests (loading, missing file)
+tests/unit/executor.test.js      — 5 tests (ping, status, unknown, empty, cancel)
+tests/unit/bridge.test.js        — 7 tests (config, tools, whitelist, disabled)
+tests/unit/permissions.test.js   — 6 tests (allow, deny, wildcard, default policy)
+tests/unit/rate-limiter.test.js  — 4 tests (burst, per-peer, per-skill)
+tests/unit/metrics.test.js       — 5 tests (counters, percentiles, Prometheus)
+tests/unit/ddos.test.js          — 5 tests (block, unblock, allowlist, timeout)
+tests/unit/token-manager.test.js — 8 tests (expiry, revocation, scopes, generation)
+tests/unit/validation.test.js    — 10 tests (strings, URLs, paths, messages, sanitize)
+tests/unit/security.test.js      — 9 tests (auth bypass, oversized body, injection)
+tests/unit/setup-tools.test.js   — 13 tests (token gen, config write, rotation)
+tests/integration/server.test.js — 8 tests (health, agent card, JSON-RPC, auth)
+tests/integration/pipeline.test.js — 7+ tests (permissions, rate limit, DDoS, validation in full HTTP)
+```
+
+---
+
+## Config Files
+
+```
+config/agent.json       — Agent identity (required)
+config/peers.json       — Known peers with tokens (required, 0600 perms)
+config/skills.json      — Exposed skills whitelist (required)
+config/bridge.json      — OpenClaw bridge (optional, disabled by default)
+config/permissions.json — Access control (optional, default: allow all)
+config/rate-limits.json — Rate limits (optional, sensible defaults)
+config/tokens.json      — Advanced tokens with expiry/scopes (optional)
+```
+
+---
+
+## Deploy Files
+
+```
+deploy/docker-compose.production.yml — Caddy + A2A (auto HTTPS)
+deploy/Caddyfile                     — TLS termination config
+deploy/openclaw-a2a.service          — systemd unit (security hardened)
+deploy/install.sh                    — One-command bare metal install
+Dockerfile                           — node:18-alpine, non-root, healthcheck
+docker-compose.yml                   — Dev: two agents on bridge network
+docker/alpha/, docker/beta/          — Per-agent Docker configs
+```
+
+---
+
+## Key Lessons
+
+1. Verify SDK exports before coding — design docs go stale
+2. Alpine Linux: use 127.0.0.1, not localhost in healthchecks
+3. Config module: read env vars at call time, not module load time (tests break)
+4. Peer tokens and shared tokens must be distinct values
+5. Auth on Agent Card: NO (discovery is public, execution is private)
+6. Don't ship untested Docker files — test on real containers
+7. Every module must be wired into the pipeline — audit for dead code
+8. Tests need isolated config dirs when real config has restrictive permissions
 
 ---
 
@@ -115,4 +134,4 @@ user.email: opus-agent@openclaw-a2a.dev
 
 ---
 
-_Last updated: 2026-03-09 18:15 UTC_
+_Last updated: 2026-03-09 23:20 UTC_
