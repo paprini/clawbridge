@@ -16,7 +16,8 @@
     "status": "node src/cli.js status",
     "peers": "node src/cli.js peers",
     "ping": "node src/cli.js ping",
-    "call": "node src/cli.js call"
+    "call": "node src/cli.js call",
+    "uninstall": "node scripts/uninstall.js"
   },
   "keywords": [
     "a2a",

@@ -579,3 +579,55 @@ Next steps:
 5. **Verify after changes** — Run health checks after every significant change
 
 **You are installing a network service. Precision matters.**
+
+---
+
+## Uninstalling ClawBridge
+
+If you need to uninstall ClawBridge later, see **[UNINSTALL.md](UNINSTALL.md)** for complete instructions.
+
+### Quick Uninstall
+
+```bash
+cd /path/to/clawbridge
+npm run uninstall
+```
+
+The uninstall script will:
+- Gracefully disconnect from the network (notify peers)
+- Stop the server
+- Remove systemd service (if installed)
+- Clean up logs
+- Delete directory (with confirmation)
+- Verify complete removal
+
+**Agent-based uninstall:**
+```
+Uninstall ClawBridge from this machine.
+
+Follow the uninstall guide in UNINSTALL.md
+
+Report back when complete.
+```
+
+### Important Notes
+
+⚠️ **Uninstalling will:**
+- Stop the ClawBridge server immediately
+- Delete ALL config files (agent identity, peer list, skills)
+- Disconnect this agent from the network
+- Require full reinstall to rejoin network
+
+⚠️ **After uninstalling:**
+- Other agents will lose connection to this instance
+- You must remove this agent from peer configs on OTHER machines
+- Config backup recommended if you plan to reinstall later
+
+See [UNINSTALL.md](UNINSTALL.md) for detailed steps, including:
+- Manual uninstall procedures
+- Network cleanup instructions
+- Partial uninstall options
+- Verification steps
+- Troubleshooting
+
+**The uninstall process is designed to be agent-friendly** — agents can follow the guide autonomously, with safety confirmations at critical steps.

@@ -1002,6 +1002,67 @@ See [QA_TEST_REPORT.md](QA_TEST_REPORT.md) for detailed results.
 
 ---
 
+## Uninstall
+
+### Quick Uninstall
+
+```bash
+npm run uninstall
+```
+
+This automated script will:
+- ✅ Notify peers you're going offline (graceful disconnect)
+- ✅ Stop the ClawBridge server
+- ✅ Remove systemd service (if installed)
+- ✅ Clean up log files
+- ✅ Delete ClawBridge directory
+- ✅ Verify complete removal
+- ⚠️  Require confirmation before deleting (safety check)
+- 💾 Optional config backup before uninstalling
+
+**The script will ask for confirmation at critical steps** — it won't silently delete your setup.
+
+### Manual Uninstall
+
+For manual uninstall instructions, see **[UNINSTALL.md](UNINSTALL.md)**
+
+**Agent-based uninstall:**
+```
+Uninstall ClawBridge.
+
+Follow the uninstall guide in UNINSTALL.md
+
+Report back when complete.
+```
+
+Your agent will handle the uninstall process autonomously (with confirmations).
+
+### Network Cleanup
+
+**Important:** After uninstalling, you must remove this agent from peer configs on OTHER machines:
+
+```bash
+# On each peer machine
+cd /path/to/clawbridge
+# Edit config/peers.json and remove this agent's entry
+# Then restart: sudo systemctl restart clawbridge
+```
+
+Or ask each peer agent:
+```
+Remove peer '[agent-name]' from your ClawBridge config
+```
+
+See [UNINSTALL.md](UNINSTALL.md) for complete instructions including:
+- Graceful shutdown (notify network before going offline)
+- systemd service removal
+- Docker/Caddy cleanup
+- Firewall rule cleanup
+- Verification steps
+- Partial uninstall options (keep config, remove app)
+
+---
+
 ## Production Deployment
 
 ### Caddy Reverse Proxy (Recommended)

@@ -1,4 +1,6 @@
 {
-  "default_policy": "allow",
-  "peers": []
+  "permissions": {
+    "default_policy": "deny",
+    "rules": []
+  }
 }

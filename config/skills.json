@@ -2,11 +2,13 @@
   "exposed_skills": [
     {
       "name": "ping",
-      "description": "Test connectivity"
+      "description": "Health check",
+      "public": true
     },
     {
       "name": "get_status",
-      "description": "Get agent status"
+      "description": "Agent status and uptime",
+      "public": true
     }
   ]
 }

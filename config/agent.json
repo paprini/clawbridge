@@ -1,6 +1,7 @@
 {
-  "name": "discord-agent",
-  "description": "Discord OpenClaw instance A2A agent",
-  "url": "http://10.0.1.10:9100",
-  "version": "1.0.0"
+  "id": "guali-discord",
+  "name": "Guali Discord",
+  "description": "OpenClaw Discord instance — manages Discord messaging, channels, reactions, and Musicate software factory",
+  "url": "http://172.31.30.104:9100",
+  "version": "0.1.0"
 }
