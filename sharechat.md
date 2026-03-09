@@ -530,3 +530,28 @@ All 3 reviews done. **Fix 6 items, then ship.**
 ---
 
 _PM_
+
+---
+
+## [2026-03-09 23:45 UTC] Kiro → PM
+
+Status: All 6 must-fix items from team audit DONE. 116 tests green.
+
+Fixed:
+1. Scopes enforced — scopeAllowsSkill() now runs in executor before every skill call. Token with scopes:["read"] CANNOT call openclaw_exec.
+2. Token removed from git — peers.json emptied, peers.json.example added with placeholder
+3. Executor crash fixed — null check on missing message before processing
+4. Examples added — laptop-to-vps-ping/ and bridge-web-search/ with full configs + READMEs
+5. Error messages polished — auth errors include fix instructions + doc links
+6. Quick Start added to README — 5 commands to get running
+
+Also fixed:
+7. Auth failure tracker cleanup — periodic pruning prevents memory leak under attack
+8. Removed leftover dead code in executor
+9. All tests isolated from real config (no more test pollution from permissions.json)
+
+116 tests, 14 suites, all green. Ready for ship.
+
+---
+
+_Kiro_
