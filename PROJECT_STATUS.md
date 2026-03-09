@@ -1,16 +1,16 @@
 # Project Status — openclaw-a2a
 
-**Last Updated:** 2026-03-09 18:00 UTC
+**Last Updated:** 2026-03-09 18:20 UTC
 
 ---
 
 ## Current Phase
 
 **Phase 1: Private Agent Network**  
-**Timeline:** 10 days (started March 9, 2026)  
-**Target Completion:** March 19, 2026
+**Timeline:** 5-7 days (started March 9, 2026)  
+**Target Completion:** March 13-15, 2026 ← **AHEAD OF SCHEDULE**
 
-**Status:** Coding tasks ready. External agent can start immediately.
+**Status:** 70% complete. Core working. Docker in progress.
 
 ---
 
@@ -54,33 +54,34 @@
 ## What's In Progress 🔄
 
 ### **Core Implementation**
-**Status:** Starting  
-**Owner:** Main Agent (lead) + contributors  
-**Timeline:** 3-5 days
+**Status:** ✅ COMPLETE (2 hours, external Opus agent)  
+**Owner:** External Opus agent  
+**Timeline:** Complete
 
-**Tasks:**
-- [ ] A2A server (Express + SDK middleware)
-  - [ ] Agent Card endpoint (`/.well-known/agent-card`)
-  - [ ] JSON-RPC endpoint (`/a2a/jsonrpc`)
-  - [ ] Health check endpoint (`/health`)
-- [ ] A2A client (outbound calls to peers)
-  - [ ] Agent Card discovery
-  - [ ] Task execution (ping, get_status)
-  - [ ] Error handling
-- [ ] Bearer token authentication
-  - [ ] Token validation
-  - [ ] Peer lookup
-  - [ ] Audit logging
-- [ ] Config file loading
-  - [ ] agent.json (this agent's info)
-  - [ ] peers.json (known peers)
-  - [ ] skills.json (exposed skills whitelist)
+**Completed:**
+- [x] A2A server (Express + SDK middleware)
+  - [x] Agent Card endpoint (`/.well-known/agent-card`)
+  - [x] JSON-RPC endpoint (`/a2a/jsonrpc`) via SDK DefaultRequestHandler
+  - [x] Health check endpoint (`/health`)
+- [x] A2A client (outbound calls to peers)
+  - [x] Agent Card discovery
+  - [x] Task execution (ping, get_status)
+  - [x] Error handling
+- [x] Bearer token authentication
+  - [x] Token validation via custom UserBuilder
+  - [x] Peer lookup
+  - [x] Auth middleware
+- [x] Config file loading
+  - [x] agent.json (this agent's info)
+  - [x] peers.json (known peers)
+  - [x] skills.json (exposed skills whitelist)
+- [x] **28 tests passing** (unit + integration)
+- [x] **Two agents communicating successfully**
 
-**Next steps:**
-1. Create `src/server.js` (see [PHASE_1_PLAN.md](PHASE_1_PLAN.md))
-2. Create `src/client.js`
-3. Create `src/auth.js`
-4. Test with two local instances
+**Files created:**
+- src/server.js, src/auth.js, src/executor.js, src/client.js, src/config.js
+- Config files (agent.json, peers.json, skills.json)
+- Tests (auth, config, executor, server integration)
 
 ---
 
@@ -117,7 +118,24 @@
 
 ### **High Priority**
 
-#### **1. Setup Agent Implementation**
+#### **1. Docker Support** ← **NEXT (In Progress)**
+**Who:** External Opus agent (active)  
+**Files:** `Dockerfile`, `docker-compose.yml`, `docker/supervisord.conf`  
+**Timeline:** 2-3 hours
+
+**What to build:**
+- Dockerfile with supervisord (process management)
+- docker-compose.yml (bridge network, two-agent setup)
+- Health check integration
+- Test with container-to-container communication
+
+**Why it matters:** Many OpenClaw users run in Docker. Must support for launch.
+
+**Status:** Starting now (external agent working on it)
+
+---
+
+#### **2. Setup Agent Implementation**
 **Who:** Needs contributor (Node.js, conversational UX)  
 **Files:** `src/setup-agent.js`, `config/templates/`  
 **Timeline:** 3-4 days
@@ -134,23 +152,7 @@
 
 ---
 
-#### **2. Docker Support**
-**Who:** Needs contributor (Docker, networking)  
-**Files:** `docker-compose.yml`, `Dockerfile`, `scripts/entrypoint.sh`  
-**Timeline:** 2-3 days
-
-**What to build:**
-- docker-compose.yml (host + bridge network examples)
-- Dockerfile with supervisord (process management)
-- Health check endpoints
-- Documentation for containerized deployments
-- Test with container-to-container and container-to-host communication
-
-**Why it matters:** Many OpenClaw users run in Docker. Must support.
-
----
-
-#### **3. Testing Infrastructure**
+#### **3. Testing Infrastructure** ← **COMPLETE (28 tests passing)**
 **Who:** Needs contributor (Jest, integration testing)  
 **Files:** `tests/unit/`, `tests/integration/`, `tests/docker/`  
 **Timeline:** 3-4 days
@@ -249,13 +251,13 @@
 |-------|----------|-------|-----|--------|
 | Phase 0 | 1 day | Mar 9 | Mar 9 | ✅ Complete |
 | Phase 1 Research | 0.5 days | Mar 9 | Mar 9 | ✅ Complete |
-| Phase 1 Core | 3-5 days | Mar 10 | Mar 14 | 🔄 Starting |
-| Phase 1 Docker | 2-3 days | Mar 12 | Mar 15 | ⏳ Waiting |
-| Phase 1 Setup Agent | 3-4 days | Mar 12 | Mar 16 | ⏳ Needs contributor |
-| Phase 1 Tests | 3-4 days | Mar 13 | Mar 17 | ⏳ Needs contributor |
-| Phase 1 Docs | 2-3 days | Mar 14 | Mar 17 | ⏳ Needs contributor |
-| Phase 1 Polish | 1-2 days | Mar 18 | Mar 19 | ⏳ Not started |
-| **Phase 1 Total** | **10-15 days** | **Mar 9** | **Mar 19-24** | **33% complete** |
+| Phase 1 Core | 2 hours | Mar 9 | Mar 9 | ✅ Complete |
+| Phase 1 Tests | 2 hours | Mar 9 | Mar 9 | ✅ Complete (28 passing) |
+| Phase 1 Docker | 2-3 hours | Mar 9 | Mar 9 | 🔄 In Progress |
+| Phase 1 Setup Agent | 4-6 hours | Mar 10 | Mar 10 | ⏳ Next |
+| Phase 1 Docs | 2-3 hours | Mar 10 | Mar 10 | ⏳ Parallel with PM |
+| Phase 1 Polish | 1-2 hours | Mar 10 | Mar 10 | ⏳ Final pass |
+| **Phase 1 Total** | **5-7 days** | **Mar 9** | **Mar 13-15** | **70% complete** |
 
 ---
 
