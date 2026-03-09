@@ -3,6 +3,7 @@
 const crypto = require('crypto');
 const { loadAgentConfig, loadSkillsConfig } = require('./config');
 const { checkPermission } = require('./permissions');
+const { callOpenClawTool, isBridgedTool, getBridgedTools } = require('./bridge');
 
 /**
  * AgentExecutor implementation for openclaw-a2a.
@@ -47,6 +48,11 @@ class OpenClawExecutor {
         result = this._handlePing();
       } else if (skillName === 'get_status') {
         result = this._handleGetStatus();
+      } else if (isBridgedTool(skillName)) {
+        // Route to OpenClaw bridge
+        const toolName = skillName.replace(/^openclaw_/, '');
+        const args = this._extractArgs(context.userMessage);
+        result = await callOpenClawTool(toolName, args);
       } else {
         result = { error: `Unknown skill or request. Available skills: ping, get_status` };
       }
@@ -95,17 +101,35 @@ class OpenClawExecutor {
    * @returns {string|null}
    */
   _routeToSkill(text) {
-    // Check if the skill is in the exposed list
     const exposed = loadSkillsConfig();
     const exposedNames = exposed.filter((s) => s.public !== false).map((s) => s.name);
 
     if (text === 'ping' && exposedNames.includes('ping')) return 'ping';
     if ((text === 'get_status' || text === 'status') && exposedNames.includes('get_status')) return 'get_status';
-
-    // Also accept the skill name directly if it's exposed
     if (exposedNames.includes(text)) return text;
 
+    // Check bridged tools (openclaw_exec, openclaw_web_search, etc.)
+    if (isBridgedTool(text)) return text;
+
     return null;
+  }
+
+  /**
+   * Extract JSON args from message text (for bridged tool calls).
+   * Expects format: "openclaw_toolname {json_args}" or just the skill name.
+   */
+  _extractArgs(message) {
+    if (!message || !message.parts) return {};
+    const textPart = message.parts.find((p) => p.kind === 'text');
+    if (!textPart) return {};
+
+    const text = textPart.text.trim();
+    // Try to find JSON in the message
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      try { return JSON.parse(jsonMatch[0]); } catch { /* not valid JSON */ }
+    }
+    return {};
   }
 
   _handlePing() {

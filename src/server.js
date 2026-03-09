@@ -19,6 +19,26 @@ const BIND = process.env.A2A_BIND || '0.0.0.0';
 function buildAgentCard() {
   const agent = loadAgentConfig();
   const skills = loadSkillsConfig();
+  const { getBridgedTools } = require('./bridge');
+
+  const nativeSkills = skills
+    .filter((s) => s.public !== false)
+    .map((s) => ({
+      id: s.name,
+      name: s.name,
+      description: s.description || '',
+      tags: s.tags || [],
+      examples: s.examples || [],
+    }));
+
+  // Add bridged OpenClaw tools
+  const bridgedSkills = getBridgedTools().map((t) => ({
+    id: t.name,
+    name: t.name,
+    description: t.description,
+    tags: ['openclaw', 'bridge'],
+    examples: [],
+  }));
 
   return {
     name: agent.name || agent.id,
@@ -37,15 +57,7 @@ function buildAgentCard() {
       organization: 'openclaw-a2a',
       url: 'https://github.com/paprini/openclaw-a2a',
     },
-    skills: skills
-      .filter((s) => s.public !== false)
-      .map((s) => ({
-        id: s.name,
-        name: s.name,
-        description: s.description || '',
-        tags: s.tags || [],
-        examples: s.examples || [],
-      })),
+    skills: [...nativeSkills, ...bridgedSkills],
     securitySchemes: {
       bearer: {
         type: 'http',
