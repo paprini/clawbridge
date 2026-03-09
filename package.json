@@ -12,7 +12,11 @@
     "lint": "eslint src/",
     "setup": "node src/setup/cli.js",
     "setup:auto": "node src/setup/cli.js --non-interactive",
-    "verify": "node src/verify.js"
+    "verify": "node src/verify.js",
+    "status": "node src/cli.js status",
+    "peers": "node src/cli.js peers",
+    "ping": "node src/cli.js ping",
+    "call": "node src/cli.js call"
   },
   "keywords": [
     "a2a",

@@ -1,0 +1,13 @@
+{$A2A_DOMAIN:localhost} {
+  reverse_proxy a2a:9100
+
+  # Rate limiting at proxy level
+  @ratelimit {
+    path /a2a
+  }
+
+  log {
+    output stdout
+    format json
+  }
+}

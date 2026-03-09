@@ -1,0 +1,39 @@
+# Production deployment with Caddy reverse proxy (auto HTTPS)
+#
+# Usage:
+#   export A2A_DOMAIN=a2a.yourdomain.com
+#   export A2A_SHARED_TOKEN=$(openssl rand -hex 32)
+#   docker compose -f deploy/docker-compose.production.yml up -d
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - a2a
+    restart: unless-stopped
+
+  a2a:
+    build: ..
+    environment:
+      - A2A_PORT=9100
+      - A2A_BIND=0.0.0.0
+      - A2A_SHARED_TOKEN=${A2A_SHARED_TOKEN:?Generate with: openssl rand -hex 32}
+      - A2A_CONFIG_DIR=/app/config
+      - NODE_ENV=production
+    volumes:
+      - ../config:/app/config:ro
+    restart: unless-stopped
+    # Not exposed to host — only Caddy can reach it
+    expose:
+      - "9100"
+
+volumes:
+  caddy_data:
+  caddy_config:

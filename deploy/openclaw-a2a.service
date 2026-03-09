@@ -1,0 +1,34 @@
+[Unit]
+Description=openclaw-a2a Agent-to-Agent Communication
+After=network.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=openclaw
+Group=openclaw
+WorkingDirectory=/opt/openclaw-a2a
+ExecStart=/usr/bin/node src/server.js
+Restart=always
+RestartSec=5
+
+# Environment
+Environment=NODE_ENV=production
+Environment=A2A_PORT=9100
+Environment=A2A_BIND=0.0.0.0
+EnvironmentFile=-/opt/openclaw-a2a/.env
+
+# Security hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/opt/openclaw-a2a/config /opt/openclaw-a2a/logs
+PrivateTmp=true
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=openclaw-a2a
+
+[Install]
+WantedBy=multi-user.target

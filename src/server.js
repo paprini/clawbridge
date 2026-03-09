@@ -82,7 +82,7 @@ function createServer() {
   // Parse JSON bodies (explicit limit for defense in depth)
   app.use(express.json({ limit: '100kb' }));
 
-  // Health check (no auth required)
+  // Health check (no auth required) — includes metrics
   app.get('/health', (_req, res) => {
     const m = require('./metrics').getMetrics().getSnapshot();
     res.json({
@@ -90,6 +90,19 @@ function createServer() {
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
       ...m,
+    });
+  });
+
+  // Public status endpoint (safe info only, no auth)
+  app.get('/status', (_req, res) => {
+    const agent = loadAgentConfig();
+    const skills = loadSkillsConfig();
+    res.json({
+      name: agent.name || agent.id,
+      version: agent.version || '0.1.0',
+      uptime: Math.floor(process.uptime()),
+      skills: skills.filter(s => s.public !== false).map(s => s.name),
+      protocol: '0.3.0',
     });
   });
 
