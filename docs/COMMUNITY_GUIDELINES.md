@@ -1,4 +1,4 @@
-# Community Guidelines — openclaw-a2a
+# Community Guidelines — clawbridge
 
 ## Publishing Public Agents
 

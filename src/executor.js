@@ -11,7 +11,7 @@ const { validateAdvancedToken, scopeAllowsSkill } = require('./token-manager');
 const logger = require('./logger');
 
 /**
- * AgentExecutor implementation for openclaw-a2a.
+ * AgentExecutor implementation for ClawBridge.
  * Handles incoming A2A messages, routes to skill handlers.
  */
 class OpenClawExecutor {

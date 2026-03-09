@@ -55,8 +55,8 @@ function buildAgentCard() {
     defaultInputModes: ['text/plain'],
     defaultOutputModes: ['text/plain'],
     provider: {
-      organization: 'openclaw-a2a',
-      url: 'https://github.com/paprini/openclaw-a2a',
+      organization: 'clawbridge',
+      url: 'https://github.com/paprini/clawbridge',
     },
     skills: [...nativeSkills, ...bridgedSkills],
     securitySchemes: {
@@ -154,7 +154,7 @@ if (require.main === module) {
   }
 
   const server = app.listen(PORT, BIND, () => {
-    logger.info('openclaw-a2a started', { version: '0.1.0', port: PORT, bind: BIND });
+    logger.info('ClawBridge started', { version: '0.1.0', port: PORT, bind: BIND });
   });
 
   // M5 — Graceful shutdown

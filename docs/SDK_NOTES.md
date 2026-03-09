@@ -263,7 +263,7 @@ For our Phase 1 (private network): Bearer token via `APIKeySecurityScheme`.
 
 ---
 
-## Key Findings & Implications for openclaw-a2a
+## Key Findings & Implications for clawbridge
 
 ### ✅ Good News
 1. SDK is well-designed, clean TypeScript, ESM

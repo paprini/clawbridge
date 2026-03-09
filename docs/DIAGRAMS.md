@@ -1,4 +1,4 @@
-# Mermaid Diagrams for openclaw-a2a
+# Mermaid Diagrams for clawbridge
 
 These diagrams can be embedded directly in the README using Mermaid syntax.
 
@@ -87,7 +87,7 @@ graph TB
 
 ```mermaid
 graph TD
-    Start([User types:<br/>'Set up A2A']) --> Install[Install openclaw-a2a]
+    Start([User types:<br/>'Set up A2A']) --> Install[Install clawbridge]
     Install --> Scan[A2A scans network]
     Scan --> Discover{Found agents?}
     
@@ -269,7 +269,7 @@ gantt
     axisFormat %M:%S
     
     section Install
-    clawhub install openclaw-a2a :a1, 00:00, 90s
+    clawhub install clawbridge :a1, 00:00, 90s
     
     section Discovery
     Agent scans network :a2, after a1, 30s

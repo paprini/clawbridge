@@ -112,7 +112,7 @@ async function main() {
     }
 
     default:
-      console.log(`openclaw-a2a CLI
+      console.log(`ClawBridge CLI
 
 Commands:
   status    Show agent info and peer connectivity

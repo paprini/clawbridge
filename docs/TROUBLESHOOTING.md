@@ -1,4 +1,4 @@
-# Troubleshooting — openclaw-a2a
+# Troubleshooting — clawbridge
 
 ## Quick Diagnostics
 

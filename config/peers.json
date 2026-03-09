@@ -1,3 +1,9 @@
 {
-  "peers": []
+  "peers": [
+    {
+      "id": "whatsapp-agent",
+      "url": "http://localhost:9101",
+      "token": "test_shared_token_abc123"
+    }
+  ]
 }

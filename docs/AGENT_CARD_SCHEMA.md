@@ -56,8 +56,8 @@ For Phase 1, we expose only two skills: `ping` and `get_status`. This is our "ul
   "defaultOutputModes": ["text/plain"],
   
   "provider": {
-    "organization": "openclaw-a2a",
-    "url": "https://github.com/paprini/openclaw-a2a"
+    "organization": "clawbridge",
+    "url": "https://github.com/paprini/clawbridge"
   },
   
   "securitySchemes": {

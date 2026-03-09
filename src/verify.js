@@ -31,7 +31,7 @@ function loadJSON(file) {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 
-console.log('\n🔍 openclaw-a2a setup verification\n');
+console.log('\n🔍 ClawBridge setup verification\n');
 console.log(`Config dir: ${configDir}\n`);
 
 // --- Required configs ---

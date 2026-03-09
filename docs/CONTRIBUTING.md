@@ -1,4 +1,4 @@
-# Contributing to openclaw-a2a
+# Contributing to clawbridge
 
 **Welcome!** We're building agent-to-agent communication for OpenClaw, and we'd love your help.
 
@@ -119,7 +119,7 @@ See [GETTING_STARTED.md](GETTING_STARTED.md) for:
 #### 6. **systemd Service Template**
 **Status:** Designed, not implemented  
 **Who:** Needs contributor  
-**Files:** `scripts/systemd/openclaw-a2a.service`
+**Files:** `scripts/systemd/clawbridge.service`
 
 **What to build:**
 - systemd unit file

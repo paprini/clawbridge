@@ -1,7 +1,7 @@
 # Phase 1 Implementation Plan
 
 **Date:** 2026-03-09  
-**Tech Lead:** openclaw-a2a engineering  
+**Tech Lead:** clawbridge engineering  
 **Goal:** Working private agent network with ping + get_status  
 **SDK:** @a2a-js/sdk v0.3.10 (A2A Protocol v0.3.0)
 
@@ -254,7 +254,7 @@ export class Bridge {
 ## File Structure
 
 ```
-openclaw-a2a/
+clawbridge/
 ├── src/
 │   ├── index.ts              # Entry point: start server + load config
 │   ├── server/
@@ -437,7 +437,7 @@ After Phase 1 is implemented:
 
 1. **Config format:** JSON is simple. Should we support YAML too? → **Decision: JSON only for Phase 1.** YAML adds a dependency for no real benefit yet.
 
-2. **CLI integration:** Should Phase 1 have an `openclaw-a2a` CLI command? → **Decision: Not yet.** Start as a standalone Node.js app. CLI integration in Phase 2 when we understand the UX better.
+2. **CLI integration:** Should Phase 1 have an `clawbridge` CLI command? → **Decision: Not yet.** Start as a standalone Node.js app. CLI integration in Phase 2 when we understand the UX better.
 
 3. **Task persistence:** InMemoryTaskStore loses state on restart. → **Decision: Fine for Phase 1.** Ping/status are stateless. Add SQLite/file-based store in Phase 2.
 

@@ -1,7 +1,7 @@
 {
-  "name": "openclaw-a2a",
+  "name": "clawbridge",
   "version": "0.1.0",
-  "description": "Agent-to-Agent communication for OpenClaw",
+  "description": "Bridge your OpenClaw agents across machines",
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
@@ -23,8 +23,13 @@
     "agent-to-agent",
     "openclaw",
     "ai-agents",
-    "interoperability"
+    "interoperability",
+    "clawbridge"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/paprini/clawbridge.git"
+  },
   "author": "Guali Team",
   "license": "MIT",
   "dependencies": {

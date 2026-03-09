@@ -1,4 +1,4 @@
-# Project Status — openclaw-a2a
+# Project Status — clawbridge
 
 **Last Updated:** 2026-03-09 18:20 UTC
 
@@ -41,7 +41,7 @@
 - [x] Docs consolidated (removed redundancies)
 
 ### **Repository Setup (Complete)**
-- [x] GitHub repo created (https://github.com/paprini/openclaw-a2a)
+- [x] GitHub repo created (https://github.com/paprini/clawbridge)
 - [x] Project structure defined
 - [x] README written (clear, user-focused)
 - [x] CONTRIBUTING.md created (onboarding for external contributors)
@@ -188,7 +188,7 @@
 
 #### **5. systemd Service**
 **Who:** Needs contributor (systemd, bash)  
-**Files:** `scripts/systemd/openclaw-a2a.service`, `scripts/install.sh`  
+**Files:** `scripts/systemd/clawbridge.service`, `scripts/install.sh`  
 **Timeline:** 1 day
 
 **What to build:**

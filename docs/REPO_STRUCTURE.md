@@ -33,7 +33,7 @@
 ## Directory Structure
 
 ```
-openclaw-a2a/
+clawbridge/
 ├── README.md                  ← Main overview
 ├── package.json               ← Dependencies
 ├── Dockerfile                 ← Docker build

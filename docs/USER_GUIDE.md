@@ -1,4 +1,4 @@
-# openclaw-a2a User Guide
+# clawbridge User Guide
 
 **For:** New users who want to connect their OpenClaw agents across machines  
 **Time to setup:** 5-10 minutes  
@@ -6,13 +6,13 @@
 
 ---
 
-## What is openclaw-a2a?
+## What is clawbridge?
 
 **The problem:**
 Your OpenClaw agents are isolated on different machines. If you want your laptop agent to use your VPS agent's skills, you have to manually copy files, SSH, or write custom scripts.
 
 **The solution:**
-openclaw-a2a lets your agents call each other directly:
+clawbridge lets your agents call each other directly:
 
 ```javascript
 // Before: Manual SSH and file copying
@@ -44,14 +44,14 @@ laptop-agent → code-reviewer@vps.review_pr()
 
 ## Quick Start (5 Minutes)
 
-### Step 1: Install openclaw-a2a
+### Step 1: Install clawbridge
 
 **On each machine:**
 
 ```bash
 # Clone the repository
-git clone https://github.com/paprini/openclaw-a2a.git
-cd openclaw-a2a
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
 
 # Install dependencies
 npm install
@@ -356,7 +356,7 @@ Functions that your agent exposes for others to call.
 
 ```bash
 # Create service file
-sudo nano /etc/systemd/system/openclaw-a2a.service
+sudo nano /etc/systemd/system/clawbridge.service
 ```
 
 **Paste:**
@@ -368,7 +368,7 @@ After=network.target
 [Service]
 Type=simple
 User=YOUR_USERNAME
-WorkingDirectory=/path/to/openclaw-a2a
+WorkingDirectory=/path/to/clawbridge
 ExecStart=/usr/bin/node src/server.js
 Restart=on-failure
 
@@ -379,8 +379,8 @@ WantedBy=multi-user.target
 **Enable and start:**
 ```bash
 sudo systemctl daemon-reload
-sudo systemctl enable openclaw-a2a
-sudo systemctl start openclaw-a2a
+sudo systemctl enable clawbridge
+sudo systemctl start clawbridge
 ```
 
 ---
@@ -389,7 +389,7 @@ sudo systemctl start openclaw-a2a
 
 **Build image:**
 ```bash
-docker build -t openclaw-a2a .
+docker build -t clawbridge .
 ```
 
 **Run container:**
@@ -399,7 +399,7 @@ docker run -d \
   -p 9100:9100 \
   -v $(pwd)/config:/app/config \
   -e A2A_SHARED_TOKEN="$(openssl rand -hex 32)" \
-  openclaw-a2a
+  clawbridge
 ```
 
 **Or use docker-compose:**
@@ -516,7 +516,7 @@ curl http://192.168.1.20:9100/.well-known/agent-card
 
 ### Private Networks Only (Phase 1)
 
-**Current recommendation:** Only use openclaw-a2a on private networks (LAN, VPN, VPC).
+**Current recommendation:** Only use clawbridge on private networks (LAN, VPN, VPC).
 
 **Why?**
 - Bearer tokens are shared secrets (not per-peer unique yet)
@@ -595,7 +595,7 @@ curl http://192.168.1.20:9100/.well-known/agent-card
 - QA_TESTING_GUIDE.md — Testing guide
 
 **Issues:**
-- GitHub Issues: https://github.com/paprini/openclaw-a2a/issues
+- GitHub Issues: https://github.com/paprini/clawbridge/issues
 
 **Community:**
 - OpenClaw Discord: https://discord.com/invite/clawd
@@ -610,8 +610,8 @@ curl http://192.168.1.20:9100/.well-known/agent-card
 
 1. **On VPS (10.0.1.5):**
 ```bash
-git clone https://github.com/paprini/openclaw-a2a.git
-cd openclaw-a2a
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
 npm install
 npm run setup:auto
 # Name: vps-agent
@@ -622,8 +622,8 @@ node src/server.js &
 
 2. **On Laptop (192.168.1.10 with VPN to VPS):**
 ```bash
-git clone https://github.com/paprini/openclaw-a2a.git
-cd openclaw-a2a
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
 npm install
 npm run setup:auto
 # Name: laptop-agent
@@ -657,7 +657,7 @@ curl -H "Authorization: Bearer $TOKEN" \
 ## Summary
 
 **What you learned:**
-- openclaw-a2a connects your OpenClaw agents across machines
+- clawbridge connects your OpenClaw agents across machines
 - Setup takes 5-10 minutes per machine
 - Agents authenticate with bearer tokens
 - Default skills: ping, get_status

@@ -1,7 +1,6 @@
 {
-  "id": "openclaw-dev",
-  "name": "OpenClaw Development Agent",
-  "description": "Local development A2A agent",
-  "url": "http://localhost:9100/a2a",
-  "version": "0.1.0"
+  "name": "discord-agent",
+  "description": "Discord OpenClaw instance A2A agent",
+  "url": "http://10.0.1.10:9100",
+  "version": "1.0.0"
 }

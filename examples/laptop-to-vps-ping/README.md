@@ -7,7 +7,7 @@ Two agents on different machines. Laptop pings VPS.
 ### On VPS (10.0.1.10):
 
 ```bash
-cd openclaw-a2a
+cd clawbridge
 cp examples/laptop-to-vps-ping/config-vps/* config/
 echo "A2A_SHARED_TOKEN=your_shared_token_here" > .env
 node src/server.js
@@ -16,7 +16,7 @@ node src/server.js
 ### On Laptop:
 
 ```bash
-cd openclaw-a2a
+cd clawbridge
 cp examples/laptop-to-vps-ping/config-laptop/* config/
 echo "A2A_SHARED_TOKEN=your_shared_token_here" > .env
 node src/server.js

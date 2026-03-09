@@ -1,7 +1,6 @@
-# openclaw-a2a
+# ClawBridge
 
-**Your AI agents are isolated on separate machines.**  
-**A2A makes them collaborate.**
+**Bridge your OpenClaw agents across machines.**
 
 Your laptop agent can now call your VPS agent's code reviewer — instantly, automatically, securely.  
 No SSH. No manual file copying. Just: `code-reviewer@vps.review_pr()`
@@ -13,8 +12,8 @@ No SSH. No manual file copying. Just: `code-reviewer@vps.review_pr()`
 ## Quick Start
 
 ```bash
-git clone https://github.com/paprini/openclaw-a2a.git
-cd openclaw-a2a
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
 npm install
 npm run setup        # Conversational setup (or: npm run setup:auto)
 npm run verify       # Check config is valid
@@ -574,7 +573,7 @@ sequenceDiagram
 
 ### vs. Other Agent Frameworks
 
-| Feature | LangChain | CrewAI | AutoGen | **openclaw-a2a** |
+| Feature | LangChain | CrewAI | AutoGen | **ClawBridge** |
 |---------|-----------|--------|---------|------------------|
 | **Cross-machine** | ❌ | ❌ | ❌ | **✅** |
 | **Standard protocol** | ❌ | ❌ | ❌ | **✅ A2A spec** |
@@ -584,7 +583,7 @@ sequenceDiagram
 | **Setup time** | Hours | Hours | Hours | **5 minutes** |
 | **Production ready** | ⚠️ | ⚠️ | ⚠️ | **✅ 116 tests** |
 
-**Key Advantage:** openclaw-a2a is the ONLY solution that:
+**Key Advantage:** ClawBridge is the ONLY solution that:
 1. Works across machines out-of-the-box
 2. Integrates directly with OpenClaw ecosystem
 3. Provides production-grade security and monitoring
@@ -646,8 +645,8 @@ Based on open A2A spec (Linux Foundation, Google, IBM):
 ### Install
 
 ```bash
-git clone https://github.com/paprini/openclaw-a2a.git
-cd openclaw-a2a
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
 npm install
 ```
 
@@ -700,9 +699,9 @@ npm start
 Or with systemd (production):
 
 ```bash
-sudo cp deploy/openclaw-a2a.service /etc/systemd/system/
-sudo systemctl enable openclaw-a2a
-sudo systemctl start openclaw-a2a
+sudo cp deploy/clawbridge.service /etc/systemd/system/
+sudo systemctl enable clawbridge
+sudo systemctl start clawbridge
 ```
 
 ### Test Connection
@@ -847,7 +846,7 @@ Example log entry:
 **Server won't start:**
 ```bash
 npm run verify  # Check config
-journalctl -u openclaw-a2a -n 50  # Check logs
+journalctl -u clawbridge -n 50  # Check logs
 ```
 
 **Authentication failures:**
@@ -948,12 +947,12 @@ sudo systemctl start openclaw-a2a
 ### Docker (Alternative)
 
 ```bash
-docker build -t openclaw-a2a .
+docker build -t clawbridge .
 docker run -d \
-  --name openclaw-a2a \
+  --name clawbridge \
   -p 9100:9100 \
   -v $(pwd)/config:/app/config \
-  openclaw-a2a
+  clawbridge
 ```
 
 Or use Docker Compose:
@@ -1071,7 +1070,7 @@ Multi-layer protection:
 5. **Bridge tool risk levels** — Mark dangerous tools (like `exec`) as high-risk
 
 ### Can I use this with existing OpenClaw agents?
-Yes! No code changes needed. Install openclaw-a2a, configure which skills to expose, done.
+Yes! No code changes needed. Install ClawBridge, configure which skills to expose, done.
 
 ### How do I enable the OpenClaw Bridge?
 Create `config/bridge.json`:
@@ -1119,8 +1118,8 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for details.
 ### Development Setup
 
 ```bash
-git clone https://github.com/paprini/openclaw-a2a.git
-cd openclaw-a2a
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
 npm install
 npm test  # Run all tests
 npm run lint  # Check code style
@@ -1129,7 +1128,7 @@ npm run lint  # Check code style
 ### Project Structure
 
 ```
-openclaw-a2a/
+clawbridge/
 ├── src/
 │   ├── server.js          # Main server (Agent Card, JSON-RPC endpoints)
 │   ├── auth.js            # Bearer token authentication
@@ -1159,9 +1158,9 @@ openclaw-a2a/
 
 ## Links
 
-- **GitHub:** https://github.com/paprini/openclaw-a2a
-- **Issues:** https://github.com/paprini/openclaw-a2a/issues
-- **Discussions:** https://github.com/paprini/openclaw-a2a/discussions
+- **GitHub:** https://github.com/paprini/clawbridge
+- **Issues:** https://github.com/paprini/clawbridge/issues
+- **Discussions:** https://github.com/paprini/clawbridge/discussions
 - **A2A Spec:** https://github.com/a2a-protocol/spec
 - **A2A SDK:** https://github.com/a2a-protocol/a2a-js
 - **OpenClaw:** https://openclaw.ai

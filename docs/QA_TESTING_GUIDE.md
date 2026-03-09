@@ -1,7 +1,7 @@
 # QA Testing Guide — Phase 1 Real Instance Testing
 
 **For:** Pato (manual testing on 3 EC2 instances)  
-**Goal:** Verify openclaw-a2a works on real production-like instances before ship  
+**Goal:** Verify clawbridge works on real production-like instances before ship  
 **Instances:** Discord (10.0.1.10), WhatsApp (10.0.1.11), Telegram (10.0.1.12)
 
 ---
@@ -39,8 +39,8 @@ Before starting, verify:
 ```bash
 ssh user@10.0.1.10
 cd /opt
-git clone https://github.com/paprini/openclaw-a2a.git
-cd openclaw-a2a
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
 ```
 
 **Expected:**
@@ -59,7 +59,7 @@ cd openclaw-a2a
 
 **On each instance:**
 ```bash
-cd /opt/openclaw-a2a
+cd /opt/clawbridge
 npm install --production
 ```
 
@@ -81,7 +81,7 @@ npm install --production
 
 **On Discord instance:**
 ```bash
-cd /opt/openclaw-a2a
+cd /opt/clawbridge
 npm run setup:auto
 ```
 
@@ -116,7 +116,7 @@ npm run setup:auto
 
 **Expected output:**
 ```
-🔧 openclaw-a2a setup
+🔧 clawbridge setup
 
 Agent name [hostname]: discord-agent
 Agent URL [http://10.0.1.10:9100/a2a]: http://10.0.1.10:9100/a2a
@@ -200,7 +200,7 @@ cat config/skills.json
 
 **On Discord instance (in tmux or screen):**
 ```bash
-cd /opt/openclaw-a2a
+cd /opt/clawbridge
 node src/server.js
 ```
 

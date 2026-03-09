@@ -1,4 +1,4 @@
-# API Reference — openclaw-a2a
+# API Reference — clawbridge
 
 ## HTTP Endpoints
 

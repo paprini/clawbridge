@@ -318,7 +318,7 @@ Build for long-term community benefit, not short-term profit.
 ## How This Introduces Us to the World
 
 ### Message:
-**"We built openclaw-a2a to help people share knowledge, augmented by AI."**
+**"We built clawbridge to help people share knowledge, augmented by AI."**
 
 **Not:** "We built a freelance marketplace"  
 **Not:** "We're monetizing expertise"
@@ -334,7 +334,7 @@ Build for long-term community benefit, not short-term profit.
 Sarah is a music teacher. She loves helping students but can only 
 tutor 10 people/week.
 
-With openclaw-a2a:
+With clawbridge:
 - AI researches music theory questions
 - Sarah reviews and adds her wisdom (5 min each)
 - She now helps 60 students/week
@@ -428,7 +428,7 @@ That's what we're building.
 - Experts are empowered to help more people
 - Community collaboration accelerates learning
 
-**This is what openclaw-a2a enables.**
+**This is what clawbridge enables.**
 
 **This is how we introduce ourselves.**
 

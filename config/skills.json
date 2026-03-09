@@ -2,17 +2,11 @@
   "exposed_skills": [
     {
       "name": "ping",
-      "description": "Health check. Returns pong with timestamp.",
-      "tags": ["health", "status", "connectivity"],
-      "examples": ["ping"],
-      "public": true
+      "description": "Test connectivity"
     },
     {
       "name": "get_status",
-      "description": "Returns agent status including uptime, version, and available skills.",
-      "tags": ["status", "info", "monitoring"],
-      "examples": ["get_status", "status"],
-      "public": true
+      "description": "Get agent status"
     }
   ]
 }

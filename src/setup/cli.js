@@ -19,7 +19,7 @@ for (let i = 0; i < args.length; i++) {
 
 if (flags.help) {
   console.log(`
-openclaw-a2a setup agent
+ClawBridge setup agent
 
 Usage: node src/setup/cli.js [options]
 
@@ -56,7 +56,7 @@ function createPrompt() {
 
 // --- Non-interactive mode (power user fallback) ---
 async function runNonInteractive() {
-  console.log('\n🔧 openclaw-a2a setup (non-interactive)\n');
+  console.log('\n🔧 ClawBridge setup (non-interactive)\n');
 
   const prompt = createPrompt();
 
@@ -119,7 +119,7 @@ async function runConversational() {
   const apiKey = flags.apiKey || process.env.OPENAI_API_KEY || '';
   const model = flags.model || process.env.OPENAI_MODEL || 'gpt-4o-mini';
 
-  console.log('\n🤖 openclaw-a2a setup agent');
+  console.log('\n🤖 ClawBridge setup agent');
   console.log(`   Model: ${model}`);
   console.log(`   API: ${baseUrl}`);
   console.log('   Type "exit" to quit\n');

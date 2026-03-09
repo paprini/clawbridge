@@ -1,7 +1,7 @@
 # Public Agent Quickstart — Zero to Public in 15 Minutes
 
 ## Prerequisites
-- openclaw-a2a installed and working locally
+- clawbridge installed and working locally
 - A domain name pointing to your server
 - Port 80 and 443 open on your firewall
 

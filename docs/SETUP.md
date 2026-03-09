@@ -1,11 +1,11 @@
-# Setup Guide — openclaw-a2a
+# Setup Guide — clawbridge
 
 ## Quick Start (2 minutes)
 
 ```bash
 # 1. Install
-git clone https://github.com/paprini/openclaw-a2a.git
-cd openclaw-a2a && npm install
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge && npm install
 
 # 2. Run setup agent
 npm run setup

@@ -7,18 +7,18 @@
 sudo bash deploy/install.sh
 
 # Configure
-cd /opt/openclaw-a2a
+cd /opt/clawbridge
 sudo -u openclaw npm run setup:auto
 
 # Set token in .env
 echo "A2A_SHARED_TOKEN=$(openssl rand -hex 32)" | sudo tee .env
 
 # Start
-sudo systemctl start openclaw-a2a
-sudo systemctl status openclaw-a2a
+sudo systemctl start clawbridge
+sudo systemctl status clawbridge
 
 # Logs
-journalctl -u openclaw-a2a -f
+journalctl -u clawbridge -f
 ```
 
 ## Option 2: Docker with HTTPS (Caddy)
@@ -64,4 +64,4 @@ Before going to production:
 - Health: `curl http://localhost:9100/health`
 - Metrics: `curl http://localhost:9100/metrics` (Prometheus format)
 - Status: `curl http://localhost:9100/status` (public-safe info)
-- Logs: `journalctl -u openclaw-a2a -f` or `docker logs -f <container>`
+- Logs: `journalctl -u clawbridge -f` or `docker logs -f <container>`

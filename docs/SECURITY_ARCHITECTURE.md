@@ -1,4 +1,4 @@
-# Security Architecture — openclaw-a2a
+# Security Architecture — clawbridge
 
 ## Critical Questions (From Pato)
 
@@ -219,7 +219,7 @@
 **If Discord shouldn't talk to Telegram:**
 - Set `"enabled": false`
 - OR remove entry entirely
-- Restart sidecar: `sudo systemctl restart openclaw-a2a`
+- Restart sidecar: `sudo systemctl restart clawbridge`
 
 **Future (Phase 2):**
 - Dynamic peer management via API

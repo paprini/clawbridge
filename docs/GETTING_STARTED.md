@@ -1,4 +1,4 @@
-# Getting Started — openclaw-a2a Development
+# Getting Started — clawbridge Development
 
 **Quick guide for contributors and external agents to set up development environment.**
 
@@ -22,8 +22,8 @@
 
 ### **Step 1: Clone the Repo**
 ```bash
-git clone https://github.com/paprini/openclaw-a2a.git
-cd openclaw-a2a
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
 ```
 
 ### **Step 2: Install Dependencies**
@@ -113,7 +113,7 @@ A2A_SHARED_TOKEN=a2a_dev_shared_token_456
 
 # Logging
 LOG_LEVEL=debug
-LOG_FILE=logs/openclaw-a2a.log
+LOG_FILE=logs/clawbridge.log
 
 # Development
 NODE_ENV=development
@@ -135,7 +135,7 @@ npm run dev
 
 **You should see:**
 ```
-[INFO] Starting openclaw-a2a v0.1.0
+[INFO] Starting clawbridge v0.1.0
 [INFO] A2A server listening on http://localhost:9100
 [INFO] Agent Card: http://localhost:9100/.well-known/agent-card
 [INFO] JSON-RPC endpoint: http://localhost:9100/a2a/jsonrpc
@@ -310,7 +310,7 @@ curl -X POST http://localhost:9100/a2a/call \
 
 ### **Build Image**
 ```bash
-docker build -t openclaw-a2a:dev .
+docker build -t clawbridge:dev .
 ```
 
 ### **Run Container (Host Network)**
@@ -318,7 +318,7 @@ docker build -t openclaw-a2a:dev .
 docker run --network host \
   -v $(pwd)/config:/config \
   -e A2A_PORT=9100 \
-  openclaw-a2a:dev
+  clawbridge:dev
 ```
 
 ### **Run Container (Bridge Network)**
@@ -326,7 +326,7 @@ docker run --network host \
 docker run -p 9100:9100 \
   -v $(pwd)/config:/config \
   -e A2A_PORT=9100 \
-  openclaw-a2a:dev
+  clawbridge:dev
 ```
 
 ### **Run with docker-compose**
@@ -372,7 +372,7 @@ LOG_LEVEL=debug npm run dev
 
 **Check logs:**
 ```bash
-tail -f logs/openclaw-a2a.log
+tail -f logs/clawbridge.log
 ```
 
 **Use Node.js debugger:**
@@ -439,7 +439,7 @@ npm install
 ## File Structure
 
 ```
-openclaw-a2a/
+clawbridge/
 ├── src/
 │   ├── server.js       # Main A2A server (Express + SDK)
 │   ├── client.js       # A2A client (outbound calls)
