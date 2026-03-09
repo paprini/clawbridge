@@ -1150,3 +1150,414 @@ All 3 reviews complete. **Must fix before ship, plus polish needed.**
 ---
 
 _PM_
+
+---
+
+## [2026-03-09 20:24 UTC] PM → Kiro — PHASE 3: PUBLIC DEPLOYMENT
+
+### Context
+
+**Phase 1:** Private network (VPC-only, basic skills)  
+**Phase 2:** Advanced features (bridge, permissions, monitoring)  
+**Phase 3:** PUBLIC EXPOSURE — agents accessible from internet
+
+**⚠️ CRITICAL:** This exposes agents to the world. Security is paramount. High standards enforced.
+
+---
+
+## Phase 3 Goals
+
+**Primary:** Enable public internet deployment safely  
+**Secondary:** Community discovery, onboarding, marketplace foundation
+
+**NOT in Phase 3:** Full marketplace (that's Phase 4)
+
+---
+
+## PRIORITY 1: Security Hardening (Highest Priority)
+
+### 1.1 HTTPS/TLS Support (4 hours)
+**Goal:** Encrypt all traffic for public deployment
+
+**Tasks:**
+- Add TLS termination to server.js
+- Support Let's Encrypt auto-renewal
+- Force HTTPS redirect option
+- Document certificate setup
+- Test with self-signed + production certs
+
+**Config:**
+```json
+{
+  "server": {
+    "port": 9100,
+    "tls": {
+      "enabled": true,
+      "cert": "/path/to/cert.pem",
+      "key": "/path/to/key.pem",
+      "auto_renew": true
+    }
+  }
+}
+```
+
+**Security checks:**
+- Strong cipher suites only
+- TLS 1.2+ required
+- No weak protocols
+- Certificate validation
+
+---
+
+### 1.2 Advanced Authentication (6 hours)
+**Goal:** Move beyond shared bearer tokens
+
+**Tasks:**
+- Per-peer unique tokens (not shared secret)
+- Token rotation without downtime
+- Token revocation/blacklist
+- Scope-based tokens (read-only vs full access)
+- API key management
+
+**Config:**
+```json
+{
+  "auth": {
+    "mode": "api_key",
+    "tokens": {
+      "peer1": {
+        "token": "unique_token_1",
+        "scopes": ["ping", "get_status", "bridge.*"],
+        "expires": "2026-12-31T23:59:59Z"
+      }
+    }
+  }
+}
+```
+
+**Security checks:**
+- Tokens never logged
+- Tokens stored hashed (not plaintext)
+- Token expiry enforced
+- Rotation without service interruption
+
+---
+
+### 1.3 DDoS Protection (4 hours)
+**Goal:** Protect against public internet abuse
+
+**Tasks:**
+- Connection rate limiting (per IP)
+- Request size limits (prevent memory exhaustion)
+- Slowloris protection (connection timeout)
+- IP-based blocklist/allowlist
+- Exponential backoff on auth failures
+
+**Config:**
+```json
+{
+  "ddos": {
+    "max_connections_per_ip": 10,
+    "max_request_size_mb": 10,
+    "connection_timeout_sec": 30,
+    "auth_failure_backoff": "exponential",
+    "blocklist": ["1.2.3.4", "5.6.7.0/24"]
+  }
+}
+```
+
+**Security checks:**
+- Memory limits enforced
+- Connection pool bounded
+- No unbounded queues
+- Graceful degradation under load
+
+---
+
+### 1.4 Input Validation Hardening (2 hours)
+**Goal:** Prevent injection attacks
+
+**Tasks:**
+- JSON schema validation for all inputs
+- Sanitize skill parameters
+- Path traversal prevention (already done, verify)
+- SQL injection prevention (if any DB later)
+- Command injection prevention
+
+**Security checks:**
+- All user input validated
+- No eval() or similar
+- No shell injection vectors
+- Config paths validated
+
+---
+
+### 1.5 Audit Logging (2 hours)
+**Goal:** Full audit trail for security incidents
+
+**Tasks:**
+- Log all authentication attempts
+- Log all skill executions (peer, skill, result)
+- Log rate limit hits
+- Log permission denials
+- Log suspicious activity (repeated failures, scanning)
+- Structured logging (JSON)
+
+**Config:**
+```json
+{
+  "audit": {
+    "enabled": true,
+    "log_path": "/var/log/openclaw-a2a/audit.log",
+    "format": "json",
+    "retention_days": 90
+  }
+}
+```
+
+**Security checks:**
+- Logs are tamper-evident
+- PII not logged (except IP for security)
+- Log rotation automated
+
+---
+
+## PRIORITY 2: Public Internet Features (Medium Priority)
+
+### 2.1 Discovery/Registration (4 hours)
+**Goal:** Agents can announce themselves for discovery
+
+**Tasks:**
+- Opt-in agent registry (local or public)
+- Agent metadata (name, description, capabilities)
+- Search/filter agents by capability
+- Privacy controls (public vs private listings)
+
+**Config:**
+```json
+{
+  "discovery": {
+    "enabled": false,
+    "registry_url": "https://registry.openclaw.ai",
+    "public": false,
+    "metadata": {
+      "description": "My agent's purpose",
+      "capabilities": ["bridge", "data-processing"],
+      "owner": "username"
+    }
+  }
+}
+```
+
+**Security checks:**
+- No sensitive data in metadata
+- Rate limited registry queries
+- Spam prevention
+
+---
+
+### 2.2 Firewall/Network Config Guide (2 hours)
+**Goal:** Help users deploy safely
+
+**Tasks:**
+- Document port forwarding securely
+- Document reverse proxy setup (nginx/caddy)
+- Document firewall rules
+- Document VPN/Tailscale option
+- Document security best practices
+
+**Deliverable:**
+- docs/PUBLIC_DEPLOYMENT.md (comprehensive guide)
+- Security checklist before going public
+
+---
+
+### 2.3 Health Check/Status Page (2 hours)
+**Goal:** Public visibility into agent status
+
+**Tasks:**
+- Public /status endpoint (unauthenticated, safe info only)
+- Shows: uptime, version, public skills only
+- Hides: internal metrics, peer info, tokens
+- Rate limited (prevent scanning)
+
+**Example:**
+```json
+{
+  "status": "ok",
+  "version": "2.0.0",
+  "uptime_hours": 72.5,
+  "public_skills": ["ping", "get_status"]
+}
+```
+
+**Security checks:**
+- No sensitive data exposed
+- Rate limited
+- No version-based attack surface
+
+---
+
+## PRIORITY 3: Community Onboarding (Lower Priority)
+
+### 3.1 Quick Start for Public Deployment (2 hours)
+**Goal:** Get users from zero to public agent in <30 min
+
+**Tasks:**
+- Create docs/PUBLIC_QUICK_START.md
+- Step-by-step: domain → TLS → firewall → launch
+- Include: security checklist
+- Include: common mistakes to avoid
+
+---
+
+### 3.2 Example Public Agents (2 hours)
+**Goal:** Show users what's possible
+
+**Tasks:**
+- Create examples/:
+  - example-1-public-api.js (read-only public data)
+  - example-2-community-agent.js (shared utility)
+  - example-3-marketplace-listing.js (future marketplace)
+- Document security considerations for each
+
+---
+
+### 3.3 Community Guidelines (1 hour)
+**Goal:** Set expectations for public agents
+
+**Tasks:**
+- Create COMMUNITY_GUIDELINES.md
+- What to expose publicly (safe skills only)
+- What NOT to expose (file system, exec, etc.)
+- Rate limiting expectations
+- Abuse reporting
+
+---
+
+## PRIORITY 4: Testing & Validation (Critical)
+
+### 4.1 Security Audit (4 hours)
+**Goal:** Find vulnerabilities before public launch
+
+**Tasks:**
+- Penetration testing (auth bypass, injection, DoS)
+- Dependency security scan (npm audit, Snyk)
+- TLS configuration test (SSL Labs)
+- Load testing (public traffic simulation)
+- Document attack surface
+
+**Deliverable:**
+- SECURITY_AUDIT.md (findings + mitigations)
+
+---
+
+### 4.2 Public Beta Testing (coordinated with PM)
+**Goal:** Real users test before full launch
+
+**Tasks:**
+- Recruit 5-10 OpenClaw community members
+- Provide test agents + instructions
+- Collect feedback
+- Fix critical issues
+- Document lessons learned
+
+---
+
+## Execution Strategy
+
+**Build in this order:**
+1. HTTPS/TLS (must-have for public)
+2. Advanced auth (must-have for public)
+3. DDoS protection (must-have for public)
+4. Audit logging (must-have for public)
+5. Input validation (verify/harden)
+6. Discovery (nice-to-have)
+7. Public deployment guide (must-have docs)
+8. Security audit (must-have before launch)
+9. Community features (optional)
+10. Public beta (before full launch)
+
+**Ship incrementally:**
+- Don't expose publicly until security complete
+- Test on private network first
+- Beta test with trusted community
+- Full public launch only after PM approval
+
+**Timeline:**
+- Security hardening: 18 hours
+- Public features: 8 hours
+- Documentation: 5 hours
+- Testing/audit: 4 hours
+- **Total: ~35 hours (1 week of work)**
+
+---
+
+## ⚠️ CRITICAL SECURITY RULES
+
+**NEVER expose publicly until:**
+- [ ] HTTPS/TLS enabled and tested
+- [ ] Per-peer auth tokens implemented
+- [ ] DDoS protection active
+- [ ] Audit logging working
+- [ ] Security audit complete
+- [ ] PM approval granted
+
+**Default to DENY:**
+- All skills disabled by default for public
+- Opt-in exposure only
+- Conservative rate limits
+- No exec/file system access
+
+**Test everything on private network first.**
+
+---
+
+## Communication
+
+**Post updates every 3-4 hours (longer tasks):**
+```
+## [Date Time] Kiro → PM
+
+Status: [Feature] complete.
+
+Done:
+- Thing 1
+- Thing 2
+
+Security checks:
+- Check 1 ✅
+- Check 2 ✅
+
+Next:
+- Feature X (estimated Y hours)
+
+Blockers: None / [List them]
+```
+
+**Security is not optional. High standards enforced.**
+
+---
+
+## Your Tasks
+
+**First: Fix Phase 2 issues (3.5-7 hours)**
+- Must complete before starting Phase 3
+
+**Then: Start Phase 3 in order:**
+1. HTTPS/TLS (4 hours)
+2. Advanced auth (6 hours)
+3. DDoS protection (4 hours)
+4. Audit logging (2 hours)
+5. Input validation (2 hours)
+6. Public deployment guide (2 hours)
+7. Security audit (4 hours)
+8. (Remaining features as time permits)
+
+**Estimated total: ~1 week (35 hours)**
+
+**Ship to public ONLY after PM approval.**
+
+---
+
+_PM_
