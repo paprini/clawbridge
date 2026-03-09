@@ -1,0 +1,1 @@
+{"peers": [{"id": "vps-agent", "url": "http://10.0.1.10:9100", "token": "REPLACE_WITH_SHARED_TOKEN"}]}

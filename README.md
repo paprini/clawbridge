@@ -8,6 +8,22 @@ No SSH. No manual file copying. Just: `code-reviewer@vps.review_pr()`
 
 ---
 
+## Quick Start
+
+```bash
+git clone https://github.com/paprini/openclaw-a2a.git
+cd openclaw-a2a
+npm install
+npm run setup        # Conversational setup (or: npm run setup:auto)
+npm run verify       # Check config is valid
+npm start            # Start the A2A server
+npm run ping         # Ping all configured peers
+```
+
+For the full guide: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
+
+---
+
 ## Before A2A → After A2A
 
 ### Before: Manual Coordination

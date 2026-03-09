@@ -7,6 +7,7 @@ const { callOpenClawTool, isBridgedTool, getBridgedTools } = require('./bridge')
 const { getRateLimiter } = require('./rate-limiter');
 const { getMetrics } = require('./metrics');
 const { validateString } = require('./validation');
+const { validateAdvancedToken, scopeAllowsSkill } = require('./token-manager');
 const logger = require('./logger');
 
 /**
@@ -25,6 +26,12 @@ class OpenClawExecutor {
    */
   async execute(context, eventBus) {
     const startTime = Date.now();
+
+    // Guard against missing message
+    if (!context.userMessage || !context.userMessage.parts) {
+      this._respond(eventBus, context, { error: 'Invalid request: missing message content' });
+      return;
+    }
 
     // Input validation
     const textCheck = validateString(this._extractText(context.userMessage) || '', 5000);
@@ -61,16 +68,20 @@ class OpenClawExecutor {
       if (!perm.allowed) {
         logger.warn(`Permission denied: ${perm.reason}`);
         getMetrics().recordDenied();
-        const response = {
-          kind: 'message',
-          messageId: crypto.randomUUID(),
-          role: 'agent',
-          parts: [{ kind: 'text', text: JSON.stringify({ error: perm.reason }) }],
-          contextId: context.contextId,
-        };
-        eventBus.publish(response);
-        eventBus.finished();
+        this._respond(eventBus, context, { error: perm.reason });
         return;
+      }
+
+      // Check token scopes (if advanced tokens configured)
+      const token = context.context?.user?._token;
+      if (token) {
+        const adv = validateAdvancedToken(token);
+        if (adv.valid && adv.scopes && !scopeAllowsSkill(adv.scopes, skillName)) {
+          logger.warn(`Scope denied: peer=${peer} skill=${skillName} scopes=${adv.scopes}`);
+          getMetrics().recordDenied();
+          this._respond(eventBus, context, { error: `Token scope does not allow skill "${skillName}"` });
+          return;
+        }
       }
     }
 
@@ -86,7 +97,7 @@ class OpenClawExecutor {
         const args = this._extractArgs(context.userMessage);
         result = await callOpenClawTool(toolName, args);
       } else {
-        result = { error: `Unknown skill or request. Available skills: ping, get_status` };
+        result = { error: 'Unknown skill. Run `npm run status` to see available skills.' };
       }
     } catch (err) {
       logger.error('Skill execution error', { error: err.message });

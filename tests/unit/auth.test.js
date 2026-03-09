@@ -1,12 +1,24 @@
 'use strict';
 
 const path = require('path');
-process.env.A2A_CONFIG_DIR = path.join(__dirname, '..', '..', 'config');
+const fs = require('fs');
+const os = require('os');
+
+const tmpDir = path.join(os.tmpdir(), `a2a-auth-test-${Date.now()}`);
+fs.mkdirSync(tmpDir, { recursive: true });
+fs.writeFileSync(path.join(tmpDir, 'peers.json'), JSON.stringify({
+  peers: [{ id: 'openclaw-test', url: 'http://localhost:9101', token: 'a2a_peer_beta_token_789' }],
+}));
+fs.writeFileSync(path.join(tmpDir, 'agent.json'), JSON.stringify({ id: 'test', name: 'test' }));
+fs.writeFileSync(path.join(tmpDir, 'skills.json'), JSON.stringify({ exposed_skills: [{ name: 'ping', public: true }] }));
+fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({ enabled: false }));
+process.env.A2A_CONFIG_DIR = tmpDir;
 process.env.A2A_SHARED_TOKEN = 'test_shared_token';
 
 const { validateToken, createUserBuilder } = require('../../src/auth');
 
 describe('Bearer Token Authentication', () => {
+  afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
   describe('validateToken', () => {
     test('returns peer ID for valid peer token', () => {
       const result = validateToken('a2a_peer_beta_token_789');

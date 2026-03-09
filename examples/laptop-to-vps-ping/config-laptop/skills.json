@@ -1,0 +1,1 @@
+{"exposed_skills": [{"name": "ping", "description": "Health check", "public": true}, {"name": "get_status", "description": "Agent status", "public": true}]}

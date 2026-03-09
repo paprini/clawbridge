@@ -73,7 +73,8 @@ function createUserBuilder() {
       return { get isAuthenticated() { return false; }, get userName() { return 'anonymous'; } };
     }
 
-    logger.info(`Authenticated peer: ${peerId}`);    return { get isAuthenticated() { return true; }, get userName() { return peerId; } };
+    logger.info(`Authenticated peer: ${peerId}`);
+    return { get isAuthenticated() { return true; }, get userName() { return peerId; }, _token: token };
   };
 }
 
@@ -81,6 +82,15 @@ function createUserBuilder() {
 const _authFailures = {};
 const AUTH_FAIL_LIMIT = 10;
 const AUTH_FAIL_WINDOW = 60000; // 1 minute
+
+// Periodic cleanup of old auth failure entries
+setInterval(() => {
+  const now = Date.now();
+  for (const ip of Object.keys(_authFailures)) {
+    _authFailures[ip].timestamps = _authFailures[ip].timestamps.filter(t => now - t < AUTH_FAIL_WINDOW);
+    if (_authFailures[ip].timestamps.length === 0) delete _authFailures[ip];
+  }
+}, AUTH_FAIL_WINDOW).unref();
 
 function isRateLimited(ip) {
   const now = Date.now();
@@ -112,7 +122,7 @@ function requireAuth(req, res, next) {
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     recordAuthFailure(ip);
-    return res.status(401).json({ error: 'Missing or invalid Authorization header' });
+    return res.status(401).json({ error: 'Missing or invalid Authorization header. Include: Authorization: Bearer <your-token>' });
   }
 
   const token = authHeader.slice(7);
@@ -121,7 +131,7 @@ function requireAuth(req, res, next) {
   if (!peerId) {
     recordAuthFailure(ip);
     logger.warn(`Rejected token: ${token.slice(0, 8)}...`);
-    return res.status(403).json({ error: 'Invalid bearer token' });
+    return res.status(403).json({ error: 'Invalid bearer token. Check your token matches the peer config. See: docs/TROUBLESHOOTING.md' });
   }
 
   req.peerId = peerId;

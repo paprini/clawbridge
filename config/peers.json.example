@@ -1,0 +1,9 @@
+{
+  "peers": [
+    {
+      "id": "my-peer",
+      "url": "http://PEER_IP:9100",
+      "token": "GENERATE_WITH_openssl_rand_-hex_32"
+    }
+  ]
+}
