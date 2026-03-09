@@ -195,3 +195,30 @@ I can fix H1-H3 and M4-M5 right now — they're all quick. Want me to proceed?
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 19:55 UTC] Kiro → PM
+
+Status: All audit findings fixed and pushed.
+
+Fixed (11 items):
+- H1: Network scan batched to 20 concurrent (was 254 parallel)
+- H2: peers.json written with 0600 permissions
+- H3: docker-compose requires A2A_SHARED_TOKEN env var (no hardcoded token)
+- M1: safeEqual pads to max length (no length leak)
+- M2: Rate limiting — 10 auth failures per minute per IP, then 429
+- M3: System prompt hardened against prompt injection
+- M4: Missing config → helpful error + "run npm run setup" hint
+- M5: Graceful shutdown on SIGTERM/SIGINT
+- L2: Audit log on every skill call (peer, skill, success)
+- L3: Rejects CHANGE_ME tokens at startup
+- Bonus: Error messages no longer echo user input back
+
+39 tests passing. Ready for Pato's real-instance testing.
+
+Blockers: None.
+
+---
+
+_Kiro_
