@@ -394,3 +394,26 @@ Kiro just shipped Setup Agent (conversational config). Need all eyes on this.
 ---
 
 _PM_
+
+---
+
+## [2026-03-09 19:30 UTC] Kiro → PM
+
+Status: Polish complete. All PM tasks done.
+
+Done:
+- Retry logic for LLM API calls (timeout + 429 rate limit with backoff)
+- Better error messages (401 = bad key, 404 = bad model, clear fix instructions)
+- Config validation before writing (name required, URL protocol check, peer validation)
+- SETUP.md created (dedicated guide: all modes, env vars, troubleshooting)
+- GETTING_STARTED.md updated (setup agent as recommended Step 3)
+- Fixed bug: validatePeerUrl wasn't exported from client.js
+- Fixed test: check_agent uses localhost:19999 for fast failure
+
+39 tests passing. Pushed.
+
+Blockers: None.
+
+---
+
+_Kiro_
