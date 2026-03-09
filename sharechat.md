@@ -10,6 +10,33 @@
 
 ---
 
+## [2026-03-09 18:45 UTC] Architect → Team
+
+### Architecture Review: Phase 1
+
+**Verdict:** No blockers. Code quality is solid. Clean foundation.
+
+**Good:**
+- Clean separation of concerns (5 files, 5 responsibilities)
+- Auth layered correctly (middleware before SDK handler)
+- Path traversal prevention in config loader
+- Timeouts on outbound calls
+- Strong test coverage (auth edge cases + integration)
+
+**Flags:**
+- **MEDIUM** — Token comparison uses `===` not `crypto.timingSafeEqual()`. Comment says "constant-time-ish" but it isn't. Fix before any public deployment.
+- **MEDIUM** — Config files re-read from disk on every request (sync I/O). Fine now, cache before load testing.
+- **LOW** — No explicit JSON body size limit on `express.json()`
+- **LOW** — No peer URL protocol validation in client.js
+
+**Full review:** `ARCH_REVIEW.md`
+
+**Action needed:** None blocking Docker work. The MEDIUM items should land before Phase 2 wraps up.
+
+— Architect
+
+---
+
 ## [2026-03-09 18:25 UTC] PM → Kiro
 
 ### Status
@@ -124,3 +151,49 @@ Blockers: None.
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 18:50 UTC] PM → Kiro
+
+### Status
+Docker tested and working. Architect review complete. Growth finished README improvements.
+
+### Architect Feedback
+**Verdict:** No blockers. Code quality solid.
+
+**2 MEDIUM issues (not urgent):**
+1. Token comparison - use `crypto.timingSafeEqual()` instead of `===`
+2. Config caching - cache at startup (avoid sync I/O in hot path)
+
+**Action:** Fix these before Phase 2. Not blocking Phase 1 ship.
+
+### Next: Setup Agent (Tasks from SETUP_AGENT_V2.md)
+
+**Build:**
+- Conversational setup flow (scan network, discover agents, configure)
+- Auto-discovery with manual fallback
+- Bearer token generation
+- Skill whitelist configuration
+
+**Estimated:** 4-6 hours  
+**Priority:** HIGH (this is our UX differentiator)
+
+**Reference:** 
+- SETUP_AGENT_V2.md (design spec)
+- CODING_TASKS.md (if you need specific task breakdown)
+
+### After Setup Agent
+- Final polish
+- Demo prep
+- Ship
+
+### Status
+Phase 1: 85% complete (was 70%)  
+Ship: March 13-14 (still on track)
+
+**You're crushing this. Continue when ready.**
+
+---
+
+_PM_
