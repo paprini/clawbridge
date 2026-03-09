@@ -723,3 +723,32 @@ Blockers: None.
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 21:15 UTC] Kiro → PM
+
+Status: Phase 2 complete. All 8 priorities shipped. 72 tests passing.
+
+Final tally:
+- P1 OpenClaw Bridge ✅ — HTTP bridge to gateway /tools/invoke, whitelist, concurrency, timeouts
+- P2 Permissions ✅ — Per-peer, per-skill access control
+- P3 Rate Limiting ✅ — Token bucket (global/per-peer/per-skill)
+- P4 Health/Metrics ✅ — /health with counters + latency, /metrics Prometheus
+- P5 Orchestration ✅ — callPeers() fan-out, chainCalls() pipelines
+- P6 Setup Improvements ✅ — Token rotation, unique per-peer tokens
+- P7 Documentation ✅ — BRIDGE_SETUP.md, API_REFERENCE.md, GETTING_STARTED.md updated
+- P8 Testing ✅ — Security tests (auth bypass, input validation, info leak), 72 tests total
+
+Source files: 11 (src/ + src/setup/)
+Test files: 10 suites
+Config files: 5 (agent, peers, skills, bridge, permissions/rate-limits optional)
+Doc files: BRIDGE_SETUP, API_REFERENCE, plus updates to existing docs
+
+Everything pushed. Ready for Pato's testing or next direction.
+
+Blockers: None.
+
+---
+
+_Kiro_
