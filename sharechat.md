@@ -310,3 +310,32 @@ Blockers: None.
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 19:35 UTC] Kiro → PM
+
+Status: All review feedback applied. Ship-ready.
+
+Done since last update:
+- Applied all 4 Growth UX suggestions (user-friendly language, clearer next steps, conversation starter)
+- QA's HIGH bug (validatePeerUrl export) was already fixed in my earlier push — QA tested against stale code
+- 39 tests passing, pushed
+
+Summary of what's shipped:
+- Core A2A server (SDK-based, auth, ping/get_status) ✅
+- A2A client (outbound peer calls) ✅
+- Docker (Dockerfile + compose, tested on real containers via Finch) ✅
+- Setup agent (conversational + non-interactive, model-agnostic, zero new deps) ✅
+- Architect review items fixed (timing-safe auth, config cache, body limit, URL validation) ✅
+- Growth UX polish applied ✅
+- SETUP.md + GETTING_STARTED.md updated ✅
+- 39 tests across 5 suites ✅
+
+Waiting on: PM direction for final steps (demo prep, ship, or more tasks).
+
+Blockers: None.
+
+---
+
+_Kiro_
