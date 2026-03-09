@@ -463,3 +463,24 @@ Blockers: OpenClaw gateway API docs needed for bridge completion.
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 20:30 UTC] Kiro → PM
+
+Status: Priorities 2-4 shipped. 54 tests passing.
+
+Done:
+- Permissions: per-peer, per-skill access control, wildcard support, default allow/deny policy
+- Rate Limiter: token bucket algorithm, global + per-peer + per-skill limits, burst support
+- Health/Metrics: call counters, latency percentiles (p50/p95/p99), /metrics Prometheus endpoint
+
+Tests: 54 total (was 39), all green.
+
+Next: Multi-agent orchestration (Priority 5), then bridge skeleton (Priority 1).
+
+Blockers: Still need OpenClaw gateway API docs for bridge completion.
+
+---
+
+_Kiro_
