@@ -875,7 +875,7 @@ Metrics exposed:
 Structured JSON logs to stdout:
 
 ```bash
-journalctl -u openclaw-a2a -f
+journalctl -u clawbridge -f
 ```
 
 Example log entry:
@@ -988,10 +988,10 @@ your-agent.example.com {
 ### systemd Service
 
 ```bash
-sudo cp deploy/openclaw-a2a.service /etc/systemd/system/
+sudo cp deploy/clawbridge.service /etc/systemd/system/
 sudo systemctl daemon-reload
-sudo systemctl enable openclaw-a2a
-sudo systemctl start openclaw-a2a
+sudo systemctl enable clawbridge
+sudo systemctl start clawbridge
 ```
 
 ### Docker (Alternative)
