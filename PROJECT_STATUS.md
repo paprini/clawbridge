@@ -1,14 +1,16 @@
 # Project Status — openclaw-a2a
 
-**Last Updated:** 2026-03-09 17:40 UTC
+**Last Updated:** 2026-03-09 18:00 UTC
 
 ---
 
 ## Current Phase
 
 **Phase 1: Private Agent Network**  
-**Timeline:** 10-15 days (started March 9, 2026)  
-**Target Completion:** March 19-24, 2026
+**Timeline:** 10 days (started March 9, 2026)  
+**Target Completion:** March 19, 2026
+
+**Status:** Coding tasks ready. External agent can start immediately.
 
 ---
 
@@ -32,6 +34,11 @@
 - [x] Agent Card schema defined ([AGENT_CARD_SCHEMA.md](AGENT_CARD_SCHEMA.md))
 - [x] Implementation plan created ([PHASE_1_PLAN.md](PHASE_1_PLAN.md))
 - [x] No blockers identified
+- [x] Opus agent feedback received (1M context, comprehensive)
+- [x] Critical bugs fixed (package.json SDK name)
+- [x] Coding tasks created ([CODING_TASKS.md](CODING_TASKS.md) — 7 days of work)
+- [x] Marketplace language separated ([FUTURE_VISION.md](FUTURE_VISION.md))
+- [x] Docs consolidated (removed redundancies)
 
 ### **Repository Setup (Complete)**
 - [x] GitHub repo created (https://github.com/paprini/openclaw-a2a)
