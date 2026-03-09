@@ -107,7 +107,9 @@ async function runNonInteractive() {
     console.log(result.success ? '✅ connected' : `❌ ${result.error}`);
   }
 
-  console.log('\nDone. Run `node src/server.js` to start your A2A agent.');
+  console.log('\n✅ Setup complete!\n');
+  console.log('Next step: Start your agent');
+  console.log('  node src/server.js\n');
   prompt.close();
 }
 
@@ -121,6 +123,7 @@ async function runConversational() {
   console.log(`   Model: ${model}`);
   console.log(`   API: ${baseUrl}`);
   console.log('   Type "exit" to quit\n');
+  console.log('Starting setup conversation...\n');
 
   const prompt = createPrompt();
 
@@ -152,8 +155,8 @@ async function main() {
   } else {
     const hasModel = flags.model || process.env.OPENAI_API_KEY || process.env.OPENAI_BASE_URL;
     if (!hasModel) {
-      console.log('No LLM configured. Set OPENAI_API_KEY/OPENAI_BASE_URL or use --model.');
-      console.log('Falling back to non-interactive mode.\n');
+      console.log('No AI model configured. Set OPENAI_API_KEY and OPENAI_BASE_URL (or use --model).');
+      console.log('This enables conversational setup. Falling back to manual setup...\n');
       await runNonInteractive();
     } else {
       await runConversational();

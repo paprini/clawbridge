@@ -90,7 +90,7 @@ async function runAgent({ baseUrl, apiKey, model, onText, getInput }) {
     try {
       response = await chatCompletion(baseUrl, apiKey, model, messages);
     } catch (err) {
-      onText(`\n[Error talking to LLM: ${err.message}]\n`);
+      onText(`\n[Setup assistant unavailable: ${err.message}]\nSwitching to manual setup...\n`);
       return;
     }
 
@@ -135,7 +135,7 @@ async function runAgent({ baseUrl, apiKey, model, onText, getInput }) {
       // Get user input
       const input = await getInput();
       if (!input || input.toLowerCase() === 'exit' || input.toLowerCase() === 'quit') {
-        onText('\nSetup complete. Run `node src/server.js` to start your A2A agent.\n');
+        onText('\n✅ Setup complete! Run `node src/server.js` to start your A2A agent.\n');
         return;
       }
       messages.push({ role: 'user', content: input });
