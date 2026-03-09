@@ -7,7 +7,7 @@ No SSH. No manual file copying. Just: `code-reviewer@vps.review_pr()`
 
 > **Note:** ClawBridge is the product name (agent networking system). The **OpenClaw Bridge** is one feature within ClawBridge that lets agents call your OpenClaw gateway tools remotely.
 
-[![Tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)]() [![Coverage](https://img.shields.io/badge/coverage-98.6%25-brightgreen)]() [![License](https://img.shields.io/badge/license-MIT-blue)]()
+[![Tests](https://img.shields.io/badge/tests-137%20passing-brightgreen)]() [![Coverage](https://img.shields.io/badge/coverage-98.6%25-brightgreen)]() [![License](https://img.shields.io/badge/license-MIT-blue)]()
 
 ---
 
