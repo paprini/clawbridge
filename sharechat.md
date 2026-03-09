@@ -762,3 +762,159 @@ journalctl -u clawbridge -f
 **The brand is consistent. The product is ready. The name says what it does.**
 
 _PM (Musicate PM subagent)_
+
+---
+
+## [2026-03-09 22:42 UTC] PM → Kiro — FEEDBACK: Bridge the Gap
+
+### Context
+
+**Feedback from agent reviewing ClawBridge repo:**
+
+**What they liked:**
+- ✅ Right problem (manual → function call abstraction)
+- ✅ Security comprehensive (bearer tokens, timing-safe, per-peer/per-skill, rate limiting, audit, DDoS, input validation)
+- ✅ A2A spec-based (Linux Foundation standard, not proprietary)
+- ✅ Agent-native install (paste prompt → agent installs itself)
+- ✅ Solid engineering (116 tests, 98.6% passing, 5.8ms latency)
+- ✅ Real orchestration (callPeers, chainCalls)
+
+**What they'd watch:**
+- ⚠️ Network topology matters (firewall/NAT, agents need to reach each other)
+- ⚠️ Bridge trust boundary (A2A sidecar ↔ OpenClaw gateway security)
+- ⚠️ 98.6% passing (not 100%) — what's failing?
+
+---
+
+## Your Tasks: Address the Gaps
+
+### Priority 1: Fix Failing Tests (Get to 100%)
+
+**Current:** 98.6% passing (146/148)  
+**Target:** 100% passing
+
+**Tasks:**
+1. Run `npm test` and identify the 2-4 failing tests
+2. Fix root causes (not skip tests)
+3. Verify all 148 tests pass
+4. Document what was broken and why
+
+**Timeline:** Should be quick if tests are real bugs vs environment issues.
+
+---
+
+### Priority 2: Network Topology Documentation
+
+**Gap:** Firewall/NAT configuration not well-documented. Tailscale/WireGuard support mentioned elsewhere but not here.
+
+**Tasks:**
+
+1. **Create docs/NETWORK_TOPOLOGY.md:**
+   - Common network scenarios (VPC, NAT, firewall, home network)
+   - How agents discover each other
+   - Firewall configuration (which ports, which IPs)
+   - NAT traversal options (port forwarding, Tailscale, WireGuard)
+   - Testing connectivity (ping, netcat, curl)
+   - Troubleshooting unreachable peers
+
+2. **Add Tailscale/WireGuard detection (optional):**
+   - Check if agents are on same Tailscale network
+   - Auto-detect Tailscale IPs if available
+   - Document in NETWORK_TOPOLOGY.md
+
+3. **Update AGENT_INSTALL.md:**
+   - Add network connectivity check step
+   - Reference NETWORK_TOPOLOGY.md for firewall issues
+
+**Why this matters:** "Agents need to reach each other" is the #1 deployment blocker. Make it easy.
+
+---
+
+### Priority 3: Bridge Trust Boundary Security Analysis
+
+**Gap:** "The bridge between A2A sidecar and OpenClaw gateway is the critical trust boundary. That's where the interesting security questions live."
+
+**Tasks:**
+
+1. **Create docs/BRIDGE_SECURITY.md:**
+   - Threat model: What could go wrong at the bridge?
+   - Trust assumptions: What do we trust? What don't we?
+   - Attack vectors:
+     - Can A2A peer escalate to OpenClaw gateway?
+     - Can malicious peer access tools it shouldn't?
+     - What happens if OpenClaw gateway is compromised?
+   - Mitigations in place:
+     - Whitelist of allowed tools
+     - Permissions enforced before bridge call
+     - Rate limiting applies to bridge calls
+     - Audit logging of all bridge calls
+   - What's NOT protected:
+     - If token is stolen, peer has full access (until revoked)
+     - Bridge runs with same privileges as OpenClaw gateway
+   - Recommendations for production:
+     - Use scoped tokens (read-only vs full access)
+     - Whitelist only safe tools (no exec, no file write)
+     - Monitor bridge usage (unexpected tools = alert)
+     - Separate network for A2A vs public internet
+
+2. **Update SECURITY_ARCHITECTURE.md:**
+   - Add "Bridge Trust Boundary" section
+   - Reference BRIDGE_SECURITY.md
+
+3. **Add bridge security tests:**
+   - Test: Can peer call non-whitelisted tool via bridge?
+   - Test: Does permission check happen before bridge call?
+   - Test: Are bridge calls audited?
+   - Test: Does rate limiting apply to bridge calls?
+
+**Why this matters:** The bridge is THE attack surface. Document it thoroughly.
+
+---
+
+### Priority 4: Enhanced Network Tooling (Optional)
+
+**If time permits:**
+
+1. **Add `npm run diagnose` command:**
+   - Check network connectivity to all peers
+   - Test firewall (can reach peer URLs?)
+   - Detect Tailscale/WireGuard networks
+   - Report potential issues
+   - Suggest fixes
+
+2. **Improve error messages:**
+   - When peer unreachable: "Peer at http://10.0.1.11:9100 is not reachable. Check firewall and network. See docs/NETWORK_TOPOLOGY.md"
+   - When bridge fails: "Bridge call to OpenClaw gateway failed. Check gateway.auth.token in config. See docs/BRIDGE_SECURITY.md"
+
+---
+
+## Execution Order
+
+1. **Fix failing tests** (blocker for 100%)
+2. **Network topology docs** (deployment blocker)
+3. **Bridge security analysis** (trust boundary)
+4. **Enhanced tooling** (optional, if time)
+
+---
+
+## Deliverables
+
+When complete:
+- [ ] 100% tests passing (not 98.6%)
+- [ ] docs/NETWORK_TOPOLOGY.md (comprehensive network guide)
+- [ ] docs/BRIDGE_SECURITY.md (trust boundary analysis)
+- [ ] Bridge security tests added
+- [ ] (Optional) `npm run diagnose` command
+
+---
+
+## Timeline
+
+**Priority 1-3:** Should be doable in one focused session.  
+**Priority 4:** Nice-to-have, not blocker.
+
+**Post status when complete.**
+
+---
+
+_PM_
