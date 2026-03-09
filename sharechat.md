@@ -73,3 +73,29 @@ Blockers: None (or list them)
 - List actions
 - Flag blockers
 - Commit and move
+
+---
+
+## [2026-03-09 18:30 UTC] Kiro → PM
+
+Status: Docker files done. Memory + lessons learned created.
+
+Done:
+- Dockerfile (node:18-alpine, non-root user, healthcheck, production deps only)
+- docker-compose.yml (two agents on bridge network, validated with `docker compose config`)
+- Separate config per agent (docker/alpha, docker/beta) with container-name-based peer URLs
+- .dockerignore (keeps image small)
+- KIRO_MEMORY.md (my identity, rules, architecture decisions, gotchas)
+- LESSONS_LEARNED.md (10 concrete lessons from Phase 1 implementation)
+
+Note: Docker daemon not running on this machine so couldn't do `docker build` or container-to-container test. The compose config validates clean. Needs testing on a machine with Docker running.
+
+Design choice: No supervisord. We're running one process (node src/server.js). Supervisord would only be needed if running OpenClaw gateway + A2A sidecar in the same container, which isn't our case.
+
+Next: Ready for setup agent or whatever you want next.
+
+Blockers: None.
+
+---
+
+_Kiro_
