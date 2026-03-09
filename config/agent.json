@@ -1,0 +1,7 @@
+{
+  "id": "openclaw-dev",
+  "name": "OpenClaw Development Agent",
+  "description": "Local development A2A agent",
+  "url": "http://localhost:9100/a2a",
+  "version": "0.1.0"
+}

@@ -1,0 +1,10 @@
+{
+  "peers": [
+    {
+      "id": "openclaw-test",
+      "url": "http://localhost:9101",
+      "token": "a2a_peer_beta_token_789",
+      "description": "Test peer for local development"
+    }
+  ]
+}

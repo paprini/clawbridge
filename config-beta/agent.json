@@ -1,0 +1,7 @@
+{
+  "id": "openclaw-beta",
+  "name": "OpenClaw Beta Agent",
+  "description": "Second test A2A agent",
+  "url": "http://localhost:9101/a2a",
+  "version": "0.1.0"
+}
