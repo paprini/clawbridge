@@ -4,6 +4,15 @@
 
 ---
 
+## 🚀 Quick Links
+
+- **Want to help?** → [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Want to develop?** → [GETTING_STARTED.md](GETTING_STARTED.md)
+- **What's the status?** → [PROJECT_STATUS.md](PROJECT_STATUS.md)
+- **How does it work?** → [PHASE_1_PLAN.md](PHASE_1_PLAN.md)
+
+---
+
 ## What You Can Do
 
 ### 1. **Connect Your Own Instances**
