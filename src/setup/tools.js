@@ -74,6 +74,35 @@ function generateToken() {
 }
 
 /**
+ * Rotate token for a specific peer. Updates peers.json in place.
+ * @param {string} peerId
+ * @returns {{ peerId: string, newToken: string }}
+ */
+function rotatePeerToken(peerId) {
+  const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', '..', 'config');
+  const peersPath = path.join(configDir, 'peers.json');
+
+  if (!fs.existsSync(peersPath)) {
+    return { error: 'No peers.json found' };
+  }
+
+  const data = JSON.parse(fs.readFileSync(peersPath, 'utf8'));
+  const peer = (data.peers || []).find(p => p.id === peerId);
+
+  if (!peer) {
+    return { error: `Peer "${peerId}" not found` };
+  }
+
+  const newToken = generateToken();
+  peer.token = newToken;
+
+  fs.writeFileSync(peersPath, JSON.stringify(data, null, 2) + '\n');
+  try { fs.chmodSync(peersPath, 0o600); } catch { /* Windows */ }
+
+  return { peerId, newToken, note: 'Update this token on the peer side too' };
+}
+
+/**
  * Read existing config if present.
  */
 function getCurrentConfig() {
@@ -150,7 +179,7 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
     peers: (peers || []).map(p => ({
       id: p.id || p.name,
       url: p.url,
-      token: p.token || token,
+      token: p.token || generateToken(), // unique token per peer
     })),
   };
   fs.writeFileSync(path.join(configDir, 'peers.json'), JSON.stringify(peersData, null, 2) + '\n');
@@ -285,6 +314,18 @@ const TOOL_DEFINITIONS = [
       },
     },
   },
+  {
+    type: 'function',
+    function: {
+      name: 'rotate_peer_token',
+      description: 'Generate a new token for a specific peer. The old token stops working. The user must update the token on the peer side too.',
+      parameters: {
+        type: 'object',
+        properties: { peerId: { type: 'string', description: 'Peer ID to rotate token for' } },
+        required: ['peerId'],
+      },
+    },
+  },
 ];
 
 /**
@@ -312,9 +353,11 @@ async function executeTool(name, args) {
       return writeConfig(args);
     case 'test_connection':
       return testConnection(args.peerUrl, args.token);
+    case 'rotate_peer_token':
+      return rotatePeerToken(args.peerId);
     default:
       return { error: `Unknown tool: ${name}` };
   }
 }
 
-module.exports = { TOOL_DEFINITIONS, executeTool, getLocalSubnet, scanNetwork, checkAgent, generateToken, getCurrentConfig, writeConfig, testConnection };
+module.exports = { TOOL_DEFINITIONS, executeTool, getLocalSubnet, scanNetwork, checkAgent, generateToken, rotatePeerToken, getCurrentConfig, writeConfig, testConnection };

@@ -508,3 +508,19 @@ openclaw-a2a/
 ---
 
 **Ready to build? Let's go!** 🚀
+
+
+---
+
+## Phase 2 Features
+
+Phase 2 adds production-grade features on top of the core A2A server:
+
+- **OpenClaw Bridge** — Call OpenClaw gateway tools from remote peers. See [BRIDGE_SETUP.md](BRIDGE_SETUP.md).
+- **Permissions** — Per-peer, per-skill access control via `config/permissions.json`.
+- **Rate Limiting** — Token bucket rate limiter (global, per-peer, per-skill) via `config/rate-limits.json`.
+- **Health Monitoring** — `/health` with call counters and latency percentiles. `/metrics` in Prometheus format.
+- **Multi-Agent Orchestration** — `callPeers()` for fan-out, `chainCalls()` for pipelines.
+- **Token Rotation** — Rotate peer tokens via setup agent.
+
+See [API_REFERENCE.md](API_REFERENCE.md) for full details.

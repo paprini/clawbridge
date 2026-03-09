@@ -119,5 +119,21 @@ describe('Setup Tools', () => {
       const result = await executeTool('check_agent', { host: '127.0.0.1', port: 19999 });
       expect(result.online).toBe(false);
     });
+
+    test('rotate_peer_token rotates token', async () => {
+      // First write a config with a peer
+      const { writeConfig } = require('../../src/setup/tools');
+      writeConfig({ agentName: 'rotate-test', peers: [{ id: 'peer-rotate', url: 'http://10.0.0.1:9100', token: 'old_token' }], token: 'shared' });
+
+      const result = await executeTool('rotate_peer_token', { peerId: 'peer-rotate' });
+      expect(result.peerId).toBe('peer-rotate');
+      expect(result.newToken).toHaveLength(64);
+      expect(result.newToken).not.toBe('old_token');
+    });
+
+    test('rotate_peer_token fails for unknown peer', async () => {
+      const result = await executeTool('rotate_peer_token', { peerId: 'nonexistent' });
+      expect(result.error).toContain('not found');
+    });
   });
 });
