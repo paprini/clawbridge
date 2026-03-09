@@ -10,7 +10,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "lint": "eslint src/",
-    "setup": "./scripts/setup.sh"
+    "setup": "node src/setup/cli.js",
+    "setup:auto": "node src/setup/cli.js --non-interactive"
   },
   "keywords": [
     "a2a",
