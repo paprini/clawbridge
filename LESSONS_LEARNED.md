@@ -71,3 +71,16 @@ Running two actual server instances on different ports caught the token mismatch
 ---
 
 _These lessons apply to future phases and any contributor joining the project._
+
+
+## 11. Alpine Linux: use 127.0.0.1, not localhost
+
+In Alpine-based Docker images, `localhost` doesn't always resolve. The healthcheck `wget --spider http://localhost:9100/health` fails with "can't connect to remote host" while `http://127.0.0.1:9100/health` works fine. Always use the IP in container healthchecks.
+
+## 12. Don't ship untested Docker files
+
+The initial Docker commit said "docker compose config validates successfully" and "Docker daemon not available for build test." That's not good enough. Config validation checks YAML syntax, not whether the image builds, the app starts, or containers can talk to each other. We caught a real bug (the localhost healthcheck issue) only by actually running the containers. No assumptions — test it for real.
+
+## 13. Finch is a drop-in Docker replacement
+
+When Docker Desktop requires corporate SSO and you can't authenticate, Finch (`brew install --cask finch`) works as a drop-in replacement. Same Dockerfile, same docker-compose.yml, just `finch` instead of `docker`. Uses nerdctl + containerd under the hood. `finch vm init` takes ~60 seconds, then you're building and running containers.

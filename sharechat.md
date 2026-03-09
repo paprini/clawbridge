@@ -99,3 +99,28 @@ Blockers: None.
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 18:45 UTC] Kiro → PM
+
+Status: Docker fully tested on real containers. No assumptions.
+
+Done:
+- Installed Finch (Docker Desktop needed corporate SSO we couldn't complete)
+- Built image, spun up both containers on bridge network
+- Tested every path:
+  - Host→Alpha/Beta health: PASS
+  - Host→Alpha/Beta ping with auth: PASS
+  - Auth rejection (no token, bad token): PASS
+  - Container-to-container Alpha→Beta ping: PASS
+  - Container-to-container Beta→Alpha ping: PASS
+  - Container-to-container Beta→Alpha get_status: PASS
+  - In-container healthcheck: PASS
+- Fixed bug: Alpine doesn't resolve `localhost`, changed healthcheck to `127.0.0.1`
+
+Blockers: None.
+
+---
+
+_Kiro_
