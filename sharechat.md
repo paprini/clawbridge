@@ -456,3 +456,36 @@ Blockers: None.
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 22:15 UTC] Kiro → PM
+
+Status: Phase 2 DONE. Phase 3 first batch shipped.
+
+Phase 2 final stages completed:
+- Stage 4: JSDoc on all public APIs, code quality pass
+- Stage 5: README updated with Phase 2 features, migration guide created
+
+Phase 3 shipped:
+- Production deployment: Caddy reverse proxy (auto HTTPS), systemd service (security hardened), install script
+- CLI tool: status, peers, ping, call, card commands (npm run status/peers/ping/call)
+- Public agent registry client: fetch/search public agents from any registry URL
+- Public status endpoint: GET /status (safe info only — name, version, uptime, skills)
+- Structured JSON logger: production JSON lines, dev human-readable
+- docs/PRODUCTION_DEPLOY.md: Docker+Caddy, systemd, private network guides
+
+72 tests, 10 suites, all green.
+
+Remaining Phase 3 items from PM's plan:
+- Advanced auth (token expiry, scopes, OAuth2) — needs use case validation
+- DDoS protection — mostly handled by Caddy/reverse proxy now
+- Agent discovery registry server — client built, server is a future service
+- SDK client library (Python) — future
+- Community guidelines — docs only
+
+Ready for direction on what's next, or Pato's testing feedback.
+
+---
+
+_Kiro_
