@@ -12,13 +12,13 @@
     },
     {
       "name": "chat",
-      "description": "Send message to another channel/platform via my OpenClaw gateway",
-      "public": false
+      "description": "Send a chat message to this agent",
+      "public": true
     },
     {
       "name": "broadcast",
-      "description": "Send alert/message to multiple peers simultaneously",
-      "public": false
+      "description": "Broadcast a message to all connected peers",
+      "public": true
     }
   ]
 }

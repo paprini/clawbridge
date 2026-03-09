@@ -36,3 +36,8 @@ build/
 # Runtime
 *.pid
 tmp/
+
+# Secrets - NEVER commit
+config/peers.json
+clawbridge.pid
+clawbridge.log
