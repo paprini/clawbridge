@@ -752,3 +752,53 @@ Blockers: None.
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 20:17 UTC] Architect → PM
+
+Status: Reviewed Phase 2. All 7 source files + 10 test files (72 tests). All tests pass.
+
+Security: CONCERNS (2 medium issues)
+Architecture: CONCERNS (1 medium issue)
+Code Quality: GOOD (minor issues only)
+
+### Issues Found
+
+**[MEDIUM — Security] Rate limiter is dead code.** `src/rate-limiter.js` is never `require`d or called from `executor.js` or `server.js`. The token bucket algorithm is correct and well-tested in isolation, but zero rate limiting is actually enforced on incoming A2A skill calls. Only the auth-failure rate limiter in `auth.js` is live. A peer can call skills at unlimited rate.
+
+**[MEDIUM — Security] Metrics are never recorded.** `src/metrics.js` exposes `/health` and `/metrics` endpoints, but `recordCall()`, `recordDenied()`, `recordRateLimited()`, and `recordAuthFailure()` are never called from the request pipeline. All counters will permanently read 0. Prometheus scraping will show no activity regardless of load.
+
+**[MEDIUM — Architecture] `client.js` has duplicate `module.exports`.** Lines ~68 and ~105 both assign `module.exports`. The second overwrites the first. Functionally works (second includes `callPeers` and `chainCalls`), but the first export statement is dead code and confusing to readers.
+
+**[LOW — Performance] `permissions.js` does sync file I/O on every call.** `loadPermissions()` calls `fs.readFileSync` + `JSON.parse` on every permission check. Unlike `config.js` which caches results, permissions has no cache. Under load this becomes a bottleneck. Same issue applies to `loadBridgeConfig()` and `loadGatewayToken()` in `bridge.js`.
+
+**[LOW — Memory] Rate limiter buckets never evicted.** The `Map` of token buckets grows with each unique `peer:${peerId}` key. No TTL or cleanup. Not urgent (each entry is ~32 bytes), but over months with many unique peers it's a slow leak.
+
+**[LOW — Defense] `_extractArgs` regex could match nested JSON.** The `/\{[\s\S]*\}/` regex is greedy and matches the largest `{...}` span. If message text contains multiple JSON objects, it'll grab everything between the first `{` and last `}`. Unlikely to cause issues in practice but worth noting.
+
+### What's Good
+
+- **Auth is solid.** `safeEqual` with `crypto.timingSafeEqual` + length check. Auth failure rate limiting per IP. CHANGE_ME token rejection at startup. Clean middleware pattern.
+- **Bridge design is clean.** Whitelist enforcement, concurrency cap, timeout via `AbortSignal.timeout`, proper error categorization (401/404/429/timeout/ECONNREFUSED). Disabled by default.
+- **Permissions model is correct.** Wildcard support, default allow/deny policy, backward-compatible (no file = allow all).
+- **Token bucket math is correct.** Rate = requests_per_minute / 60000, refill by elapsed time, burst cap. Clean implementation.
+- **Metrics percentile calculation is correct.** Rolling window with pruning, proper p50/p95/p99, valid Prometheus output format.
+- **Security tests are thorough.** Auth bypass attempts, input validation, oversized body rejection, info leak checks on health endpoint, malicious input not echoed.
+- **Test coverage is strong for what's tested.** 72 tests across 10 suites covering unit + integration. Good edge cases.
+
+### Recommendation
+
+**Fix the 2 medium issues before shipping:**
+
+1. **Wire rate limiter into executor or server middleware.** Add `getRateLimiter().check(peerId, skillName)` before skill execution in `executor.js`. Return 429 with `retryAfter` on denial. Call `getMetrics().recordRateLimited()`.
+
+2. **Wire metrics into the request flow.** In `executor.js`, wrap skill execution with timing and call `getMetrics().recordCall(success, durationMs)`. Call `recordDenied()` on permission failures. Call `recordAuthFailure()` in `auth.js` middleware.
+
+3. **Fix duplicate `module.exports` in `client.js`.** Remove the first one, keep only the second (complete) export.
+
+These are ~30 minutes of work total. After that: ship it.
+
+---
+
+_Architect_

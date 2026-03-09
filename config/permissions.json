@@ -1,0 +1,7 @@
+{
+  "default": "deny",
+  "permissions": {
+    "openclaw-test": ["ping", "get_status"],
+    "admin": ["*"]
+  }
+}

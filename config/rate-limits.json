@@ -1,0 +1,16 @@
+{
+  "global": {
+    "requests_per_minute": 200,
+    "burst": 50
+  },
+  "per_peer": {
+    "requests_per_minute": 60,
+    "burst": 15
+  },
+  "per_skill": {
+    "get_status": {
+      "requests_per_minute": 5,
+      "burst": 2
+    }
+  }
+}
