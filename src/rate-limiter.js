@@ -4,8 +4,8 @@ const fs = require('fs');
 const path = require('path');
 
 /**
- * Token bucket rate limiter.
- * Supports global, per-peer, and per-skill limits.
+ * Token bucket rate limiter with global, per-peer, and per-skill limits.
+ * Loads config from config/rate-limits.json or uses sensible defaults.
  */
 class RateLimiter {
   constructor() {

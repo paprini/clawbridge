@@ -729,6 +729,18 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for details.
 
 ---
 
+## Advanced Features (Phase 2)
+
+- **OpenClaw Bridge** — Call OpenClaw gateway tools from remote peers. [Setup guide](docs/BRIDGE_SETUP.md)
+- **Granular Permissions** — Per-peer, per-skill access control. [API reference](docs/API_REFERENCE.md)
+- **Rate Limiting** — Token bucket algorithm (global, per-peer, per-skill)
+- **Health Monitoring** — `/health` with call counters and latency percentiles. `/metrics` in Prometheus format
+- **Multi-Agent Orchestration** — Fan-out (`callPeers`) and pipeline (`chainCalls`) patterns
+- **Setup Verification** — `npm run verify` checks your config before starting
+- **Troubleshooting** — [Common issues and fixes](docs/TROUBLESHOOTING.md)
+
+---
+
 ## Links
 
 - **GitHub:** https://github.com/paprini/openclaw-a2a

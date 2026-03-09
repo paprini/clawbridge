@@ -5,7 +5,8 @@ const path = require('path');
 const os = require('os');
 
 /**
- * Load bridge configuration.
+ * Load bridge configuration from config/bridge.json.
+ * @returns {object|null} Bridge config or null if not configured
  */
 function loadBridgeConfig() {
   const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', 'config');
@@ -16,7 +17,10 @@ function loadBridgeConfig() {
 }
 
 /**
- * Load OpenClaw gateway auth token from openclaw.json.
+ * Load OpenClaw gateway auth token from the OpenClaw config file.
+ * @param {string} tokenPath - Path to openclaw.json (supports ~ for home dir)
+ * @returns {string} Bearer token
+ * @throws {Error} If config not found or token missing
  */
 function loadGatewayToken(tokenPath) {
   const resolved = tokenPath.replace(/^~/, os.homedir());
