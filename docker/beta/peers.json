@@ -1,0 +1,9 @@
+{
+  "peers": [
+    {
+      "id": "openclaw-alpha",
+      "url": "http://openclaw-alpha:9100",
+      "token": "a2a_docker_shared_token"
+    }
+  ]
+}

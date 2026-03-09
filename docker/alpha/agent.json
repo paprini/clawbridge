@@ -1,0 +1,7 @@
+{
+  "id": "openclaw-alpha",
+  "name": "OpenClaw Alpha Agent",
+  "description": "First A2A agent (Docker)",
+  "url": "http://openclaw-alpha:9100/a2a",
+  "version": "0.1.0"
+}

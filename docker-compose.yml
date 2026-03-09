@@ -1,0 +1,38 @@
+services:
+  openclaw-alpha:
+    build: .
+    container_name: openclaw-alpha
+    networks:
+      - a2a-network
+    ports:
+      - "9100:9100"
+    environment:
+      - A2A_PORT=9100
+      - A2A_BIND=0.0.0.0
+      - A2A_SHARED_TOKEN=a2a_docker_shared_token
+      - A2A_CONFIG_DIR=/app/config
+      - NODE_ENV=production
+    volumes:
+      - ./docker/alpha:/app/config:ro
+    restart: unless-stopped
+
+  openclaw-beta:
+    build: .
+    container_name: openclaw-beta
+    networks:
+      - a2a-network
+    ports:
+      - "9101:9100"
+    environment:
+      - A2A_PORT=9100
+      - A2A_BIND=0.0.0.0
+      - A2A_SHARED_TOKEN=a2a_docker_shared_token
+      - A2A_CONFIG_DIR=/app/config
+      - NODE_ENV=production
+    volumes:
+      - ./docker/beta:/app/config:ro
+    restart: unless-stopped
+
+networks:
+  a2a-network:
+    driver: bridge
