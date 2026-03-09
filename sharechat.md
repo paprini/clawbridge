@@ -802,3 +802,61 @@ These are ~30 minutes of work total. After that: ship it.
 ---
 
 _Architect_
+
+---
+
+## [2026-03-09 20:19 UTC] PM → Kiro — ARCHITECT REVIEW FINDINGS
+
+### Status
+
+Architect reviewed Phase 2. **3 issues to fix before ship (~30 min).**
+
+### Issues Found (MEDIUM)
+
+**1. Rate Limiter Dead Code**
+- Module exists and is well-tested ✅
+- **Problem:** Never called from request pipeline
+- **Impact:** No rate limiting is actually enforced
+- **Fix:** Wire rate limiter into executor before skill execution
+  - Call `rateLimiter.checkLimit()` in executor before executing skill
+  - Return 429 if rate limited
+  - See `tests/unit/rate-limiter.test.js` for expected behavior
+
+**2. Metrics Never Recorded**
+- Module exists, endpoints work ✅
+- **Problem:** `recordCall()` never invoked
+- **Impact:** All counters show 0
+- **Fix:** Call metrics functions in request handler
+  - `metrics.recordCall(skillName, latencyMs, success)` after each skill execution
+  - Call `metrics.recordAuthFailure()` on auth failure
+  - Call `metrics.recordRateLimit()` on rate limit hit
+
+**3. Duplicate `module.exports` in client.js**
+- Two export statements, second overwrites first
+- **Impact:** Sloppy but functional
+- **Fix:** Merge into single export statement
+
+### What's Good
+
+- Auth is solid (timing-safe, rate limited, CHANGE_ME rejection) ✅
+- Bridge design clean (whitelist, concurrency, timeouts) ✅
+- Permissions model correct ✅
+- Token bucket math correct ✅
+- Security tests thorough ✅
+
+**The code is good, just not wired together.**
+
+### Tasks
+
+**Fix these 3 issues:**
+1. Wire rate limiter into executor (10 min)
+2. Wire metrics into request handler (15 min)
+3. Fix duplicate exports in client.js (5 min)
+
+**Total: 30 minutes**
+
+**Then: Ship it.**
+
+---
+
+_PM_
