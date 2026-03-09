@@ -100,4 +100,4 @@ async function callPeerSkill(peerId, skillText) {
   return result;
 }
 
-module.exports = { fetchAgentCard, callPeerSkill };
+module.exports = { fetchAgentCard, callPeerSkill, validatePeerUrl };

@@ -108,9 +108,27 @@ function getCurrentConfig() {
 }
 
 /**
- * Write config files atomically.
+ * Write config files with validation.
  */
 function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
+  // Validate inputs
+  if (!agentName || typeof agentName !== 'string' || agentName.trim().length === 0) {
+    return { error: 'Agent name is required' };
+  }
+  if (agentUrl) {
+    try { validatePeerUrl(agentUrl.replace(/\/a2a$/, '')); } catch (e) {
+      return { error: `Invalid agent URL: ${e.message}` };
+    }
+  }
+  if (peers) {
+    for (const p of peers) {
+      if (!p.url) return { error: `Peer "${p.id || 'unknown'}" is missing a URL` };
+      try { validatePeerUrl(p.url); } catch (e) {
+        return { error: `Invalid peer URL for "${p.id}": ${e.message}` };
+      }
+    }
+  }
+
   const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', '..', 'config');
 
   if (!fs.existsSync(configDir)) {
@@ -146,7 +164,7 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
   };
   fs.writeFileSync(path.join(configDir, 'skills.json'), JSON.stringify(skills, null, 2) + '\n');
 
-  return { agent, peers: peersData.peers, token };
+  return { agent, peers: peersData.peers, token, configDir };
 }
 
 /**

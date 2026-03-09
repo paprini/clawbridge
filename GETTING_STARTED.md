@@ -38,7 +38,16 @@ npm install
 - `winston` — Logging
 - `jest` (dev) — Testing framework
 
-### **Step 3: Create Config Files**
+### **Step 3: Configure**
+
+**Option A: Use the setup agent (recommended)**
+```bash
+npm run setup
+```
+
+The setup agent will create all config files for you. See [SETUP.md](SETUP.md) for details.
+
+**Option B: Create config files manually**
 
 **Create `config/agent.json`:**
 ```json

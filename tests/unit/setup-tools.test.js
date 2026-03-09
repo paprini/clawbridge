@@ -116,7 +116,7 @@ describe('Setup Tools', () => {
     });
 
     test('check_agent returns offline for bad host', async () => {
-      const result = await executeTool('check_agent', { host: '192.0.2.1', port: 9100 });
+      const result = await executeTool('check_agent', { host: '127.0.0.1', port: 19999 });
       expect(result.online).toBe(false);
     });
   });

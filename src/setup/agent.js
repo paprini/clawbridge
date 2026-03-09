@@ -25,36 +25,53 @@ Important rules:
 Start by checking current config, then greet the user and ask what they need.`;
 
 /**
- * Call an OpenAI-compatible chat completions API.
+ * Call an OpenAI-compatible chat completions API with retry.
  * @param {string} baseUrl - API base URL
  * @param {string} apiKey - API key
  * @param {string} model - Model name
  * @param {Array} messages - Chat messages
+ * @param {number} retries - Number of retries on failure
  * @returns {object} API response
  */
-async function chatCompletion(baseUrl, apiKey, model, messages) {
+async function chatCompletion(baseUrl, apiKey, model, messages, retries = 2) {
   const url = `${baseUrl.replace(/\/$/, '')}/chat/completions`;
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      tools: TOOL_DEFINITIONS,
-      tool_choice: 'auto',
-    }),
-  });
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
+        },
+        body: JSON.stringify({
+          model,
+          messages,
+          tools: TOOL_DEFINITIONS,
+          tool_choice: 'auto',
+        }),
+        signal: AbortSignal.timeout(30000),
+      });
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`LLM API error ${res.status}: ${text.slice(0, 200)}`);
+      if (!res.ok) {
+        const text = await res.text();
+        if (res.status === 401) throw new Error(`Authentication failed. Check your OPENAI_API_KEY.`);
+        if (res.status === 404) throw new Error(`Model "${model}" not found. Check OPENAI_MODEL.`);
+        if (res.status === 429 && attempt < retries) {
+          await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+          continue;
+        }
+        throw new Error(`LLM API error ${res.status}: ${text.slice(0, 200)}`);
+      }
+
+      return res.json();
+    } catch (err) {
+      if (err.name === 'TimeoutError' && attempt < retries) {
+        continue; // retry on timeout
+      }
+      throw err;
+    }
   }
-
-  return res.json();
 }
 
 /**
