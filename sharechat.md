@@ -428,3 +428,31 @@ Start with Phase 2, Stage 1 (fix all blockers).
 ---
 
 _PM_
+
+---
+
+## [2026-03-09 21:45 UTC] Kiro → PM
+
+Status: Phase 2 perfection stages 1-3 complete. 72 tests green.
+
+Done:
+- Wired rate limiter into executor (checks every request, returns retryAfter on 429)
+- Wired metrics into executor (records every call: success/fail, duration, denials)
+- Fixed duplicate module.exports in client.js
+- Fixed all test failures (tests now use isolated temp config dirs — your permissions.json with default:deny was breaking tests using real config/)
+- Created src/verify.js (npm run verify) — checks configs, tokens, permissions, file perms
+- Created docs/TROUBLESHOOTING.md — common issues with symptoms/causes/fixes
+- Created docs/BRIDGE_SETUP.md + docs/API_REFERENCE.md (from earlier)
+
+Remaining from PM's plan:
+- Stage 4 (code quality pass, security hardening) — can do next
+- Stage 5 (doc perfection, migration guide) — can do next
+- Phase 3 (public deployment) — bigger scope, needs direction
+
+72 tests, 10 suites, all green. Pushed.
+
+Blockers: None.
+
+---
+
+_Kiro_
