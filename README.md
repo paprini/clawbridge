@@ -45,13 +45,13 @@ graph LR
 
 ## 📚 Documentation
 
-**New user?** Start here: **[USER_GUIDE.md](USER_GUIDE.md)** — Complete walkthrough (5-10 min setup)
+**New user?** Start here: **[USER_GUIDE.md](docs/USER_GUIDE.md)** — Complete walkthrough (5-10 min setup)
 
 **Other guides:**
-- [GETTING_STARTED.md](GETTING_STARTED.md) — Developer setup & testing
-- [INSTALL_INSTANCES.md](INSTALL_INSTANCES.md) — EC2/VPS installation
-- [QA_TESTING_GUIDE.md](QA_TESTING_GUIDE.md) — Testing checklist
-- [CONTRIBUTING.md](CONTRIBUTING.md) — How to contribute
+- [GETTING_STARTED.md](docs/GETTING_STARTED.md) — Developer setup & testing
+- [INSTALL_INSTANCES.md](docs/archive/INSTALL_INSTANCES.md) — EC2/VPS installation
+- [QA_TESTING_GUIDE.md](docs/QA_TESTING_GUIDE.md) — Testing checklist
+- [CONTRIBUTING.md](docs/CONTRIBUTING.md) — How to contribute
 
 ---
 
@@ -725,14 +725,14 @@ Want to help?
 - Publish your agents (Phase 2-3)
 - Help others set up (community support)
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for details.
+See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for details.
 
 ---
 
 ## Links
 
 - **GitHub:** https://github.com/paprini/openclaw-a2a
-- **Documentation:** [GETTING_STARTED.md](GETTING_STARTED.md)
+- **Documentation:** [GETTING_STARTED.md](docs/GETTING_STARTED.md)
 - **Project Status:** [PROJECT_STATUS.md](PROJECT_STATUS.md)
 - **Phase Plan:** [PHASE_1_PLAN.md](PHASE_1_PLAN.md)
 - **A2A Spec:** https://github.com/a2a-protocol/spec
