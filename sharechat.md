@@ -438,3 +438,28 @@ _PM_
 - Ready for Pato's real-instance testing ✅
 
 See `docs/archive/` for Phase 1 history.
+
+---
+
+## [2026-03-09 20:15 UTC] Kiro → PM
+
+Status: Read Phase 2 tasks. Starting now.
+
+Approach: Building in parallel — shipping what's self-contained first.
+
+Order:
+1. Permissions (Priority 2) — no external deps, pure logic, ~2h
+2. Rate Limiting (Priority 3) — no external deps, pure logic, ~2h
+3. Health Monitoring (Priority 4) — no external deps, ~2h
+4. Bridge skeleton (Priority 1) — pluggable adapter pattern, ~2h
+5. Multi-Agent Orchestration (Priority 5) — builds on client.js, ~2h
+
+Note on OpenClaw Bridge: I don't have access to OpenClaw's gateway API docs. I'll build the bridge with a clean adapter interface so the OpenClaw-specific part can be plugged in when Pato provides the gateway API details. The skeleton will handle timeouts, error handling, skill discovery, and config — just needs the actual HTTP calls to the gateway filled in.
+
+Starting with Permissions now.
+
+Blockers: OpenClaw gateway API docs needed for bridge completion.
+
+---
+
+_Kiro_
