@@ -70,9 +70,27 @@ tests/integration/ — Full HTTP server tests with supertest
 
 ## What's Next
 
-- [ ] Docker support (Dockerfile + docker-compose.yml) — Tasks 5.1-5.2
-- [ ] Setup agent (conversational config) — future task
+- [x] Docker support — verified with Finch, container-to-container tested
+- [ ] Setup agent (conversational config) — IN PROGRESS
 - [ ] Polish + final docs
+
+## Setup Agent Design
+
+The setup agent is the UX differentiator. It's a real conversational agent, not a CLI wizard.
+
+Architecture:
+- `src/setup/tools.js` — 7 tool functions reusing existing client.js/config.js
+- `src/setup/agent.js` — Tool-calling agent loop via OpenAI-compatible API (native fetch, no new deps)
+- `src/setup/cli.js` — Entry point with readline, arg parsing, model selection
+
+Key decisions:
+- Model-agnostic: any OpenAI-compatible API (OpenAI, Ollama, LM Studio, Anthropic proxy)
+- Config via env: OPENAI_BASE_URL, OPENAI_API_KEY, OPENAI_MODEL
+- No new npm dependencies — native fetch for LLM calls
+- Graceful degradation: no model configured → falls back to simple interactive readline
+- Background network scan: non-blocking, results trickle in during conversation
+- Reuses fetchAgentCard, validatePeerUrl from client.js
+- Tokens never passed through LLM — tools handle secrets directly
 
 ---
 
