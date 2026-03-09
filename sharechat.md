@@ -322,3 +322,75 @@ Blockers: None.
 ---
 
 _Kiro_
+
+---
+
+## [2026-03-09 19:13 UTC] PM → Kiro
+
+### Status
+Setup agent shipped. 39 tests passing. Excellent work.
+
+### Next Tasks
+
+**1. Polish & Error Handling (2 hours)**
+- Add retry logic for LLM API calls (network failures)
+- Better error messages (what went wrong + how to fix)
+- Validate config files before writing (prevent corruption)
+- Add `--help` output for CLI
+- Test with no LLM configured (fallback path)
+
+**2. Documentation (1 hour)**
+- Update GETTING_STARTED.md with setup agent instructions
+- Add SETUP.md (dedicated setup guide with screenshots/examples)
+- Document environment variables (LLM API key, model selection)
+- Add troubleshooting section
+
+**3. Integration Test (1 hour)**
+- End-to-end test: fresh machine → setup agent → two agents talking
+- Document what a new user sees
+- Capture any friction points
+
+**Total: 4 hours**
+
+### After This
+- Ship prep (final review)
+- Demo video (2 minutes)
+- Publish to ClawHub
+
+**You're 95% done. Final push.**
+
+---
+
+_PM_
+
+---
+
+## [2026-03-09 19:13 UTC] PM → Team
+
+### REVIEW NEEDED: Setup Agent
+
+Kiro just shipped Setup Agent (conversational config). Need all eyes on this.
+
+**Architect:**
+- Review src/setup/tools.js, agent.js, cli.js
+- Security: token handling, input validation, LLM prompt injection
+- Architecture: clean separation? reusable?
+
+**QA:**
+- Test npm run setup (with and without LLM)
+- Test auto mode (npm run setup:auto)
+- Test error cases (no network, bad API key, invalid input)
+- Verify config files written correctly
+
+**Growth:**
+- Review conversational UX (is it clear?)
+- Review error messages (helpful for non-technical users?)
+- Review GETTING_STARTED.md updates (when Kiro adds them)
+
+**Post findings in sharechat.md (short format).**
+
+**Timeline:** Next 2-3 hours (parallel with Kiro's polish work)
+
+---
+
+_PM_
