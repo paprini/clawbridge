@@ -3,8 +3,8 @@
 **Your AI agents are isolated on separate machines.**  
 **A2A makes them collaborate.**
 
-Your laptop agent can now call your VPS agent's music analysis — instantly, automatically, securely.  
-No SSH. No manual file copying. Just: `music-expert@vps.analyze_song()`
+Your laptop agent can now call your VPS agent's code reviewer — instantly, automatically, securely.  
+No SSH. No manual file copying. Just: `code-reviewer@vps.review_pr()`
 
 ---
 
@@ -13,9 +13,9 @@ No SSH. No manual file copying. Just: `music-expert@vps.analyze_song()`
 ### Before: Manual Coordination
 ```mermaid
 graph TB
-    A[Laptop Agent<br/>needs music analysis] -->|1. Manual SSH| B[VPS]
-    B -->|2. Copy file| C[Music Expert Agent]
-    C -->|3. Run command| D[Process audio]
+    A[Laptop Agent<br/>needs code review] -->|1. Manual SSH| B[VPS]
+    B -->|2. Copy files| C[Code Reviewer Agent]
+    C -->|3. Run analysis| D[Process code]
     D -->|4. Copy results back| B
     B -->|5. Manual transfer| A
     
@@ -30,7 +30,7 @@ graph TB
 ### After: A2A Communication
 ```mermaid
 graph LR
-    A[Laptop Agent] -->|"analyze_song()"| B[Music Expert<br/>@VPS]
+    A[Laptop Agent] -->|"review_pr()"| B[Code Reviewer<br/>@VPS]
     B -->|results| A
     
     style A fill:#51cf66,stroke:#2f9e44,color:#fff
@@ -50,7 +50,7 @@ You have OpenClaw on your laptop, VPS, and Raspberry Pi. Now they talk to each o
 
 **Example:**
 ```
-Laptop agent: "Hey music-expert@vps, analyze this song"
+Laptop agent: "Hey code-reviewer@vps, analyze this pull request"
 → VPS processes it
 → Result comes back automatically
 ```
@@ -63,29 +63,29 @@ Laptop agent: "Hey music-expert@vps, analyze this song"
 Not instance-to-instance. **Specific agents talk to specific agents.**
 
 **Example:**
-- Your **PM agent on Discord** coordinates with **Architect agent on VPS**
-- Your **Research agent** queries **Data agent** on your home server
-- Your **Writing agent** asks **Music expert** for chord analysis
+- Your **writing agent on laptop** queries **data-analyst on VPS**
+- Your **research agent** asks **document-parser** on your home server
+- Your **automation agent** calls **weather-service** on your Raspberry Pi
 
 **Why this matters:** Fine-grained control. Only the agents that need to talk, talk.
 
 ---
 
 ### 3. **Share Skills Across Your Network**
-Your music expert has chord detection. Your writing agent needs it. Now they connect.
+Your VPS has powerful data processing. Your laptop agent needs it. Now they connect.
 
 **Before:**
 ```
-Writing agent: Wants to analyze song lyrics
-Music agent: Has chord detection skill
+Writing agent: Wants to analyze dataset
+Data agent: Has statistical analysis skill
 → Skills trapped on separate machines
 ```
 
 **After:**
 ```
-Writing agent → calls chord_detect skill on music agent
-→ Gets chords back
-→ Correlates lyrics with musical structure
+Writing agent → calls analyze_data skill on data agent
+→ Gets processed results
+→ Generates insights from data
 ```
 
 **Security:** You control which skills each agent exposes. Whitelist only.
@@ -93,7 +93,7 @@ Writing agent → calls chord_detect skill on music agent
 ---
 
 ### 4. **Collaborate with Friends (Phase 2)**
-Want to share your music expert with trusted friends? Connect their instances.
+Want to share your specialized agent with trusted colleagues? Connect their instances.
 
 **What happens:**
 - Your agent appears in their private network
@@ -110,7 +110,7 @@ Want to share your agent with everyone? Make it public.
 
 **What happens:**
 - Your agent appears in public registry
-- Others discover it by skill ("find agents that detect chords")
+- Others discover it by skill ("find agents that parse PDFs")
 - Community reputation system (like Stack Overflow)
 - Free by default. Optional donations.
 
@@ -127,7 +127,7 @@ Your agents are brilliant in isolation. A2A makes them collaborative. Share skil
 
 ### The Problem
 AI agents are powerful but trapped:
-- Your music expert lives on your VPS (has GPU)
+- Your code reviewer lives on your VPS (has powerful CPU)
 - Your writing agent lives on your laptop (where you work)
 - They can't talk to each other without manual SSH, file copying, context switching
 
@@ -141,15 +141,15 @@ This is 2026. We can do better.
 ### The Vision
 **Phase 1 (now):** Connect your own instances. Prove agent-to-agent collaboration works.
 
-**Phase 2:** Share agents with trusted friends. Build private expert networks.
+**Phase 2:** Share agents with trusted colleagues. Build private expert networks.
 
 **Phase 3:** Publish agents to the community. Free knowledge sharing at scale.
 
-**Long-term:** Human experts + AI agents. Amplify expertise 10x. Knowledge accessible to everyone.
+**Long-term:** Specialized agents + distributed expertise. Amplify capabilities 10x. Skills accessible to everyone.
 
 **Why community-first?**
 - Knowledge should be free and accessible
-- Experts can help 10x more people (AI does grunt work, humans add wisdom)
+- Specialized agents can help 10x more people (distribute processing, share capabilities)
 - We're building the agent ecosystem we all want
 - This is how we introduce ourselves to the OpenClaw community
 
@@ -169,7 +169,7 @@ graph TB
         subgraph Instance1["Instance 1"]
             Agent1[Agent A]
             Sidecar1[A2A Sidecar]
-            Whitelist1[Skill Whitelist:<br/>✅ ping<br/>✅ detect_chords<br/>❌ read_files]
+            Whitelist1[Skill Whitelist:<br/>✅ ping<br/>✅ review_code<br/>❌ read_database]
             
             Agent1 --> Sidecar1
             Sidecar1 -.checks.-> Whitelist1
@@ -206,12 +206,12 @@ graph TB
 **What this means:**
 - Your laptop agent can't accidentally expose your database to the internet
 - Even if someone gets on your network, they need bearer tokens
-- You explicitly whitelist "detect_chords" — nothing else is callable
+- You explicitly whitelist "review_code" — nothing else is callable
 
 **Example whitelist:**
 ```json
 {
-  "exposed_skills": ["ping", "get_status", "detect_chords"],
+  "exposed_skills": ["ping", "get_status", "review_code"],
   "blocked_skills": ["search_database", "read_files", "send_email"]
 }
 ```
@@ -285,11 +285,11 @@ Agent: Scanning your network...
           └── 📝 writing-assistant
        
        2. vps (10.0.1.10)
-          ├── 🎼 music-expert
-          └── 🏗️ architect
+          ├── 👨‍💻 code-reviewer
+          └── 📊 data-analyst
        
        3. pi (10.0.1.15)
-          └── 🔔 notification-bot
+          └── 🏠 automation-bot
        
        Connect all? (Y/n)
 
@@ -300,15 +300,15 @@ Agent: ✅ Connected! All agents can now talk to each other.
 
 **Step 3: Choose what to share**
 ```
-Agent: Which skills should music-expert expose?
+Agent: Which skills should code-reviewer expose?
        
        Available skills:
-       ├── analyze_song ✓ Safe
-       ├── detect_chords ✓ Safe
-       ├── search_lyrics ✓ Safe
+       ├── review_pr ✓ Safe
+       ├── check_style ✓ Safe
+       ├── run_tests ✓ Safe
        └── access_database ✗ Private data
        
-       Recommend exposing: analyze_song, detect_chords
+       Recommend exposing: review_pr, check_style
        
        Expose these? (Y/n)
 
@@ -323,58 +323,58 @@ Agent: ✅ Done! Your agents can now collaborate.
 
 ## Real-World Examples
 
-### Example 1: Multi-Machine Workflow
+### Example 1: Code Review Workflow
 
-**Scenario:** Writing about music. Need to analyze songs.
+**Scenario:** Writing code on laptop. Need thorough review before merge.
 
 **Setup:**
-- **Laptop:** Writing assistant agent (where you work)
-- **VPS:** Music expert agent (has GPU for audio processing)
+- **Laptop:** Main development agent (where you code)
+- **VPS:** Code reviewer agent (has powerful linting, testing, security scanning)
 
 **Workflow:**
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Writing as 📝 Writing Agent<br/>(Laptop)
-    participant Music as 🎼 Music Expert<br/>(VPS)
+    participant Dev as 💻 Dev Agent<br/>(Laptop)
+    participant Review as 👨‍💻 Code Reviewer<br/>(VPS)
     
-    User->>Writing: "Analyze chords in Hotel California"
-    Writing->>Music: analyze_song("Hotel California")
-    Music->>Music: Process audio (GPU)
-    Music->>Writing: "Am, E7, G, D, F, C, Dm, E"
-    Writing->>User: "The song uses a distinctive Am-E7-G-D progression..."
+    User->>Dev: "Review my PR #142"
+    Dev->>Review: review_pr(142)
+    Review->>Review: Run linters, tests, security scan
+    Review->>Dev: "✅ Passed. 2 suggestions: ..."
+    Dev->>User: "PR ready to merge. Suggestions: ..."
 ```
 
-**Without A2A:** Copy file to VPS, SSH in, run command, copy results back. Manual.  
+**Without A2A:** Copy code to VPS, SSH in, run tools manually, copy feedback back.  
 **With A2A:** Instant. Automatic. Your laptop agent just calls the skill.
 
 ---
 
-### Example 2: Multi-Agent Collaboration
+### Example 2: Data Processing Pipeline
 
-**Scenario:** Write an article about a song. Need chords AND historical context.
+**Scenario:** Writing research report. Need to analyze large datasets.
 
 ```mermaid
 graph TB
-    User[👤 User: "Write article about<br/>Hotel California"]
+    User[👤 User: "Analyze Q4 sales data<br/>and write summary"]
     
-    User --> WA[📝 Writing Assistant<br/>Laptop]
+    User --> WA[📝 Writing Agent<br/>Laptop]
     
-    WA -->|"I need chord analysis"| ME[🎼 Music Expert<br/>VPS]
-    WA -->|"I need historical context"| RE[🔍 Research Agent<br/>Pi]
+    WA -->|"I need data analysis"| DA[📊 Data Analyst<br/>VPS]
+    WA -->|"I need visualizations"| VZ[📈 Viz Generator<br/>Pi]
     
-    ME -->|"Am-E7-G-D progression<br/>+ music theory"| WA
-    RE -->|"Released 1976<br/>Eagles' best-selling single"| WA
+    DA -->|"Revenue up 23%<br/>+ trend analysis"| WA
+    VZ -->|"Charts generated<br/>+ downloadable PNGs"| WA
     
-    WA -->|Synthesizes all inputs| Draft[📄 Complete Article]
+    WA -->|Synthesizes all inputs| Draft[📄 Complete Report]
     
     Draft --> User
     
     style User fill:#e7f5ff,stroke:#1971c2
     style WA fill:#51cf66,stroke:#2f9e44,color:#fff
-    style ME fill:#ffd8a8,stroke:#e67700
-    style RE fill:#ffd8a8,stroke:#e67700
+    style DA fill:#ffd8a8,stroke:#e67700
+    style VZ fill:#ffd8a8,stroke:#e67700
     style Draft fill:#b2f2bb,stroke:#2b8a3e
 ```
 
@@ -389,23 +389,47 @@ graph TB
 
 **Setup:**
 - **Raspberry Pi:** Sensor monitoring agent
-- **VPS:** Data analysis agent
+- **VPS:** Predictive analytics agent
 
 **Workflow:**
 ```
 Sensor agent@pi:
-├── Detects temperature spike
-├── Calls data-analyst@vps.analyze_pattern(sensor_data)
-└── Gets prediction: "AC failure likely in 48 hours"
+├── Detects power usage spike
+├── Calls analytics@vps.predict_pattern(sensor_data)
+└── Gets prediction: "HVAC inefficiency detected"
 
 Sensor agent:
-└── Sends alert to your phone
+└── Sends alert + optimization suggestions
 
-You: Call repair service before AC dies
+You: Adjust settings, save energy costs
 ```
 
 **Without A2A:** Pi can't access cloud processing. Manual data export.  
 **With A2A:** Pi agent directly calls VPS agent. Automatic.
+
+---
+
+### Example 4: Document Processing
+
+**Scenario:** Research agent needs to extract data from PDFs.
+
+**Setup:**
+- **Laptop:** Research coordination agent
+- **VPS:** PDF parser agent (has OCR, NLP processing)
+
+**Workflow:**
+```
+Research agent@laptop:
+├── Receives 50 research papers
+├── Calls pdf-parser@vps.extract_citations(papers)
+├── Gets structured data: authors, dates, key findings
+└── Generates bibliography automatically
+
+Time saved: 6 hours → 5 minutes
+```
+
+**Without A2A:** Manual PDF reading and data entry.  
+**With A2A:** Automated extraction across machines.
 
 ---
 
@@ -455,8 +479,8 @@ graph TB
     end
     
     subgraph VPS["☁️ OpenClaw Instance (VPS)"]
-        VA1[🎼 music-expert]
-        VA2[🏗️ architect]
+        VA1[👨‍💻 code-reviewer]
+        VA2[📊 data-analyst]
         VGW[Gateway :18789]
         VSC[A2A Sidecar :9100]
         
@@ -465,7 +489,7 @@ graph TB
     end
     
     subgraph RPI["🔌 OpenClaw Instance (Raspberry Pi)"]
-        RA1[🔔 notification-bot]
+        RA1[🏠 automation-bot]
         RGW[Gateway :18789]
         RSC[A2A Sidecar :9100]
         
@@ -569,7 +593,7 @@ graph TB
 - ✅ Security (private network, bearer tokens, skill whitelist)
 - ✅ Skill exposure control (choose what to share)
 
-**Success:** Your PM@laptop talks to PM@vps. Done in 5 minutes.
+**Success:** Your dev@laptop talks to reviewer@vps. Done in 5 minutes.
 
 **Ships:** March 19-21, 2026
 
@@ -580,45 +604,45 @@ graph TB
 
 **Features:**
 - Public agent registry (browse agents by skill)
-- Skill-based search ("find agents that detect chords")
+- Skill-based search ("find agents that parse PDFs")
 - Community contributions (free by default)
 - Reputation system (like Stack Overflow)
 
 **Example:**
 ```
-You: Find public agents with music analysis skills
+You: Find public agents with data analysis skills
 
 Registry:
-├── music-expert@community (free, 4.8★, 1.2K uses)
-├── chord-detective@open (free, 4.6★, 856 uses)
-└── audio-analyzer@lab (free, 4.9★, 234 uses)
+├── data-analyst@community (free, 4.8★, 1.2K uses)
+├── stats-pro@open (free, 4.6★, 856 uses)
+└── ml-processor@lab (free, 4.9★, 234 uses)
 ```
 
 **Success:** 100 people helped through shared agent skills.
 
 ---
 
-### Phase 3: AI-Augmented Expertise (3-4 weeks later)
-**Goal:** Human experts + AI. Knowledge at scale.
+### Phase 3: Specialized Expertise (3-4 weeks later)
+**Goal:** Professional agents + community. Quality at scale.
 
 **Features:**
-- Human-in-the-loop (AI drafts, human refines)
-- Expert dashboard (receive tasks, add wisdom)
+- Verified professional agents
+- Expert dashboard (manage requests, ensure quality)
 - Community recognition (reputation, ratings)
 - Optional donations (Wikipedia model)
 
 **Example:**
 ```
-Music teacher Sarah publishes music-expert agent:
-├── AI analyzes songs (5 min)
-├── Sarah reviews + adds insights (5 min)
+Data scientist publishes specialized analysis agent:
+├── AI processes raw data (5 min)
+├── Expert reviews + adds insights (5 min)
 └── Result: Professional-grade analysis
 
-Sarah helps 60 students/week (vs 10 traditionally)
+Scientist helps 60 projects/week (vs 10 traditionally)
 All free or donation-based
 ```
 
-**Success:** 10 experts helping 10x more people.
+**Success:** 10 specialists helping 10x more people.
 
 ---
 
