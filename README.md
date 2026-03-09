@@ -43,6 +43,18 @@ graph LR
 
 ---
 
+## 📚 Documentation
+
+**New user?** Start here: **[USER_GUIDE.md](USER_GUIDE.md)** — Complete walkthrough (5-10 min setup)
+
+**Other guides:**
+- [GETTING_STARTED.md](GETTING_STARTED.md) — Developer setup & testing
+- [INSTALL_INSTANCES.md](INSTALL_INSTANCES.md) — EC2/VPS installation
+- [QA_TESTING_GUIDE.md](QA_TESTING_GUIDE.md) — Testing checklist
+- [CONTRIBUTING.md](CONTRIBUTING.md) — How to contribute
+
+---
+
 ## What You Can Do
 
 ### 1. **Connect Your Own Instances**
