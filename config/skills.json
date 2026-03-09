@@ -9,6 +9,16 @@
       "name": "get_status",
       "description": "Agent status and uptime",
       "public": true
+    },
+    {
+      "name": "chat",
+      "description": "Send message to another channel/platform via my OpenClaw gateway",
+      "public": false
+    },
+    {
+      "name": "broadcast",
+      "description": "Send alert/message to multiple peers simultaneously",
+      "public": false
     }
   ]
 }

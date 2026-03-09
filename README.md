@@ -47,6 +47,27 @@ For the full guide: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
 
 ---
 
+## Built-in Skills
+
+ClawBridge comes with **3 essential skills** ready to use:
+
+- **`ping` / `get_status`** — Health check and monitoring
+- **`chat`** — Send messages cross-platform (Discord → WhatsApp, etc.)
+- **`broadcast`** — Alert multiple agents simultaneously
+
+**Example:**
+```javascript
+// Discord agent → WhatsApp agent
+callPeerSkill('whatsapp-agent', 'chat', {
+  target: '#general',
+  message: 'Hello from Discord!'
+})
+```
+
+See [docs/BUILTIN_SKILLS.md](docs/BUILTIN_SKILLS.md) for complete documentation.
+
+---
+
 ## Before A2A → After A2A
 
 ### Before: Manual Coordination

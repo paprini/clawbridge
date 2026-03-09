@@ -9,6 +9,8 @@ const { getMetrics } = require('./metrics');
 const { validateString } = require('./validation');
 const { validateAdvancedToken, scopeAllowsSkill } = require('./token-manager');
 const logger = require('./logger');
+const { chat } = require('./skills/chat');
+const { broadcast } = require('./skills/broadcast');
 
 /**
  * AgentExecutor implementation for ClawBridge.
@@ -91,6 +93,12 @@ class OpenClawExecutor {
         result = this._handlePing();
       } else if (skillName === 'get_status') {
         result = this._handleGetStatus();
+      } else if (skillName === 'chat') {
+        const params = this._extractArgs(context.userMessage);
+        result = await chat(params);
+      } else if (skillName === 'broadcast') {
+        const params = this._extractArgs(context.userMessage);
+        result = await broadcast(params);
       } else if (isBridgedTool(skillName)) {
         // Route to OpenClaw bridge
         const toolName = skillName.replace(/^openclaw_/, '');
