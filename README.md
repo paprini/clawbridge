@@ -5,11 +5,49 @@
 Your laptop agent can now call your VPS agent's code reviewer — instantly, automatically, securely.  
 No SSH. No manual file copying. Just: `code-reviewer@vps.review_pr()`
 
+**Even the installation is agent-native:** Just ask your agent to install ClawBridge. No command lines. No config files. Your agent installs itself into the network.
+
 [![Tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)]() [![Coverage](https://img.shields.io/badge/coverage-98.6%25-brightgreen)]() [![License](https://img.shields.io/badge/license-MIT-blue)]()
 
 ---
 
 ## Quick Start
+
+### Agent-Based Install (Recommended)
+
+**Just ask your agent to install ClawBridge. No commands needed.**
+
+Copy this prompt and send it to your OpenClaw agent:
+
+```
+Please install ClawBridge on this machine to connect to the agent network.
+
+ClawBridge is an agent-to-agent communication system that lets OpenClaw agents 
+on different machines talk to each other and execute skills remotely.
+
+Steps:
+1. Clone the repository: https://github.com/paprini/clawbridge
+2. Navigate into the clawbridge directory
+3. Install Node.js dependencies (npm install)
+4. Run the interactive setup (npm run setup)
+5. When asked for configuration:
+   - Agent name: Use this instance's name
+   - Agent URL: http://[this machine's IP]:9100
+   - Add peer agents you want to connect to
+   - Enable "ping" and "get_status" skills at minimum
+6. Start the ClawBridge server (npm start)
+7. Test connectivity (npm run ping)
+
+Report back when installation is complete and connectivity test results.
+```
+
+**That's it.** Your agent installs itself into the network. No SSH. No config files. Just natural language.
+
+---
+
+### Manual Install (Alternative)
+
+If you prefer to install manually:
 
 ```bash
 git clone https://github.com/paprini/clawbridge.git
@@ -555,6 +593,12 @@ sequenceDiagram
 
 ## What Makes This Different?
 
+### Agent-Native Installation
+- **Traditional tools:** User runs install commands, edits config files, troubleshoots errors
+- **ClawBridge:** User asks their agent to install. Agent does everything automatically.
+
+**This is unique.** ClawBridge doesn't just enable agent-to-agent communication — the installation itself is agent-to-agent. Your agent reads docs, runs commands, configures itself, and reports back. The entire onboarding is designed for agents, not humans.
+
 ### vs. SSH / Manual Coordination
 - **SSH:** Copy files, run commands manually, copy results back (5+ steps, error-prone)
 - **A2A:** Agents call each other directly with one function call (automatic)
@@ -575,6 +619,7 @@ sequenceDiagram
 
 | Feature | LangChain | CrewAI | AutoGen | **ClawBridge** |
 |---------|-----------|--------|---------|------------------|
+| **Agent-native install** | ❌ Manual | ❌ Manual | ❌ Manual | **✅ Just ask** |
 | **Cross-machine** | ❌ | ❌ | ❌ | **✅** |
 | **Standard protocol** | ❌ | ❌ | ❌ | **✅ A2A spec** |
 | **Auto-discovery** | ❌ | ❌ | ❌ | **✅** |
@@ -583,11 +628,12 @@ sequenceDiagram
 | **Setup time** | Hours | Hours | Hours | **5 minutes** |
 | **Production ready** | ⚠️ | ⚠️ | ⚠️ | **✅ 116 tests** |
 
-**Key Advantage:** ClawBridge is the ONLY solution that:
-1. Works across machines out-of-the-box
-2. Integrates directly with OpenClaw ecosystem
-3. Provides production-grade security and monitoring
-4. Uses an open standard (not locked to one framework)
+**Key Advantages:** ClawBridge is the ONLY solution that:
+1. **Installs itself** — Agents install ClawBridge, not humans
+2. Works across machines out-of-the-box
+3. Integrates directly with OpenClaw ecosystem
+4. Provides production-grade security and monitoring
+5. Uses an open standard (not locked to one framework)
 
 ---
 
@@ -636,13 +682,17 @@ Based on open A2A spec (Linux Foundation, Google, IBM):
 
 ## Installation & Setup
 
+**Recommended:** Use [agent-based installation](#agent-based-install-recommended) (Quick Start section above).
+
+If you prefer to install manually:
+
 ### Prerequisites
 
 - Node.js 18+ and npm
 - OpenClaw installed (for bridge features)
 - Private network (VPC) recommended for Phase 1
 
-### Install
+### Manual Install
 
 ```bash
 git clone https://github.com/paprini/clawbridge.git
@@ -664,7 +714,7 @@ The setup agent will:
 
 **Time:** 5 minutes
 
-### Setup (Manual)
+### Setup (Manual Configuration)
 
 If you prefer manual configuration:
 
@@ -1045,6 +1095,11 @@ See [SECURITY.md](docs/SECURITY.md) for full security guide.
 ---
 
 ## FAQ
+
+### How does agent-native installation work?
+You give your agent a natural language prompt: "Install ClawBridge from GitHub." Your agent reads the installation instructions (written for agents, not humans), runs the commands, configures itself, tests connectivity, and reports back. No command lines for you. No config files to edit. Your agent installs itself into the network.
+
+**This is unique to ClawBridge.** The installation process itself is agent-to-agent native.
 
 ### Do I need multiple machines?
 No! You can run multiple OpenClaw instances on one machine (different ports). A2A works the same way.
