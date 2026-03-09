@@ -67,8 +67,8 @@ function createServer() {
 
   const app = express();
 
-  // Parse JSON bodies
-  app.use(express.json());
+  // Parse JSON bodies (explicit limit for defense in depth)
+  app.use(express.json({ limit: '100kb' }));
 
   // Health check (no auth required)
   app.get('/health', (_req, res) => {

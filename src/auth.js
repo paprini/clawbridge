@@ -1,10 +1,23 @@
 'use strict';
 
+const crypto = require('crypto');
 const { loadPeersConfig } = require('./config');
 
 /**
+ * Constant-time string comparison to prevent timing attacks.
+ * @param {string} a
+ * @param {string} b
+ * @returns {boolean}
+ */
+function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  if (a.length !== b.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
+/**
  * Validate a bearer token against configured peers.
- * Uses constant-time-ish comparison to avoid timing attacks.
+ * Uses constant-time comparison to prevent timing attacks.
  * @param {string} token
  * @returns {string|null} Peer ID if valid, null otherwise
  */
@@ -12,14 +25,13 @@ function validateToken(token) {
   if (!token || typeof token !== 'string') return null;
 
   const peers = loadPeersConfig();
-  // Also check the shared inbound token from env
   const sharedToken = process.env.A2A_SHARED_TOKEN;
 
-  if (sharedToken && token === sharedToken) {
+  if (sharedToken && safeEqual(token, sharedToken)) {
     return '__shared__';
   }
 
-  const peer = peers.find((p) => p.token === token);
+  const peer = peers.find((p) => safeEqual(p.token, token));
   return peer ? peer.id : null;
 }
 

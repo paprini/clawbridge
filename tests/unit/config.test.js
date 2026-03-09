@@ -34,8 +34,10 @@ describe('Config Loading', () => {
   });
 
   test('loadConfig throws on missing file', () => {
-    // Clear module cache so config re-reads env
+    // Clear cache and module cache so config re-reads env
+    const { clearCache } = require('../../src/config');
     const orig = process.env.A2A_CONFIG_DIR;
+    clearCache();
     process.env.A2A_CONFIG_DIR = '/nonexistent';
     delete require.cache[require.resolve('../../src/config')];
     const { loadAgentConfig: reload } = require('../../src/config');
