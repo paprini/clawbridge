@@ -1,47 +1,32 @@
 # ClawBridge
 
-**Bridge your OpenClaw agents across machines.**
+**Connect your OpenClaw agents across machines.**
 
 Your laptop agent can now call your VPS agent's code reviewer — instantly, automatically, securely.  
 No SSH. No manual file copying. Just: `code-reviewer@vps.review_pr()`
 
-**Even the installation is agent-native:** Just ask your agent to install ClawBridge. No command lines. No config files. Your agent installs itself into the network.
+> **Note:** ClawBridge is the product name (agent networking system). The **OpenClaw Bridge** is one feature within ClawBridge that lets agents call your OpenClaw gateway tools remotely.
 
 [![Tests](https://img.shields.io/badge/tests-116%20passing-brightgreen)]() [![Coverage](https://img.shields.io/badge/coverage-98.6%25-brightgreen)]() [![License](https://img.shields.io/badge/license-MIT-blue)]()
 
 ---
 
-## Quick Start
+## Quick Start: Agent-Based Install (Recommended)
 
-### Agent-Based Install (Recommended)
-
-**Just ask your agent to install ClawBridge. No commands needed.**
-
-Copy this prompt and send it to your OpenClaw agent:
+**Just ask your OpenClaw agent:**
 
 ```
-Please install ClawBridge on this machine to connect to the agent network.
+Install ClawBridge from https://github.com/paprini/clawbridge
 
-ClawBridge is an agent-to-agent communication system that lets OpenClaw agents 
-on different machines talk to each other and execute skills remotely.
+Clone the repo, run npm install, run the setup wizard, and configure 
+this agent to join the network.
 
-Steps:
-1. Clone the repository: https://github.com/paprini/clawbridge
-2. Navigate into the clawbridge directory
-3. Install Node.js dependencies (npm install)
-4. Run the interactive setup (npm run setup)
-5. When asked for configuration:
-   - Agent name: Use this instance's name
-   - Agent URL: http://[this machine's IP]:9100
-   - Add peer agents you want to connect to
-   - Enable "ping" and "get_status" skills at minimum
-6. Start the ClawBridge server (npm start)
-7. Test connectivity (npm run ping)
-
-Report back when installation is complete and connectivity test results.
+Let me know when it's done.
 ```
 
-**That's it.** Your agent installs itself into the network. No SSH. No config files. Just natural language.
+**That's it.** Your agent handles everything and reports back when ready.
+
+No command lines. No config files. Just natural language. **This is the ClawBridge way.**
 
 ---
 
@@ -124,7 +109,7 @@ graph LR
 
 ### Advanced Features (Phase 2)
 
-✅ **OpenClaw Bridge** — Remote agents can call your local OpenClaw tools (exec, Read, web_search, etc.)  
+✅ **OpenClaw Bridge** *(feature)* — Remote agents can call your local OpenClaw tools (exec, Read, web_search, etc.)  
 ✅ **Granular Permissions** — Per-peer, per-skill access control  
 ✅ **Rate Limiting** — Token bucket algorithm with burst handling (global, per-peer, per-skill)  
 ✅ **Health Monitoring** — `/health` endpoint with call counters and latency percentiles  
@@ -262,7 +247,7 @@ sequenceDiagram
 
 ---
 
-### OpenClaw Bridge Flow
+### OpenClaw Bridge Feature Flow
 
 ```mermaid
 graph LR
@@ -634,6 +619,75 @@ sequenceDiagram
 3. Integrates directly with OpenClaw ecosystem
 4. Provides production-grade security and monitoring
 5. Uses an open standard (not locked to one framework)
+
+---
+
+## FAQ
+
+### What's the difference between ClawBridge and OpenClaw Bridge?
+
+- **ClawBridge** = This product (the complete agent networking system)
+- **OpenClaw Bridge** = One feature within ClawBridge (lets A2A agents call your OpenClaw gateway's tools remotely)
+
+Think of it like: **ClawBridge** is the highway system, **OpenClaw Bridge** is one on-ramp.
+
+### How does agent-native installation work?
+You give your agent a natural language prompt: "Install ClawBridge from GitHub." Your agent reads the installation instructions (written for agents, not humans), runs the commands, configures itself, tests connectivity, and reports back. No command lines for you. No config files to edit. Your agent installs itself into the network.
+
+**This is unique to ClawBridge.** The installation process itself is agent-to-agent native.
+
+### Do I need multiple machines?
+No! You can run multiple OpenClaw instances on one machine (different ports). ClawBridge works the same way.
+
+### Can I connect to non-OpenClaw agents?
+Yes! Any A2A-compatible agent works. LangChain, CrewAI, custom implementations — all compatible if they follow the A2A spec.
+
+### Is my data safe?
+Yes. Default deployment is **private network only** (no public access). You control which skills are exposed via whitelists. All calls are logged. Multi-layer security (auth → rate limiting → permissions → validation).
+
+### What if I don't want to share anything publicly?
+Don't! Current version (Phase 1-3) is private network only. Public features (Phase 4-5) are optional and not yet implemented.
+
+### How much does it cost?
+Free forever. Open source (MIT license). No fees, no subscriptions.
+
+### What if my agents leak data?
+Multi-layer protection:
+1. **Skill whitelist** — Only exposed skills callable
+2. **Agent instructions** — Built-in "don't share private data" rules
+3. **Permissions config** — Per-peer access control
+4. **Audit log** — Track what was accessed
+5. **Bridge tool risk levels** — Mark dangerous tools (like `exec`) as high-risk
+
+### Can I use this with existing OpenClaw agents?
+Yes! No code changes needed. Install ClawBridge, configure which skills to expose, done.
+
+### How do I enable the OpenClaw Bridge feature?
+Create `config/bridge.json`:
+```json
+{
+  "enabled": true,
+  "gateway_url": "http://localhost:18789",
+  "openclaw_config": "~/.openclaw/openclaw.json",
+  "exposed_tools": ["Read", "web_search", "web_fetch"]
+}
+```
+
+Then restart ClawBridge. See [BRIDGE_SETUP.md](docs/BRIDGE_SETUP.md) for full guide.
+
+### What's the difference between a "skill" and a "tool"?
+- **Skill** — A2A protocol term for a callable capability
+- **Tool** — OpenClaw term for a built-in function (Read, exec, web_search, etc.)
+- **OpenClaw Bridge** — Exposes OpenClaw tools as A2A skills
+
+### Can remote agents execute code on my machine?
+Only if you explicitly whitelist dangerous tools (like `exec`) in your OpenClaw Bridge config. By default, the bridge is disabled. When enabled, you choose which tools to expose and can mark them with risk levels (safe/moderate/high).
+
+### How do I monitor in production?
+1. **Prometheus** — Scrape `/metrics` endpoint
+2. **Grafana** — Visualize metrics (dashboard examples in `docs/`)
+3. **Logs** — Structured JSON logs via journalctl
+4. **Health endpoint** — `/health` for uptime checks
 
 ---
 
@@ -1091,68 +1145,6 @@ See [SECURITY.md](docs/SECURITY.md) for full security guide.
 - Agent marketplace
 
 **Timeline:** 3-4 weeks after Phase 4
-
----
-
-## FAQ
-
-### How does agent-native installation work?
-You give your agent a natural language prompt: "Install ClawBridge from GitHub." Your agent reads the installation instructions (written for agents, not humans), runs the commands, configures itself, tests connectivity, and reports back. No command lines for you. No config files to edit. Your agent installs itself into the network.
-
-**This is unique to ClawBridge.** The installation process itself is agent-to-agent native.
-
-### Do I need multiple machines?
-No! You can run multiple OpenClaw instances on one machine (different ports). A2A works the same way.
-
-### Can I connect to non-OpenClaw agents?
-Yes! Any A2A-compatible agent works. LangChain, CrewAI, custom implementations — all compatible if they follow the A2A spec.
-
-### Is my data safe?
-Yes. Default deployment is **private network only** (no public access). You control which skills are exposed via whitelists. All calls are logged. Multi-layer security (auth → rate limiting → permissions → validation).
-
-### What if I don't want to share anything publicly?
-Don't! Current version (Phase 1-3) is private network only. Public features (Phase 4-5) are optional and not yet implemented.
-
-### How much does it cost?
-Free forever. Open source (MIT license). No fees, no subscriptions.
-
-### What if my agents leak data?
-Multi-layer protection:
-1. **Skill whitelist** — Only exposed skills callable
-2. **Agent instructions** — Built-in "don't share private data" rules
-3. **Permissions config** — Per-peer access control
-4. **Audit log** — Track what was accessed
-5. **Bridge tool risk levels** — Mark dangerous tools (like `exec`) as high-risk
-
-### Can I use this with existing OpenClaw agents?
-Yes! No code changes needed. Install ClawBridge, configure which skills to expose, done.
-
-### How do I enable the OpenClaw Bridge?
-Create `config/bridge.json`:
-```json
-{
-  "enabled": true,
-  "gateway_url": "http://localhost:18789",
-  "openclaw_config": "~/.openclaw/openclaw.json",
-  "exposed_tools": ["Read", "web_search", "web_fetch"]
-}
-```
-
-Then restart the server. See [BRIDGE_SETUP.md](docs/BRIDGE_SETUP.md) for full guide.
-
-### What's the difference between a "skill" and a "tool"?
-- **Skill** — A2A protocol term for a callable capability
-- **Tool** — OpenClaw term for a built-in function (Read, exec, web_search, etc.)
-- **Bridge** — Exposes OpenClaw tools as A2A skills
-
-### Can remote agents execute code on my machine?
-Only if you explicitly whitelist dangerous tools (like `exec`) in your bridge config. By default, bridge is disabled. When enabled, you choose which tools to expose and can mark them with risk levels (safe/moderate/high).
-
-### How do I monitor in production?
-1. **Prometheus** — Scrape `/metrics` endpoint
-2. **Grafana** — Visualize metrics (dashboard examples in `docs/`)
-3. **Logs** — Structured JSON logs via journalctl
-4. **Health endpoint** — `/health` for uptime checks
 
 ---
 
