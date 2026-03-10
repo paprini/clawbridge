@@ -8,19 +8,60 @@ function expandHome(filePath) {
   return typeof filePath === 'string' ? filePath.replace(/^~/, os.homedir()) : filePath;
 }
 
-function loadGatewayToken(tokenPath) {
+function loadGatewayConfig(tokenPath) {
   const resolved = expandHome(tokenPath || '~/.openclaw/openclaw.json');
   if (!fs.existsSync(resolved)) {
     throw new Error(`OpenClaw config not found: ${resolved}. Is OpenClaw installed?`);
   }
 
-  const config = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+  return JSON.parse(fs.readFileSync(resolved, 'utf8'));
+}
+
+function loadGatewayToken(tokenPath) {
+  const config = loadGatewayConfig(tokenPath);
   const token = config?.gateway?.auth?.token;
   if (!token) {
     throw new Error('No gateway auth token found in OpenClaw config');
   }
 
   return token;
+}
+
+function tryParseTextPayload(content) {
+  if (!Array.isArray(content)) {
+    return null;
+  }
+
+  for (const part of content) {
+    if (part?.type !== 'text' || typeof part.text !== 'string') {
+      continue;
+    }
+
+    try {
+      return JSON.parse(part.text);
+    } catch {
+      // Keep scanning until a structured text payload is found.
+    }
+  }
+
+  return null;
+}
+
+function unwrapGatewayToolResult(result) {
+  if (!result || typeof result !== 'object' || Array.isArray(result)) {
+    return result;
+  }
+
+  if (result.details && typeof result.details === 'object' && !Array.isArray(result.details)) {
+    return result.details;
+  }
+
+  if (result.structuredContent && typeof result.structuredContent === 'object' && !Array.isArray(result.structuredContent)) {
+    return result.structuredContent;
+  }
+
+  const parsed = tryParseTextPayload(result.content);
+  return parsed || result;
 }
 
 function loadGatewayDefaults() {
@@ -75,12 +116,14 @@ async function invokeGatewayTool(toolName, args = {}, opts = {}) {
     throw new Error(data.error?.message || `Tool "${toolName}" execution failed`);
   }
 
-  return data.result;
+  return unwrapGatewayToolResult(data.result);
 }
 
 module.exports = {
   expandHome,
+  loadGatewayConfig,
   loadGatewayDefaults,
   loadGatewayToken,
   invokeGatewayTool,
+  unwrapGatewayToolResult,
 };

@@ -67,6 +67,7 @@ describe('Setup Tools', () => {
 
       expect(result.agent.id).toBe('test-agent');
       expect(result.peers).toHaveLength(1);
+      expect(result.notes).toHaveLength(1);
 
       // Verify files exist
       expect(fs.existsSync(path.join(tmpDir, 'agent.json'))).toBe(true);
@@ -92,8 +93,9 @@ describe('Setup Tools', () => {
       expect(bridge.enabled).toBe(true);
       expect(bridge.exposed_tools).toContain('message');
       expect(bridge.agent_dispatch).toEqual({
-        enabled: true,
-        sessionKey: 'main',
+        enabled: false,
+        sessionKey: 'auto',
+        requesterSessionKey: 'auto',
         timeoutSeconds: 0,
       });
 

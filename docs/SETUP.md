@@ -57,6 +57,7 @@ Behavior:
 - lets you add more peers afterwards
 - preserves existing bridge, contacts, and custom skills config when rewriting files
 - if you want inbound `@agent` messages to activate the receiving OpenClaw agent, also allow `sessions_send` in `~/.openclaw/openclaw.json -> gateway.tools.allow`
+- fresh setup will disable `bridge.agent_dispatch` automatically when that allowlist is missing, instead of writing a broken default
 
 ## Environment Variables
 

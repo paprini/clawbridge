@@ -133,11 +133,12 @@ Symptoms: the message appears in Telegram / Discord / WhatsApp, but the receivin
 Causes:
 - visible delivery succeeded, but inbound agent dispatch did not happen
 - local OpenClaw gateway does not allow `sessions_send`
-- `bridge.agent_dispatch.sessionKey` points to the wrong local session
+- `bridge.agent_dispatch` is still disabled after setup
+- `bridge.agent_dispatch.sessionKey` was forced to a wrong literal session instead of `auto`
 
 Fixes:
 - ensure `config/bridge.json -> agent_dispatch.enabled` is `true`
-- ensure `config/bridge.json -> agent_dispatch.sessionKey` targets the real receiving agent session
+- prefer `config/bridge.json -> agent_dispatch.sessionKey = "auto"` unless you have a known custom OpenClaw session key
 - allow `sessions_send` in `~/.openclaw/openclaw.json` under `gateway.tools.allow`
 - run `npm run verify`
 

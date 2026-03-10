@@ -221,8 +221,15 @@ async function runNonInteractive() {
   const newPeers = await collectAdditionalPeers(prompt, managedPeers.length);
   const peers = [...managedPeers, ...newPeers];
 
-  writeConfig({ agentName: name, agentUrl: url, peers, token: generateToken(), defaultDelivery });
+  const result = writeConfig({ agentName: name, agentUrl: url, peers, token: generateToken(), defaultDelivery });
   console.log('\n✅ Config written to config/');
+
+  if (Array.isArray(result.notes) && result.notes.length > 0) {
+    console.log('\nNotes:');
+    for (const note of result.notes) {
+      console.log(`- ${note}`);
+    }
+  }
 
   // Test connections
   for (const peer of peers) {

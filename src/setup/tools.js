@@ -73,6 +73,28 @@ function generateToken() {
   return crypto.randomBytes(32).toString('hex');
 }
 
+function expandHome(filePath) {
+  return typeof filePath === 'string' ? filePath.replace(/^~/, os.homedir()) : filePath;
+}
+
+function gatewayAllowsTool(tokenPath, toolName) {
+  try {
+    const resolved = expandHome(tokenPath || '~/.openclaw/openclaw.json');
+    if (!fs.existsSync(resolved)) {
+      return false;
+    }
+
+    const config = JSON.parse(fs.readFileSync(resolved, 'utf8'));
+    const allow = Array.isArray(config?.gateway?.tools?.allow)
+      ? config.gateway.tools.allow
+      : [];
+
+    return allow.includes(toolName);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Rotate token for a specific peer. Updates peers.json in place.
  * @param {string} peerId
@@ -250,8 +272,9 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
       sessionKey: 'main',
     },
     agent_dispatch: {
-      enabled: true,
-      sessionKey: 'main',
+      enabled: gatewayAllowsTool('~/.openclaw/openclaw.json', 'sessions_send'),
+      sessionKey: 'auto',
+      requesterSessionKey: 'auto',
       timeoutSeconds: 0,
     },
     exposed_tools: ['message', 'web_search', 'web_fetch', 'memory_search', 'session_status'],
@@ -263,7 +286,12 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
   const contacts = existing.contacts || { aliases: {} };
   fs.writeFileSync(path.join(configDir, 'contacts.json'), JSON.stringify(contacts, null, 2) + '\n');
 
-  return { agent, peers: peersData.peers, token, configDir, bridge, contacts };
+  const notes = [];
+  if (!existing.bridge && bridge.agent_dispatch?.enabled === false) {
+    notes.push('OpenClaw gateway.tools.allow does not include "sessions_send". agent_dispatch was disabled for this install. Add "sessions_send" to ~/.openclaw/openclaw.json, restart the gateway, then enable bridge.agent_dispatch when you want receiving agents to auto-activate.');
+  }
+
+  return { agent, peers: peersData.peers, token, configDir, bridge, contacts, notes };
 }
 
 /**

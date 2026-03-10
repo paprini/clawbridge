@@ -252,11 +252,11 @@ describe('Built-in Skills', () => {
         channel: 'discord'
       });
       expect(invokeGatewayTool).toHaveBeenCalledWith('sessions_send', expect.objectContaining({
-        sessionKey: 'main',
+        sessionKey: 'agent:discord-agent:discord:channel:1480310282961289216',
         timeoutSeconds: 0,
         message: expect.stringContaining('Loop prevention'),
       }), expect.objectContaining({
-        sessionKey: 'main',
+        sessionKey: 'agent:discord-agent:main',
       }));
       expect(result.success).toBe(true);
       expect(result.agent_dispatch).toBe('accepted');
@@ -309,11 +309,11 @@ describe('Built-in Skills', () => {
 
       expect(callOpenClawTool).toHaveBeenCalled();
       expect(invokeGatewayTool).toHaveBeenCalledWith('sessions_send', expect.objectContaining({
-        sessionKey: 'main',
+        sessionKey: 'agent:discord-agent:discord:channel:1480310282961289216',
         timeoutSeconds: 0,
         message: expect.stringContaining('Source agent: monti-telegram'),
       }), expect.objectContaining({
-        sessionKey: 'main',
+        sessionKey: 'agent:discord-agent:main',
       }));
       expect(result.success).toBe(true);
       expect(result.agent_dispatch).toBe('accepted');

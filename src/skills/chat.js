@@ -5,10 +5,12 @@
 const { callOpenClawTool, loadBridgeConfig } = require('../bridge');
 const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../config');
 const { callPeerSkill } = require('../client');
-const { invokeGatewayTool } = require('../openclaw-gateway');
+const { invokeGatewayTool, loadGatewayConfig } = require('../openclaw-gateway');
 const logger = require('../logger');
 
 const MAX_RELAY_HOPS = 4;
+const DEFAULT_OPENCLAW_MAIN_KEY = 'main';
+const DEFAULT_OPENCLAW_ACCOUNT_ID = 'default';
 
 function getTargetingSuggestion() {
   return 'Use @agent-name for agent-to-agent, #channel for local channels, #channel@agent for remote channels, or configure config/contacts.json aliases.';
@@ -197,7 +199,136 @@ function buildAgentDeliveryMeta({ sourceAgentId, requestedTarget, remoteChannelT
   };
 }
 
-function getAgentDispatchConfig() {
+function normalizeSessionToken(value, fallback) {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed) {
+    return fallback;
+  }
+
+  const normalized = trimmed.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+  return normalized || fallback;
+}
+
+function normalizeDmScope(value) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (['per-account-channel-peer', 'per-channel-peer', 'per-peer', 'main'].includes(normalized)) {
+    return normalized;
+  }
+
+  return 'main';
+}
+
+function buildAgentMainSessionKey(agentId, mainKey = DEFAULT_OPENCLAW_MAIN_KEY) {
+  return `agent:${normalizeSessionToken(agentId, 'main')}:${normalizeSessionToken(mainKey, DEFAULT_OPENCLAW_MAIN_KEY)}`;
+}
+
+function buildAgentPeerSessionKey({ agentId, channel, accountId, peerKind, peerId, dmScope, mainKey }) {
+  const normalizedAgentId = normalizeSessionToken(agentId, 'main');
+  const normalizedChannel = normalizeSessionToken(channel, 'unknown');
+  const normalizedPeerId = typeof peerId === 'string' && peerId.trim().length > 0
+    ? peerId.trim().toLowerCase()
+    : 'unknown';
+
+  if (peerKind === 'direct') {
+    if (dmScope === 'per-account-channel-peer') {
+      return `agent:${normalizedAgentId}:${normalizedChannel}:${normalizeSessionToken(accountId, DEFAULT_OPENCLAW_ACCOUNT_ID)}:direct:${normalizedPeerId}`;
+    }
+
+    if (dmScope === 'per-channel-peer') {
+      return `agent:${normalizedAgentId}:${normalizedChannel}:direct:${normalizedPeerId}`;
+    }
+
+    if (dmScope === 'per-peer') {
+      return `agent:${normalizedAgentId}:direct:${normalizedPeerId}`;
+    }
+
+    return buildAgentMainSessionKey(normalizedAgentId, mainKey);
+  }
+
+  return `agent:${normalizedAgentId}:${normalizedChannel}:${peerKind}:${normalizedPeerId}`;
+}
+
+function loadGatewaySessionSettings(gateway) {
+  try {
+    const config = loadGatewayConfig(gateway?.tokenPath || '~/.openclaw/openclaw.json');
+    return {
+      mainKey: normalizeSessionToken(config?.session?.mainKey, DEFAULT_OPENCLAW_MAIN_KEY),
+      dmScope: normalizeDmScope(config?.session?.dmScope),
+    };
+  } catch {
+    return {
+      mainKey: DEFAULT_OPENCLAW_MAIN_KEY,
+      dmScope: 'main',
+    };
+  }
+}
+
+function resolveConfiguredSessionKey(rawValue, fallback) {
+  const trimmed = typeof rawValue === 'string' ? rawValue.trim() : '';
+  if (!trimmed || trimmed.toLowerCase() === 'auto' || trimmed.toLowerCase() === 'main') {
+    return fallback;
+  }
+
+  return trimmed;
+}
+
+function resolveDispatchSessionKeys({ dispatchConfig, agentId, defaultDelivery, resolvedTarget, deliveryChannel, agentDeliveryMeta }) {
+  const dispatchAgentId = dispatchConfig.agentId || agentId || 'main';
+  const { mainKey, dmScope } = loadGatewaySessionSettings(dispatchConfig.gateway);
+  const mainSessionKey = buildAgentMainSessionKey(dispatchAgentId, mainKey);
+  const requesterSessionKey = resolveConfiguredSessionKey(dispatchConfig.requesterSessionKey, mainSessionKey);
+  const explicitTargetSessionKey = resolveConfiguredSessionKey(dispatchConfig.sessionKey, null);
+
+  if (explicitTargetSessionKey) {
+    return {
+      requesterSessionKey,
+      targetSessionKey: explicitTargetSessionKey,
+    };
+  }
+
+  const deliveryType = typeof defaultDelivery?.type === 'string'
+    ? defaultDelivery.type.trim().toLowerCase()
+    : 'target';
+  const routeChannel = (deliveryChannel || defaultDelivery?.channel || '').trim().toLowerCase();
+  const shouldUseChannelRoute = Boolean(agentDeliveryMeta?.remoteChannelTarget) || deliveryType === 'channel';
+
+  if (routeChannel && typeof resolvedTarget === 'string' && resolvedTarget.trim().length > 0) {
+    if (shouldUseChannelRoute) {
+      return {
+        requesterSessionKey,
+        targetSessionKey: buildAgentPeerSessionKey({
+          agentId: dispatchAgentId,
+          channel: routeChannel,
+          accountId: dispatchConfig.accountId || DEFAULT_OPENCLAW_ACCOUNT_ID,
+          peerKind: 'channel',
+          peerId: resolvedTarget,
+          dmScope,
+          mainKey,
+        }),
+      };
+    }
+
+    return {
+      requesterSessionKey,
+      targetSessionKey: buildAgentPeerSessionKey({
+        agentId: dispatchAgentId,
+        channel: routeChannel,
+        accountId: dispatchConfig.accountId || DEFAULT_OPENCLAW_ACCOUNT_ID,
+        peerKind: 'direct',
+        peerId: resolvedTarget,
+        dmScope,
+        mainKey,
+      }),
+    };
+  }
+
+  return {
+    requesterSessionKey,
+    targetSessionKey: mainSessionKey,
+  };
+}
+
+function getAgentDispatchConfig({ agentId, defaultDelivery, resolvedTarget, deliveryChannel, agentDeliveryMeta }) {
   const bridgeConfig = loadBridgeConfig();
   const dispatchConfig = bridgeConfig?.agent_dispatch || {};
 
@@ -205,8 +336,21 @@ function getAgentDispatchConfig() {
     return null;
   }
 
+  const { requesterSessionKey, targetSessionKey } = resolveDispatchSessionKeys({
+    dispatchConfig: {
+      ...dispatchConfig,
+      gateway: bridgeConfig.gateway,
+    },
+    agentId,
+    defaultDelivery,
+    resolvedTarget,
+    deliveryChannel,
+    agentDeliveryMeta,
+  });
+
   return {
-    sessionKey: dispatchConfig.sessionKey || bridgeConfig.gateway?.sessionKey || 'main',
+    requesterSessionKey,
+    targetSessionKey,
     timeoutSeconds: typeof dispatchConfig.timeoutSeconds === 'number' && Number.isFinite(dispatchConfig.timeoutSeconds)
       ? Math.max(0, Math.floor(dispatchConfig.timeoutSeconds))
       : 0,
@@ -242,8 +386,14 @@ function buildInboundDispatchMessage({ message, requestedTarget, resolvedTarget,
   return lines.join('\n');
 }
 
-async function dispatchInboundAgentTurn({ message, requestedTarget, resolvedTarget, agentDeliveryMeta }) {
-  const dispatchConfig = getAgentDispatchConfig();
+async function dispatchInboundAgentTurn({ message, requestedTarget, resolvedTarget, deliveryChannel, agentId, defaultDelivery, agentDeliveryMeta }) {
+  const dispatchConfig = getAgentDispatchConfig({
+    agentId,
+    defaultDelivery,
+    resolvedTarget,
+    deliveryChannel,
+    agentDeliveryMeta,
+  });
 
   if (!dispatchConfig) {
     return {
@@ -253,7 +403,7 @@ async function dispatchInboundAgentTurn({ message, requestedTarget, resolvedTarg
   }
 
   return invokeGatewayTool('sessions_send', {
-    sessionKey: dispatchConfig.sessionKey,
+    sessionKey: dispatchConfig.targetSessionKey,
     message: buildInboundDispatchMessage({
       message,
       requestedTarget,
@@ -263,7 +413,7 @@ async function dispatchInboundAgentTurn({ message, requestedTarget, resolvedTarg
     timeoutSeconds: dispatchConfig.timeoutSeconds,
   }, {
     gateway: dispatchConfig.gateway,
-    sessionKey: dispatchConfig.sessionKey,
+    sessionKey: dispatchConfig.requesterSessionKey,
     timeoutMs: dispatchConfig.timeoutMs,
   });
 }
@@ -560,6 +710,9 @@ async function chat(params) {
           message,
           requestedTarget: requestedTarget || effectiveTarget,
           resolvedTarget,
+          deliveryChannel: resolved.resolvedChannel || effectiveChannel,
+          agentId,
+          defaultDelivery,
           agentDeliveryMeta,
         });
 
