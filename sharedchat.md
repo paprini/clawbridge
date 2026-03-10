@@ -92,6 +92,211 @@ Write your responses, questions, and status updates in this file. We'll read the
 
 ---
 
+## Response From gipiti — Service Agent Architecture
+
+**Date:** 2026-03-10
+**Status:** aligned on concept, proposing implementation plan before coding
+
+### My Understanding
+
+Yes, I understand the core issue and I agree with the diagnosis.
+
+The current bridge model treats OpenClaw like a remote tool server behind HTTP. That works for transport, but it does not solve the lifecycle problem: ClawBridge evolves, while the host OpenClaw agent can retain stale instructions, stale assumptions, or the wrong operating context. The result is that ClawBridge can successfully receive and route A2A requests but still fail at the final execution step.
+
+The service agent concept is cleaner because it turns ClawBridge from "HTTP bridge into a vaguely-related agent runtime" into "orchestrator of a dedicated execution agent that ClawBridge owns." That directly addresses:
+
+- stale memory/state drift
+- lack of separation from the main bot
+- unclear responsibility for bridge execution
+- inability to update execution instructions atomically with ClawBridge code
+
+In short: I agree with the architecture direction. The right abstraction is not "tool bridge" but "managed service execution agent."
+
+### My Recommended Implementation Shape
+
+I would implement this in phases, not as one large cutover.
+
+### Phase 0 — Validate OpenClaw Capabilities
+
+Before writing the service-agent orchestration layer, I need to confirm what OpenClaw actually supports:
+
+1. Can ClawBridge create or register a dedicated agent/session programmatically?
+2. Can it target a specific long-lived session by stable ID/key?
+3. Can it inject or update instructions/skill text for that session on startup?
+4. Can it give that session an isolated workspace or identity boundary?
+5. Can it invoke that session directly and receive structured results?
+
+If OpenClaw cannot do all of those cleanly, we need to adjust the design around what is actually possible.
+
+### Phase 1 — Introduce A Service Runtime Abstraction
+
+First code change should be internal, not behavioral:
+
+- define a `service-runtime` interface inside ClawBridge
+- current bridge becomes one implementation
+- future service-agent runtime becomes another implementation
+
+This lets us move from:
+
+- executor -> chat skill -> bridge HTTP
+
+to:
+
+- executor -> chat skill -> service runtime
+
+That gives us a stable seam for migration.
+
+Minimum shape:
+
+- `executeChat(params)`
+- `executeBroadcast(params)`
+- `healthCheck()`
+- `selfTest()`
+
+### Phase 2 — Add Service Agent Manager
+
+Build a module responsible for:
+
+- ensuring the service agent/session exists
+- bootstrapping it on startup
+- refreshing its instructions when ClawBridge starts
+- exposing health/status to the rest of the app
+
+Likely module shape:
+
+- `src/service-agent/manager.js`
+- `src/service-agent/runtime.js`
+- `src/service-agent/instructions.js`
+
+Responsibilities:
+
+- create or look up the service session
+- load `SKILL.md` or generated instructions
+- bind a stable session key
+- report ready / degraded / failed state
+
+### Phase 3 — Route Chat Through The Service Agent
+
+Do the smallest proof first:
+
+- move `chat` off raw bridge HTTP
+- send `chat` requests to the service agent
+- have the service agent call the native OpenClaw message capability
+
+That proves the new last-mile model with the smallest user-visible surface.
+
+Why `chat` first:
+
+- it is the primary broken path
+- it has a clear real-world success signal
+- it is simpler than `broadcast`
+
+### Phase 4 — Move Broadcast
+
+Once `chat` is stable:
+
+- reimplement `broadcast` on top of the new runtime
+- either let ClawBridge fan out and service agent execute locally per message, or let service agent handle the local execution side while ClawBridge keeps peer orchestration
+
+My current preference:
+
+- ClawBridge should keep peer orchestration
+- service agent should own local execution/tool use
+
+That keeps network orchestration and local execution separate.
+
+### Phase 5 — Replace Raw Bridge For Supported Operations
+
+After `chat` and `broadcast` are proven:
+
+- decide whether all bridge-backed operations should route through the service agent
+- or whether some read-only tool bridge calls still make sense as direct gateway operations
+
+My current view:
+
+- `chat` and anything action-oriented should go through the service agent
+- direct HTTP bridge may still be acceptable for some low-risk read-only operations if it stays well-bounded
+
+### Minimum Viable Implementation
+
+To prove the architecture without overcommitting scope:
+
+1. Service agent/session can be ensured on startup
+2. Startup loads or refreshes current ClawBridge instructions
+3. `chat` routes to service agent instead of raw bridge HTTP
+4. `npm run verify` can confirm service-agent readiness
+5. one real end-to-end deployed `chat` succeeds
+
+If that works, we have validated the architecture and can migrate the rest.
+
+### Scope Estimate
+
+This is not a small patch. It is a medium-to-large architecture change.
+
+Likely touch points:
+
+- `src/server.js`
+- `src/executor.js`
+- `src/skills/chat.js`
+- `src/skills/broadcast.js`
+- `src/bridge.js` or a successor abstraction
+- startup / verify flow
+- config schema
+- tests
+- docs
+
+Likely new modules:
+
+- service agent manager
+- service runtime abstraction
+- service-agent health/self-test support
+- config helpers for service runtime/session settings
+
+### Open Questions / Gaps I Need Answered
+
+These are the most important unknowns before implementation:
+
+1. What OpenClaw API creates or binds to a dedicated agent/session?
+2. Can that session have durable instructions that ClawBridge can update on startup?
+3. Can we assign it a stable workspace path or session key?
+4. Can ClawBridge submit structured tasks to that session and receive structured results back?
+5. Is there already an OpenClaw-native concept closer to "service agent" that we should reuse instead of inventing our own lifecycle?
+6. Do we want the service agent to be fully invisible to the end-user, or explicitly visible as a ClawBridge-managed internal agent?
+
+### Architectural Cautions
+
+I agree with the direction, but I want to flag the main risks early:
+
+1. If OpenClaw session APIs are weak or unstable, we could build a complicated manager around assumptions that do not hold in production.
+2. If the service agent becomes too magical, debugging may get harder unless we expose clear health/state introspection.
+3. If we migrate everything at once, we will increase risk. I strongly recommend `chat` as the first proving path.
+
+### Recommendation
+
+I recommend we align on this exact implementation strategy:
+
+1. Confirm OpenClaw session/agent APIs
+2. Add a runtime abstraction
+3. Build a managed service-agent bootstrap layer
+4. Route only `chat` through it first
+5. Prove deployed end-to-end behavior
+6. Expand to `broadcast` and other operations after that
+
+If you agree, my next step is to inspect the available OpenClaw session/gateway capabilities in detail and turn this into a concrete file-level implementation plan.
+
+### Follow-Up
+
+- Added formal architecture spec: `docs/SERVICE_AGENT_ARCHITECTURE.md`
+- Linked it into the docs map and contributor onboarding docs
+- The spec locks in the main decisions already discussed:
+  - one managed service agent per installation
+  - external runtime state outside the repo
+  - ClawBridge-managed instruction sync
+  - background healing on startup
+  - full replacement of the current primary execution bridge
+
+---
+
 ## Consolidated Status From gipiti
 
 **Date:** 2026-03-10

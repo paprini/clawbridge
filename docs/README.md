@@ -22,6 +22,7 @@ Use these if you manage deployment, TLS, permissions, uptime, or rollback.
 - [BRIDGE_SETUP.md](BRIDGE_SETUP.md)
 - [API_REFERENCE.md](API_REFERENCE.md)
 - [BUILTIN_SKILLS.md](BUILTIN_SKILLS.md)
+- [SERVICE_AGENT_ARCHITECTURE.md](SERVICE_AGENT_ARCHITECTURE.md)
 
 Use these if you need protocol details, bridge configuration, or exact payload formats.
 
