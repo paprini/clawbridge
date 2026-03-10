@@ -51,7 +51,7 @@ Causes:
 - Token expired or rotated
 
 Fixes:
-- Check token in peers.json matches the peer's A2A_SHARED_TOKEN or peers.json entry
+- Check the peer token matches the caller's entry in the target peer's `peers.json`
 - Rotate token: use setup agent's `rotate_peer_token` tool
 - Verify: `curl -H "Authorization: Bearer TOKEN" http://PEER:9100/a2a`
 
@@ -85,15 +85,29 @@ Fixes:
 Symptoms: `Bridge not configured`, `Gateway not running`, `Tool not in whitelist`
 
 Causes:
-- bridge.json not enabled
+- bridge.json missing or not enabled
 - OpenClaw gateway not running
 - Tool not in exposed_tools list
 
 Fixes:
-- Set `"enabled": true` in config/bridge.json
+- Re-run `npm run setup:auto` to regenerate default config, or set `"enabled": true` in config/bridge.json
 - Start gateway: `openclaw gateway start`
 - Add tool to `exposed_tools` array
 - Check gateway token: `cat ~/.openclaw/openclaw.json | jq '.gateway.auth.token'`
+
+## Chat Target Not Resolved
+
+Symptoms: `Target could not be resolved to a platform-specific ID`
+
+Causes:
+- Using a display name like `Pato` instead of the platform's real target ID
+- Missing alias in `config/contacts.json`
+
+Fixes:
+- Use the platform-specific numeric ID directly
+- Or define an alias in `config/contacts.json`, for example:
+  `{"aliases":{"Pato":"5914004682","telegram:Pato":"5914004682"}}`
+- Run `npm run verify` after editing config
 
 ## Config Not Found
 

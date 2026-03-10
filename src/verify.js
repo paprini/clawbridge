@@ -118,6 +118,15 @@ check('bridge.json (OpenClaw bridge)', () => {
   return true;
 });
 
+check('contacts.json', () => {
+  const c = loadJSON('contacts.json');
+  if (!c) { console.log('    ℹ️  Not configured — direct target IDs only'); return true; }
+  if (c.aliases !== undefined && (typeof c.aliases !== 'object' || Array.isArray(c.aliases) || c.aliases === null)) {
+    return 'contacts.json "aliases" must be an object';
+  }
+  return true;
+});
+
 check('permissions.json (access control)', () => {
   const p = loadJSON('permissions.json');
   if (!p) { console.log('    ℹ️  Not configured — all peers allowed (default)'); return true; }
@@ -154,6 +163,29 @@ check('Helper agent workspace path resolves', () => {
   if (typeof workspaceDir !== 'string' || workspaceDir.length === 0) {
     return 'Invalid helper workspaceDir';
   }
+  return true;
+});
+
+check('chat/broadcast bridge readiness', () => {
+  const skills = loadJSON('skills.json');
+  const exposedNames = Array.isArray(skills?.exposed_skills)
+    ? skills.exposed_skills.map((skill) => skill?.name).filter(Boolean)
+    : [];
+  const needsMessageBridge = exposedNames.includes('chat') || exposedNames.includes('broadcast');
+
+  if (!needsMessageBridge) {
+    return true;
+  }
+
+  const bridge = loadJSON('bridge.json');
+  if (!bridge || bridge.enabled !== true) {
+    return 'chat/broadcast are exposed, but bridge.json is missing or disabled';
+  }
+
+  if (!Array.isArray(bridge.exposed_tools) || !bridge.exposed_tools.includes('message')) {
+    return 'chat/broadcast are exposed, but bridge.json does not expose the "message" tool';
+  }
+
   return true;
 });
 

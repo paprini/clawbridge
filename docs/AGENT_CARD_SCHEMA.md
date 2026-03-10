@@ -1,7 +1,8 @@
-# Agent Card Schema — Phase 1 (Minimal)
+# Agent Card Schema — Historical Phase 1 Minimal Design
 
 **Date:** 2026-03-09  
 **Based on:** A2A Protocol RC v1.0, @a2a-js/sdk v0.3.10
+**Status:** historical design note. The current product can expose more skills, including `chat`, `broadcast`, and `openclaw_*` bridge skills depending on config. See `docs/API_REFERENCE.md` for the current behavior.
 
 ---
 

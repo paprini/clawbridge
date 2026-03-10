@@ -16,6 +16,7 @@ process.env.A2A_CONFIG_DIR = tmpDir;
 process.env.A2A_SHARED_TOKEN = 'test_shared_token';
 
 const { validateToken, createUserBuilder } = require('../../src/auth');
+const { clearCache } = require('../../src/config');
 
 describe('Bearer Token Authentication', () => {
   afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
@@ -28,6 +29,22 @@ describe('Bearer Token Authentication', () => {
     test('returns __shared__ for valid shared token', () => {
       const result = validateToken('test_shared_token');
       expect(result).toBe('__shared__');
+    });
+
+    test('prefers peer identity when token matches both peer and shared token', () => {
+      const peersPath = path.join(tmpDir, 'peers.json');
+      fs.writeFileSync(peersPath, JSON.stringify({
+        peers: [{ id: 'preferred-peer', url: 'http://localhost:9102', token: 'test_shared_token' }],
+      }));
+      clearCache();
+
+      const result = validateToken('test_shared_token');
+      expect(result).toBe('preferred-peer');
+
+      fs.writeFileSync(peersPath, JSON.stringify({
+        peers: [{ id: 'openclaw-test', url: 'http://localhost:9101', token: 'a2a_peer_beta_token_789' }],
+      }));
+      clearCache();
     });
 
     test('returns null for invalid token', () => {

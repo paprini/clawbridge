@@ -44,12 +44,16 @@ function validateToken(token) {
   const peers = loadPeersConfig();
   const sharedToken = process.env.A2A_SHARED_TOKEN;
 
+  // Peer-specific identity should win over the shared fallback token.
+  const peer = peers.find((p) => safeEqual(p.token, token));
+  if (peer) {
+    return peer.id;
+  }
+
   if (sharedToken && safeEqual(token, sharedToken)) {
     return '__shared__';
   }
-
-  const peer = peers.find((p) => safeEqual(p.token, token));
-  return peer ? peer.id : null;
+  return null;
 }
 
 /**

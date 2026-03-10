@@ -74,22 +74,29 @@ callPeerSkill('discord-agent', 'get_status')
 
 **Usage:**
 ```javascript
-// Discord agent → WhatsApp agent
+// Discord agent → WhatsApp agent (direct platform ID)
 callPeerSkill('whatsapp-agent', 'chat', {
-  target: '#general',
+  target: '5914004682',
   message: 'Hello from Discord!'
 })
 
-// With optional channel parameter
+// With a contacts alias configured in config/contacts.json
 callPeerSkill('telegram-agent', 'chat', {
-  target: '@username',
+  target: 'Pato',
+  message: 'Direct message from another agent',
+  channel: 'telegram'
+})
+
+// With optional channel parameter and explicit platform
+callPeerSkill('telegram-agent', 'chat', {
+  target: '5914004682',
   message: 'Direct message from another agent',
   channel: 'telegram'
 })
 ```
 
 **Parameters:**
-- `target` (required): Channel ID, username, or channel name
+- `target` (required): Platform-specific target ID, or an alias defined in `config/contacts.json`
 - `message` (required): Message text (max 4000 characters)
 - `channel` (optional): Specific channel/platform ('discord', 'whatsapp', 'telegram', etc.)
 
@@ -97,7 +104,8 @@ callPeerSkill('telegram-agent', 'chat', {
 ```json
 {
   "success": true,
-  "delivered_to": "#general",
+  "delivered_to": "Pato",
+  "resolved_target": "5914004682",
   "channel": "auto",
   "message_length": 20,
   "timestamp": "2026-03-09T23:12:05Z"
@@ -107,10 +115,9 @@ callPeerSkill('telegram-agent', 'chat', {
 **Response (error):**
 ```json
 {
-  "error": "Failed to send message via gateway",
-  "details": "Gateway unavailable",
-  "target": "#general",
-  "suggestion": "Check that OpenClaw gateway is running and bridge is configured"
+  "error": "Target could not be resolved to a platform-specific ID.",
+  "target": "Pato",
+  "suggestion": "Use the platform-specific numeric ID directly, or add an alias in config/contacts.json."
 }
 ```
 
@@ -123,6 +130,7 @@ callPeerSkill('telegram-agent', 'chat', {
 - Peer agent must have OpenClaw gateway configured
 - Bridge must be enabled
 - `message` tool must be allowed in bridge config
+- Use a platform-specific target ID directly, or define an alias in `config/contacts.json`
 
 ---
 

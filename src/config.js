@@ -33,6 +33,25 @@ function loadConfig(filename) {
   return parsed;
 }
 
+function loadOptionalConfig(filename, fallback = null) {
+  const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', 'config');
+  const safe = path.basename(filename);
+  const cacheKey = `${configDir}:${safe}`;
+
+  if (_cache[cacheKey]) return _cache[cacheKey];
+
+  const filePath = path.join(configDir, safe);
+  if (!fs.existsSync(filePath)) {
+    _cache[cacheKey] = fallback;
+    return fallback;
+  }
+
+  const raw = fs.readFileSync(filePath, 'utf8');
+  const parsed = JSON.parse(raw);
+  _cache[cacheKey] = parsed;
+  return parsed;
+}
+
 function loadAgentConfig() {
   return loadConfig('agent.json');
 }
@@ -45,6 +64,10 @@ function loadPeersConfig() {
 function loadSkillsConfig() {
   const config = loadConfig('skills.json');
   return config.exposed_skills || [];
+}
+
+function loadContactsConfig() {
+  return loadOptionalConfig('contacts.json', { aliases: {} });
 }
 
 /**
@@ -62,4 +85,11 @@ process.on('SIGHUP', () => {
   clearCache();
 });
 
-module.exports = { loadAgentConfig, loadPeersConfig, loadSkillsConfig, clearCache };
+module.exports = {
+  loadAgentConfig,
+  loadPeersConfig,
+  loadSkillsConfig,
+  loadContactsConfig,
+  loadOptionalConfig,
+  clearCache,
+};

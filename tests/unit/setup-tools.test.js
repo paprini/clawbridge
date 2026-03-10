@@ -55,7 +55,7 @@ describe('Setup Tools', () => {
   });
 
   describe('writeConfig', () => {
-    test('writes agent.json, peers.json, skills.json', () => {
+    test('writes agent.json, peers.json, skills.json, bridge.json, contacts.json', () => {
       const result = writeConfig({
         agentName: 'test-agent',
         agentDescription: 'Test agent',
@@ -71,6 +71,8 @@ describe('Setup Tools', () => {
       expect(fs.existsSync(path.join(tmpDir, 'agent.json'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, 'peers.json'))).toBe(true);
       expect(fs.existsSync(path.join(tmpDir, 'skills.json'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'bridge.json'))).toBe(true);
+      expect(fs.existsSync(path.join(tmpDir, 'contacts.json'))).toBe(true);
 
       // Verify content
       const agent = JSON.parse(fs.readFileSync(path.join(tmpDir, 'agent.json'), 'utf8'));
@@ -80,8 +82,16 @@ describe('Setup Tools', () => {
       expect(peers.peers[0].id).toBe('peer1');
 
       const skills = JSON.parse(fs.readFileSync(path.join(tmpDir, 'skills.json'), 'utf8'));
-      expect(skills.exposed_skills).toHaveLength(2);
+      expect(skills.exposed_skills).toHaveLength(4);
       expect(skills.exposed_skills[0].name).toBe('ping');
+      expect(skills.exposed_skills.map((skill) => skill.name)).toEqual(['ping', 'get_status', 'chat', 'broadcast']);
+
+      const bridge = JSON.parse(fs.readFileSync(path.join(tmpDir, 'bridge.json'), 'utf8'));
+      expect(bridge.enabled).toBe(true);
+      expect(bridge.exposed_tools).toContain('message');
+
+      const contacts = JSON.parse(fs.readFileSync(path.join(tmpDir, 'contacts.json'), 'utf8'));
+      expect(contacts.aliases).toEqual({});
     });
 
     test('getCurrentConfig reads written config', () => {
@@ -89,7 +99,9 @@ describe('Setup Tools', () => {
       expect(result.exists).toBe(true);
       expect(result.agent.name).toBe('test-agent');
       expect(result.peers).toHaveLength(1);
-      expect(result.skills).toHaveLength(2);
+      expect(result.skills).toHaveLength(4);
+      expect(result.bridge.enabled).toBe(true);
+      expect(result.contacts.aliases).toEqual({});
     });
   });
 

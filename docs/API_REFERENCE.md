@@ -130,7 +130,7 @@ Known peers with auth tokens. File permissions: 0600.
 ### config/skills.json
 Exposed skills whitelist.
 ```json
-{"exposed_skills": [{"name": "ping", "description": "...", "tags": [...], "public": true}]}
+{"exposed_skills": [{"name": "ping", "description": "...", "tags": ["health"], "public": true}, {"name": "get_status", "description": "...", "tags": ["status"], "public": true}, {"name": "chat", "description": "...", "tags": ["messaging"], "public": true}, {"name": "broadcast", "description": "...", "tags": ["messaging"], "public": true}]}
 ```
 
 ### config/permissions.json (optional)
@@ -146,9 +146,15 @@ Rate limiting config. If absent, sensible defaults apply (200/min global, 60/min
 ```
 
 ### config/bridge.json (optional)
-OpenClaw gateway bridge config. Disabled by default.
+OpenClaw gateway bridge config. Enabled by default in the tracked repo config and by `npm run setup`.
 ```json
-{"enabled": false, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json"}, "exposed_tools": ["message", "web_search"], "timeout_ms": 300000, "max_concurrent": 5}
+{"enabled": true, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json"}, "exposed_tools": ["message", "web_search"], "timeout_ms": 300000, "max_concurrent": 5}
+```
+
+### config/contacts.json (optional)
+Alias map for human-friendly names used by `chat`. Channel-specific aliases can be declared as `channel:name`.
+```json
+{"aliases": {"Pato": "5914004682", "telegram:Pato": "5914004682"}}
 ```
 
 ### config/helper-agent.json (optional)

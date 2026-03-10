@@ -176,7 +176,9 @@ cat config/skills.json
 # {
 #   "exposed_skills": [
 #     { "name": "ping", "public": true, ... },
-#     { "name": "get_status", "public": true, ... }
+#     { "name": "get_status", "public": true, ... },
+#     { "name": "chat", "public": true, ... },
+#     { "name": "broadcast", "public": true, ... }
 #   ]
 # }
 ```
@@ -496,7 +498,7 @@ curl -X POST \
 }
 ```
 
-**Verify:** ✅ Skill whitelist is enforced (only ping + get_status allowed)
+**Verify:** ✅ Skill whitelist is enforced and unknown skills are rejected cleanly
 
 ---
 

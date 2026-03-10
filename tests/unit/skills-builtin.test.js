@@ -10,12 +10,16 @@ jest.mock('../../src/bridge');
 jest.mock('../../src/client');
 jest.mock('../../src/logger');
 
-const { callOpenClawTool } = require('../../src/bridge');
+const { callOpenClawTool, loadBridgeConfig } = require('../../src/bridge');
 const { callPeers } = require('../../src/client');
 
 describe('Built-in Skills', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    loadBridgeConfig.mockReturnValue({
+      enabled: true,
+      exposed_tools: ['message'],
+    });
   });
 
   describe('chat', () => {
@@ -36,7 +40,7 @@ describe('Built-in Skills', () => {
 
     it('rejects empty message', async () => {
       const result = await chat({ target: '#general', message: '' });
-      expect(result.error).toContain('Must be a non-empty string');
+      expect(result.error).toContain('Missing or invalid message');
     });
 
     it('rejects message too long', async () => {
@@ -50,42 +54,65 @@ describe('Built-in Skills', () => {
       callOpenClawTool.mockResolvedValue({ ok: true });
 
       const result = await chat({
-        target: '#general',
+        target: '5914004682',
         message: 'Hello from chat skill'
       });
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
-        target: '#general',
+        target: '5914004682',
         message: 'Hello from chat skill'
       });
 
       expect(result.success).toBe(true);
-      expect(result.delivered_to).toBe('#general');
+      expect(result.delivered_to).toBe('5914004682');
+      expect(result.resolved_target).toBe('5914004682');
     });
 
     it('includes optional channel parameter', async () => {
       callOpenClawTool.mockResolvedValue({ ok: true });
 
       await chat({
-        target: '#general',
+        target: '5914004682',
         message: 'Hello',
         channel: 'discord'
       });
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
-        target: '#general',
+        target: '5914004682',
         message: 'Hello',
         channel: 'discord'
       });
+    });
+
+    it('rejects unresolved human-readable targets', async () => {
+      const result = await chat({
+        target: 'Pato',
+        message: 'Hello'
+      });
+
+      expect(result.error).toContain('could not be resolved');
+      expect(callOpenClawTool).not.toHaveBeenCalled();
+    });
+
+    it('returns a clear error when bridge is disabled', async () => {
+      loadBridgeConfig.mockReturnValue({ enabled: false, exposed_tools: ['message'] });
+
+      const result = await chat({
+        target: '5914004682',
+        message: 'Hello'
+      });
+
+      expect(result.error).toContain('bridge to be enabled');
+      expect(callOpenClawTool).not.toHaveBeenCalled();
     });
 
     it('handles gateway errors gracefully', async () => {
       callOpenClawTool.mockRejectedValue(new Error('Gateway unavailable'));
 
       const result = await chat({
-        target: '#general',
+        target: '5914004682',
         message: 'Hello'
       });
 

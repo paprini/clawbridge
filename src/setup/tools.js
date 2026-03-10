@@ -107,7 +107,7 @@ function rotatePeerToken(peerId) {
  */
 function getCurrentConfig() {
   const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', '..', 'config');
-  const result = { exists: false, agent: null, peers: [], skills: [] };
+  const result = { exists: false, agent: null, peers: [], skills: [], bridge: null, contacts: null };
 
   try {
     const agentPath = path.join(configDir, 'agent.json');
@@ -132,6 +132,20 @@ function getCurrentConfig() {
       result.skills = data.exposed_skills || [];
     }
   } catch { /* no skills yet */ }
+
+  try {
+    const bridgePath = path.join(configDir, 'bridge.json');
+    if (fs.existsSync(bridgePath)) {
+      result.bridge = JSON.parse(fs.readFileSync(bridgePath, 'utf8'));
+    }
+  } catch { /* no bridge yet */ }
+
+  try {
+    const contactsPath = path.join(configDir, 'contacts.json');
+    if (fs.existsSync(contactsPath)) {
+      result.contacts = JSON.parse(fs.readFileSync(contactsPath, 'utf8'));
+    }
+  } catch { /* no contacts yet */ }
 
   return result;
 }
@@ -191,11 +205,31 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
     exposed_skills: [
       { name: 'ping', description: 'Health check. Returns pong with timestamp.', tags: ['health', 'status'], public: true },
       { name: 'get_status', description: 'Returns agent status including uptime and version.', tags: ['status', 'info'], public: true },
+      { name: 'chat', description: 'Send a chat message to this agent.', tags: ['messaging', 'gateway'], public: true },
+      { name: 'broadcast', description: 'Broadcast a message to connected peers.', tags: ['messaging', 'fanout'], public: true },
     ],
   };
   fs.writeFileSync(path.join(configDir, 'skills.json'), JSON.stringify(skills, null, 2) + '\n');
 
-  return { agent, peers: peersData.peers, token, configDir };
+  const bridge = {
+    enabled: true,
+    gateway: {
+      url: 'http://127.0.0.1:18789',
+      tokenPath: '~/.openclaw/openclaw.json',
+      sessionKey: 'main',
+    },
+    exposed_tools: ['message', 'web_search', 'web_fetch', 'memory_search', 'session_status'],
+    timeout_ms: 300000,
+    max_concurrent: 5,
+  };
+  fs.writeFileSync(path.join(configDir, 'bridge.json'), JSON.stringify(bridge, null, 2) + '\n');
+
+  const contacts = {
+    aliases: {},
+  };
+  fs.writeFileSync(path.join(configDir, 'contacts.json'), JSON.stringify(contacts, null, 2) + '\n');
+
+  return { agent, peers: peersData.peers, token, configDir, bridge, contacts };
 }
 
 /**
@@ -281,7 +315,7 @@ const TOOL_DEFINITIONS = [
     type: 'function',
     function: {
       name: 'write_config',
-      description: 'Write A2A configuration files (agent.json, peers.json, skills.json)',
+      description: 'Write A2A configuration files (agent.json, peers.json, skills.json, bridge.json, contacts.json)',
       parameters: {
         type: 'object',
         properties: {

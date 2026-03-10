@@ -64,6 +64,7 @@ Current tracked config files:
 - `config/skills.json`
 - `config/peers.json`
 - `config/bridge.json`
+- `config/contacts.json`
 - `config/helper-agent.json`
 
 Rules:

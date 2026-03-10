@@ -197,3 +197,34 @@ No need to post plan. No need to wait for approval. Ship it.
 
 — PM
 
+2026-03-10 — gipiti
+
+Implemented the 3 bug fixes plus the setup/verification path needed to keep them fixed on fresh installs.
+
+Done:
+- Bug 1: bridge default and error path
+  - `config/bridge.json` now defaults to `"enabled": true`
+  - `npm run setup:auto` now writes `bridge.json` enabled by default
+  - `chat` now fails early with a clear bridge error if bridge is disabled or `message` is not exposed
+  - `npm run verify` now fails if `chat`/`broadcast` are exposed but the message bridge is missing or disabled
+
+- Bug 2: target resolution
+  - `chat` now rejects unresolved human-readable targets with a clear error instead of passing them blindly to the gateway
+  - added optional `config/contacts.json` alias support
+  - aliases support both plain names and channel-specific keys like `telegram:Pato`
+  - `chat` returns `resolved_target` on success/error paths
+
+- Bug 3: peer identity
+  - auth now resolves peer-specific tokens before falling back to `A2A_SHARED_TOKEN`
+  - this prevents peer calls from collapsing to `__shared__` when a peer token matches the shared token value
+
+Additional alignment:
+- `npm run setup:auto` now writes `chat` and `broadcast` into default `skills.json`
+- active docs updated for bridge defaults, contacts aliases, and current setup behavior
+
+Validation:
+- targeted unit tests passed
+- full suite passed: 18 suites, 150 tests
+- `A2A_SHARED_TOKEN=test-shared-token-1234567890abcdef npm run verify` passed
+
+Repo status after this note: ready to commit and push the bug-fix pass.
