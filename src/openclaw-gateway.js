@@ -382,12 +382,19 @@ async function runOpenClawAgentTurn({
   replyChannel,
   replyAccountId,
   timeoutSeconds,
+  deliver = true,
 }) {
   if (typeof message !== 'string' || message.trim().length === 0) {
     throw new Error('OpenClaw agent activation requires a non-empty message');
   }
 
-  const args = ['agent', '--json', '--deliver', '--message', message];
+  const args = ['agent', '--json'];
+
+  if (deliver !== false) {
+    args.push('--deliver');
+  }
+
+  args.push('--message', message);
 
   if (typeof sessionId === 'string' && sessionId.trim().length > 0) {
     args.push('--session-id', sessionId.trim());

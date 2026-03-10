@@ -76,8 +76,9 @@ callPeerSkill('discord-agent', 'get_status')
    - direct platform IDs are sent locally
 3. The final peer uses its own OpenClaw gateway `message` tool
 4. For `@agent-name` delivery, the final peer also activates its local OpenClaw agent through the native `openclaw agent` path with an explicit reply target
-5. When the activation returns reply text, ClawBridge relays that reply back to the origin peer through normal `chat`
-6. Message is delivered on the correct platform and the receiving agent gets a real inbound turn
+5. If the reply is supposed to go back to another peer, ClawBridge runs that activated turn without local provider delivery, captures the returned text, and relays it back through peer `chat`
+6. If there is no origin peer to relay to, the local OpenClaw activation path can still deliver locally
+7. Message is delivered on the correct platform and the receiving agent gets a real inbound turn
 
 **Usage:**
 ```javascript
@@ -160,6 +161,7 @@ If `target` is omitted, the receiving agent uses `config/agent.json -> default_d
 - `message` tool must be allowed in bridge config
 - Configure `config/agent.json -> default_delivery` if you want `@agent-name` delivery or incoming broadcasts to land somewhere by default
 - If you want `@agent-name` to activate the receiving agent, OpenClaw CLI must be installed on that node and reachable as `openclaw`; ClawBridge checks the current `PATH`, `npm prefix -g`, `~/.openclaw/bin/openclaw`, and `~/.local/bin/openclaw` before falling back to `OPENCLAW_BIN`
+- Do not reuse the local `config/agent.json -> id` as a peer id in `config/peers.json`; `npm run verify` now rejects that because source-side `@agent-name` routing becomes ambiguous
 - Use a platform-specific target ID directly for the local platform when you already know it
 - For local `#channel` names or cross-platform human aliases, define aliases in `config/contacts.json`
 

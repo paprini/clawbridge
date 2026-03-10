@@ -1241,16 +1241,17 @@ async function chat(params) {
       });
 
       try {
-        const dispatchResult = await runOpenClawAgentTurn({
-          message,
-          ...activationOptions,
-        });
         const replyRelayPeerId = resolveReplyRelayPeerId({
           requestPeerId,
           sourceAgentId: agentDeliveryMeta.sourceAgentId,
           sourceUrl: agentDeliveryMeta.sourceUrl,
           localAgentId: agentId,
           localAgentUrl: agentUrl,
+        });
+        const dispatchResult = await runOpenClawAgentTurn({
+          message,
+          ...activationOptions,
+          deliver: !replyRelayPeerId,
         });
         const replyRelay = await relayActivationReplyToSourcePeer({
           sourceAgentId: replyRelayPeerId,
@@ -1287,6 +1288,7 @@ async function chat(params) {
           openclaw_agent_id: activationOptions.agentId,
           openclaw_reply_channel: activationOptions.replyChannel,
           openclaw_reply_to: activationOptions.replyTo,
+          openclaw_deliver_locally: !replyRelayPeerId,
           openclaw_result: dispatchResult?.result?.status || dispatchResult?.status || null,
           reply_relay: replyRelay.status,
           reply_relay_peer: replyRelay.peerId || null,

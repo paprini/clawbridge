@@ -165,7 +165,8 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 - `timeoutSeconds` is the maximum time ClawBridge will wait for the local OpenClaw agent to complete the activated turn.
 - Before activation, ClawBridge inspects `sessions_list` and, when OpenClaw already has a unique session row whose delivery context matches the real target, retargets visible delivery to that row and reuses its `sessionId` for the activation step.
 - The visible reply target is passed explicitly to OpenClaw, so the activation path no longer depends on best-effort `sessions_send` announce behavior or `gateway.tools.allow -> sessions_send`.
-- When the activated agent returns reply text, ClawBridge relays that reply back to the origin peer through normal `chat`, so cross-instance conversations do not stay local-only.
+- When ClawBridge already knows a reply must go back to another peer, it now runs `openclaw agent --json` without `--deliver`, captures the returned text, and relays that text back through normal peer `chat`. This avoids mixing a local provider reply with a cross-peer return leg.
+- When no origin peer is known, ClawBridge still allows the local OpenClaw activation path to deliver locally.
 - ClawBridge peer ID and OpenClaw agent ID are different concepts. If you need to pin the receiving OpenClaw agent explicitly, set `config/agent.json -> openclaw_agent_id` or `config/bridge.json -> agent_dispatch.agentId`.
 - On multi-agent OpenClaw installs, pin one local communications agent explicitly. ClawBridge should not guess that from channel bindings.
 
@@ -179,6 +180,7 @@ Primary local identity and delivery config.
 - `openclaw_agent_id` is the local OpenClaw agent ClawBridge activates for inbound `@agent` delivery.
 - Setup now asks for this value from the detected local OpenClaw agent list.
 - If it is omitted on a multi-agent install, `npm run verify` fails because agent identity cannot be guaranteed safely.
+- `id` must not collide with any configured peer id in `config/peers.json`; `npm run verify` now fails that configuration because `@agent-name` routing becomes ambiguous.
 
 ### config/contacts.json (optional)
 Alias map for human-friendly names and local channel names used by `chat`. Channel-specific aliases can be declared as `channel:name`. Entries may be simple target strings or relay objects with `peerId`.

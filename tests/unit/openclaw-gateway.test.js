@@ -225,6 +225,37 @@ describe('openclaw gateway helpers', () => {
     );
   });
 
+  test('can run an OpenClaw agent turn without local provider delivery', async () => {
+    execFile.mockImplementation((command, args, options, callback) => {
+      callback(null, {
+        stdout: JSON.stringify({ result: { status: 'ok', payloads: [{ text: 'reply' }] } }),
+        stderr: '',
+      });
+    });
+
+    await expect(runOpenClawAgentTurn({
+      message: 'Relay this back remotely',
+      agentId: 'main',
+      sessionId: 'relay-session',
+      channel: 'discord',
+      replyTo: '1480310282961289216',
+      replyChannel: 'discord',
+      deliver: false,
+      timeoutSeconds: 30,
+    })).resolves.toEqual({ result: { status: 'ok', payloads: [{ text: 'reply' }] } });
+
+    const calledArgs = execFile.mock.calls[0][1];
+    expect(calledArgs).toEqual(expect.arrayContaining([
+      'agent',
+      '--json',
+      '--message',
+      'Relay this back remotely',
+      '--session-id',
+      'relay-session',
+    ]));
+    expect(calledArgs).not.toContain('--deliver');
+  });
+
   test('detects OpenClaw CLI availability', () => {
     expect(resolveOpenClawCommand()).toBe(fakeOpenClawPath);
     expect(getOpenClawCommand()).toBe(fakeOpenClawPath);

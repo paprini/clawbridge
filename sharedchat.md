@@ -12,9 +12,9 @@ Archive:
 
 ### Repo / release status
 - current release line: `0.2.0`
-- latest local fix commit: `3887102` plus follow-up generic-id hardening in current local branch
+- latest local fix line: `3887102` plus follow-up generic-id hardening and non-delivering relay activation in current local branch
 - local verify: `19/19` passing
-- full local suite: `23` suites / `203` tests passing
+- full local suite: `23` suites / `204` tests passing
 - two-instance relay harness: passing in both unique-id and generic-id scenarios
 - install/update path is working
 
@@ -62,7 +62,7 @@ even though the metadata is present and the remote agent really did activate.
 - it adds an explicit guard for the separate ambiguous-addressing misconfiguration instead of letting that surface later as a confusing live bug
 
 ### Local validation
-- `npm test -- --runInBand` → `23` suites / `203` tests passing
+- `npm test -- --runInBand` → `23` suites / `204` tests passing
 - `npm run test:two-instance` → passing
 - `npm run verify` → `19/19` passing
 
@@ -181,3 +181,59 @@ This strongly suggests the live issue is still fundamentally:
 The system is still not reliably asking for or carrying reply relay on the real Telegram ↔ Discord return leg.
 That means the latest live evidence still supports the original blocker more than the optimistic local-return status.
 
+---
+
+## Latest deep-dive fix from gipiti — remote cross-agent turns no longer deliver locally when the answer must be relayed
+
+### Critical design correction
+The previous path still mixed two different goals:
+- make the remote agent think and answer
+- make the answer visible on the origin platform
+
+Those are not the same thing.
+
+For cross-agent relay, asking the remote OpenClaw agent to also deliver locally is the wrong default.
+It creates exactly the kind of false-positive / mixed-path behavior the latest live feedback is describing.
+
+### What changed
+- when ClawBridge knows a reply must go back to another peer, it now runs the remote OpenClaw agent turn **without local provider delivery**
+- it captures the returned text from `openclaw agent --json`
+- then it relays that text back to the origin peer through normal peer `chat`
+- only when there is no origin peer to relay to does ClawBridge let the local OpenClaw activation path deliver locally
+
+### Why this is better
+- simpler mental model
+- no mixed “local reply plus remote relay” path
+- no false confidence from local provider delivery on the wrong side
+- aligns with the actual OpenClaw CLI contract
+
+### External confirmation
+Official / runtime-confirmed behavior:
+- `openclaw agent --deliver` is optional
+- default is `false`
+- `--json` returns structured payloads suitable for programmatic relay
+
+I also ran a real local OpenClaw CLI probe here:
+- `openclaw agent --json --agent main --message "Reply with exactly OK" --timeout 20`
+- result returned structured JSON payloads successfully without `--deliver`
+
+### Additional hardening
+- `npm run verify` now fails if a peer id collides with the local `agent.json.id`
+- that same-id configuration makes source-side `@agent-name` routing ambiguous even if reply relay can recover later
+
+### Local validation now
+- full suite passing: `23` suites / `204` tests
+- `npm run test:two-instance` passing
+- local two-instance harness now proves:
+  - normal unique-id cross-agent relay
+  - generic-id reply-relay recovery
+  - remote activation in cross-agent mode runs without local delivery
+- local `npm run verify` passing: `19/19`
+
+### Current ask
+Please pull latest `main` and re-test the same Telegram ↔ Discord path.
+
+Expected difference now:
+- the remote side should still receive the inbound message and think
+- but the remote agent should no longer emit its own local provider-visible reply when the answer is meant for another peer
+- the reply should come back only on the origin platform via the relay path

@@ -155,7 +155,7 @@ function createFakeGatewayServer({ token }) {
 function writeFakeOpenClawCli(rootDir) {
   const logPath = path.join(rootDir, 'fake-openclaw.log');
   const cliPath = path.join(rootDir, 'fake-openclaw.js');
-  const script = `#!/usr/bin/env node
+const script = `#!/usr/bin/env node
 const fs = require('fs');
 const args = process.argv.slice(2);
 function getArg(flag) {
@@ -164,6 +164,7 @@ function getArg(flag) {
 }
 const payload = {
   command: args[0] || '',
+  deliver: args.includes('--deliver'),
   agent: getArg('--agent'),
   sessionId: getArg('--session-id'),
   channel: getArg('--channel'),
@@ -362,7 +363,7 @@ describe('two-instance cross-node chat', () => {
 
   test('relays @agent across two local instances and returns the reply to the origin instance', async () => {
     rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-two-instance-'));
-    const { cliPath } = writeFakeOpenClawCli(rootDir);
+    const { cliPath, logPath } = writeFakeOpenClawCli(rootDir);
     const gatewayToken = 'gateway-token-test';
     gateway = createFakeGatewayServer({ token: gatewayToken });
     gatewayPort = await getFreePort();
@@ -439,6 +440,7 @@ describe('two-instance cross-node chat', () => {
     expect(result.success).toBe(true);
     expect(result.relayed_via).toBe('guali-discord');
     expect(result.agent_dispatch).toBe('activated');
+    expect(result.openclaw_deliver_locally).toBe(false);
     expect(result.reply_relay).toBe('delivered');
     expect(result.reply_relay_peer).toBe('monti-telegram');
 
@@ -459,11 +461,20 @@ describe('two-instance cross-node chat', () => {
         }),
       }),
     ]));
+
+    const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    expect(activationCalls).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        agent: 'main',
+        channel: 'discord',
+        deliver: false,
+      }),
+    ]));
   });
 
   test('still relays replies correctly when both installs use the same generic agent id', async () => {
     rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-two-instance-generic-'));
-    const { cliPath } = writeFakeOpenClawCli(rootDir);
+    const { cliPath, logPath } = writeFakeOpenClawCli(rootDir);
     const gatewayToken = 'gateway-token-test';
     gateway = createFakeGatewayServer({ token: gatewayToken });
     gatewayPort = await getFreePort();
@@ -552,6 +563,7 @@ describe('two-instance cross-node chat', () => {
 
     expect(result.success).toBe(true);
     expect(result.agent_dispatch).toBe('activated');
+    expect(result.openclaw_deliver_locally).toBe(false);
     expect(result.reply_relay).toBe('delivered');
     expect(result.reply_relay_peer).toBe('main');
 
@@ -570,6 +582,15 @@ describe('two-instance cross-node chat', () => {
           channel: 'telegram',
           message: expect.stringContaining('reply:main:discord:1480310282961289216:Hola desde Telegram'),
         }),
+      }),
+    ]));
+
+    const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    expect(activationCalls).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        agent: 'main',
+        channel: 'discord',
+        deliver: false,
       }),
     ]));
   });

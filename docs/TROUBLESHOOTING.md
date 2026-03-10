@@ -138,6 +138,8 @@ Causes:
 - ClawBridge is targeting the wrong local OpenClaw agent because `config/agent.json.id` was assumed to be the OpenClaw agent ID
 - ClawBridge could not find or reuse the right OpenClaw `sessionId` for the target destination
 - the local OpenClaw agent activated, but its own delivery target was misconfigured
+- the node is on an older ClawBridge build that still asks the remote agent to deliver locally instead of relaying the reply text back to the source peer
+- the local `agent.json.id` collides with a configured peer id, so `@agent-name` routing is ambiguous before the relay even starts
 
 Fixes:
 - ensure `config/bridge.json -> agent_dispatch.enabled` is `true`
@@ -146,7 +148,8 @@ Fixes:
 - if your OpenClaw install has multiple local agents, set `config/agent.json -> openclaw_agent_id` to the one that should wake up; rerun `npm run setup` if you need ClawBridge to prompt from the detected local agent list
 - inspect `sessions_list` and confirm the target session has a row whose `deliveryContext` matches the real local destination; ClawBridge now reuses that row's `sessionId` when it can
 - if there is no matching row yet, confirm `config/agent.json -> default_delivery` points to the real local destination where that agent should answer
-- keep ClawBridge on the current version so visible delivery and agent activation share the same target session and reply destination, and so reply text is relayed back to the origin peer when available
+- keep ClawBridge on the current version so inbound cross-agent activation runs `openclaw agent --json` without `--deliver` when the reply must be relayed back to another peer
+- make sure `config/agent.json -> id` is unique across all ClawBridge peers; if `npm run verify` reports a peer/local id collision, rename one side before using `@agent-name`
 - run `npm run verify`
 
 ## Config Not Found
