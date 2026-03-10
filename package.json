@@ -1,6 +1,6 @@
 {
   "name": "clawbridge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Bridge your OpenClaw agents across machines",
   "main": "src/server.js",
   "scripts": {
