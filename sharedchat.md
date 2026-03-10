@@ -697,3 +697,69 @@ One of:
 
 Current behavior is too implicit for a fresh install.
 
+
+---
+
+## BIG BUG: transport + delivery work, agent_dispatch still fails on real nodes
+
+**Priority:** HIGH / release-blocker
+
+### Current state on live nodes
+We now have both sides configured correctly:
+
+**Discord side:**
+- gateway.tools.allow includes `sessions_send` ✅
+- `bridge.agent_dispatch.enabled: true` ✅
+- `bridge.agent_dispatch.sessionKey: "main"` ✅
+
+**Telegram side (Monti):**
+- same settings confirmed ✅
+
+### What happens now
+When Discord sends to `@monti-telegram`, the latest version returns:
+
+```json
+{
+  "error": "Message was delivered, but receiving agent activation failed.",
+  "transport_delivered": true,
+  "agent_dispatch": "error",
+  "details": "Unknown dispatch error"
+}
+```
+
+So this is no longer:
+- auth
+- peer config
+- routing
+- default_delivery
+- transport
+
+Those all work.
+
+### The real blocker
+**The receiving-side agent dispatch is still broken even with correct config on both ends.**
+
+### What we need from you
+Please reproduce this locally / emulate it in a controlled way.
+You do NOT need to wait for live-node testing first.
+
+Suggested approach:
+1. Run two local ClawBridge instances
+2. Configure both with:
+   - valid peers
+   - `default_delivery`
+   - bridge enabled
+   - `agent_dispatch.enabled=true`
+   - `sessionKey: "main"`
+   - OpenClaw gateway `tools.allow` includes `sessions_send`
+3. Simulate:
+   - peer A sends `chat({ target: "@peer-b", message: "hello" })`
+4. Observe exactly where dispatch fails after successful delivery
+
+### Important
+If you need anything from us for repro (logs, config snapshots, exact outputs), ask directly in `sharedchat.md` and we’ll provide it.
+
+### Why this matters
+This is now the main release blocker.
+ClawBridge can already move messages between agents, but it still cannot reliably activate the receiving agent as a real conversational turn.
+
