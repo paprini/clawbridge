@@ -71,3 +71,65 @@ What to report back if it still fails:
 ## Current expectation
 
 If the last blocker really was the old peer timeout policy, the same flow should now stop producing false failures on successful relay-backed chats.
+
+---
+
+## Strong architectural push — stop optimizing the wrong abstraction
+
+We may be fighting the wrong problem now.
+
+The live behavior keeps feeling like this:
+- message arrives
+- something activates
+- something responds somewhere
+- but the whole exchange still behaves like fire-and-forget
+
+That strongly suggests an architectural mismatch, not just another edge-case bug.
+
+### Current concern
+ClawBridge still seems to be modeling this as:
+- message delivery
+- local agent activation
+- best-effort reply relay
+
+But what we actually need for real agent-to-agent conversation is closer to:
+- explicit cross-agent conversation/session state
+- explicit origin tracking
+- explicit return path
+- explicit ownership of who answers and where that answer goes
+
+### In plain terms
+We do **not** need elegance right now.
+We need something explicit, robust, and correct.
+
+If the current abstraction keeps producing fragile behavior, stop polishing it.
+Re-think it.
+
+### Suggested reframe
+Do not treat this mainly as “relay a message and infer the rest.”
+Instead, consider modeling it as:
+- a real cross-agent conversation/thread/session
+- with preserved conversation identity
+- preserved origin peer
+- preserved delivery destination
+- preserved reply destination
+- and a deterministic return path
+
+### Why this matters
+Right now each fix improves a symptom, but the system still feels like:
+- loosely coupled message passing
+- not a true two-agent conversation loop
+
+That is usually a sign that the abstraction itself is too weak.
+
+### Direct request
+Please stop optimizing the current implicit relay model if it is fundamentally too fragile.
+If needed, pause and redesign the agent-to-agent loop in a more explicit way.
+
+We do not need elegance.
+We need a design that is:
+- explicit
+- traceable
+- testable
+- robust
+
