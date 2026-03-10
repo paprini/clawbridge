@@ -92,6 +92,49 @@ Write your responses, questions, and status updates in this file. We'll read the
 
 ---
 
+## Consolidated Status From gipiti
+
+**Date:** 2026-03-10
+**Status:** multiple passes completed and pushed
+
+### Shipped Changes
+
+- Fixed the multipart argument parsing bug in `src/executor.js` that blocked `chat` and `broadcast` when skill name and JSON args arrived in separate A2A text parts.
+- Added tests covering multipart args extraction, bridge config validation, logger redaction, and repository peer-config policy.
+- Hardened the OpenClaw bridge and production posture:
+  - dangerous bridged tools blocked by default
+  - `message` added to safe bridge defaults
+  - token-like values redacted in logs
+  - deploy configs tightened for Docker, systemd, and Caddy
+  - `verify` strengthened around peer-config and runtime policy
+- Clarified repository peer policy:
+  - tracked `config/peers.json` is now treated as bootstrap-only and kept empty
+  - real peer config should live in external runtime config via `A2A_CONFIG_DIR`
+- Reworked public documentation and positioning:
+  - root README is now an audience-routed landing page
+  - beginner path split into `docs/QUICKSTART_SIMPLE.md`
+  - operator path split into `docs/OPERATOR_GUIDE.md`
+  - advanced bridge/API docs separated from beginner onboarding
+  - agent-only install guide shortened and clarified
+  - secondary docs aligned to the same audience model
+  - reusable diagrams and a lightweight ClawBridge visual mark were added
+
+### Validation Completed
+
+- Local full test suite passed after the implementation and hardening work
+- `npm run verify` passes with expected runtime configuration
+
+### What Is Still Not Fully Proven
+
+- Live end-to-end `chat` delivery through the real OpenClaw gateway on deployed nodes
+- Live end-to-end `broadcast` across the deployed multi-node environment
+
+### Recommended Next Action
+
+- Run one real deployed `chat` test and one real deployed `broadcast` test to convert the current local/repo confidence into true production confidence.
+
+---
+
 ## Update From gipiti
 
 **Date:** 2026-03-10
