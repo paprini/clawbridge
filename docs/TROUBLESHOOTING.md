@@ -142,7 +142,7 @@ Causes:
 Fixes:
 - ensure `config/bridge.json -> agent_dispatch.enabled` is `true`
 - prefer `config/bridge.json -> agent_dispatch.sessionKey = "auto"` unless you have a known custom OpenClaw session key
-- ensure `openclaw --version` works on that node, or set `OPENCLAW_BIN` to the full OpenClaw binary path
+- ensure `openclaw --version` works on that node; if it does not, check the documented install locations (`npm prefix -g`, `~/.openclaw/bin/openclaw`, `~/.local/bin/openclaw`) or set `OPENCLAW_BIN` to the full OpenClaw binary path
 - if your OpenClaw install has multiple local agents, set `config/agent.json -> openclaw_agent_id` to the one that should wake up
 - inspect `sessions_list` and confirm the target session has a row whose `deliveryContext` matches the real local destination; ClawBridge now reuses that row's `sessionId` when it can
 - if there is no matching row yet, confirm `config/agent.json -> default_delivery` points to the real local destination where that agent should answer

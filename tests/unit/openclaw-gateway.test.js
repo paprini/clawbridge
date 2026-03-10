@@ -6,12 +6,14 @@ const path = require('path');
 
 jest.mock('child_process', () => ({
   execFile: jest.fn(),
+  execFileSync: jest.fn(),
 }));
 
 const tmpDir = path.join(os.tmpdir(), `clawbridge-gateway-test-${Date.now()}`);
 const openClawConfigPath = path.join(tmpDir, 'openclaw.json');
 const fakeOpenClawPath = path.join(tmpDir, 'openclaw');
-const { execFile } = require('child_process');
+const fakePrefixedOpenClawPath = path.join(tmpDir, 'openclaw-prefix', 'bin', 'openclaw');
+const { execFile, execFileSync } = require('child_process');
 
 const {
   buildOpenClawCommandCandidates,
@@ -37,6 +39,9 @@ describe('openclaw gateway helpers', () => {
     fs.mkdirSync(tmpDir, { recursive: true });
     fs.writeFileSync(fakeOpenClawPath, '#!/bin/sh\nexit 0\n');
     fs.chmodSync(fakeOpenClawPath, 0o755);
+    fs.mkdirSync(path.dirname(fakePrefixedOpenClawPath), { recursive: true });
+    fs.writeFileSync(fakePrefixedOpenClawPath, '#!/bin/sh\nexit 0\n');
+    fs.chmodSync(fakePrefixedOpenClawPath, 0o755);
     process.env.A2A_CONFIG_DIR = tmpDir;
 
     fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({
@@ -224,6 +229,21 @@ describe('openclaw gateway helpers', () => {
     expect(resolveOpenClawCommand()).toBe(fakeOpenClawPath);
     expect(getOpenClawCommand()).toBe(fakeOpenClawPath);
     expect(buildOpenClawCommandCandidates()).toContain(fakeOpenClawPath);
+    expect(buildOpenClawCommandCandidates()).toContain(path.join(os.homedir(), '.openclaw', 'bin', 'openclaw'));
     expect(isOpenClawCliAvailable()).toBe(true);
+  });
+
+  test('includes the documented npm prefix fallback candidate', () => {
+    const originalPath = process.env.PATH;
+    delete process.env.OPENCLAW_BIN;
+    process.env.PATH = '';
+    execFileSync.mockReturnValue(`${path.join(tmpDir, 'openclaw-prefix')}\n`);
+
+    try {
+      expect(buildOpenClawCommandCandidates()).toContain(fakePrefixedOpenClawPath);
+      expect(execFileSync).toHaveBeenCalled();
+    } finally {
+      process.env.PATH = originalPath;
+    }
   });
 });

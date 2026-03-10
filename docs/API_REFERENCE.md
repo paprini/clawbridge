@@ -200,7 +200,7 @@ Helper-agent bootstrap config. Used only for the local support helper, not for r
 | `A2A_SHARED_TOKEN` | Shared bearer token | (none) |
 | `A2A_CONFIG_DIR` | Config directory | `./config` |
 | `ALLOW_REPO_MANAGED_PEERS` | Allow real peers in tracked `config/peers.json` | (unset) |
-| `OPENCLAW_BIN` | Override path to the OpenClaw CLI used for inbound `@agent` activation | auto-discover |
+| `OPENCLAW_BIN` | Override path to the OpenClaw CLI used for inbound `@agent` activation when PATH, `npm prefix -g`, `~/.openclaw/bin/openclaw`, and `~/.local/bin/openclaw` are not enough | auto-discover |
 | `OPENAI_API_KEY` | LLM API key (setup agent) | (none) |
 | `OPENAI_BASE_URL` | LLM API URL (setup agent) | `https://api.openai.com/v1` |
 | `OPENAI_MODEL` | LLM model (setup agent) | `gpt-4o-mini` |

@@ -3,10 +3,12 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { execFile } = require('child_process');
+const { execFile, execFileSync } = require('child_process');
 const { promisify } = require('util');
 
 const execFileAsync = promisify(execFile);
+let cachedOpenClawCommandKey = null;
+let cachedOpenClawCommand = null;
 
 function expandHome(filePath) {
   return typeof filePath === 'string' ? filePath.replace(/^~/, os.homedir()) : filePath;
@@ -208,6 +210,62 @@ function getExecutableNames(commandName = 'openclaw') {
   return [commandName];
 }
 
+function pushCommandCandidates(candidates, basePath, commandName = 'openclaw') {
+  for (const name of getExecutableNames(commandName)) {
+    candidates.push(path.join(basePath, name));
+  }
+}
+
+function getNpmExecutableNames() {
+  return process.platform === 'win32'
+    ? ['npm.cmd', 'npm.exe', 'npm.bat', 'npm']
+    : ['npm'];
+}
+
+function buildNpmCommandCandidates() {
+  const candidates = [];
+  const pathEntries = typeof process.env.PATH === 'string'
+    ? process.env.PATH.split(path.delimiter).filter(Boolean)
+    : [];
+  const nodeDir = path.dirname(process.execPath);
+
+  for (const name of getNpmExecutableNames()) {
+    candidates.push(path.join(nodeDir, name));
+  }
+
+  for (const entry of pathEntries) {
+    for (const name of getNpmExecutableNames()) {
+      candidates.push(path.join(entry, name));
+    }
+  }
+
+  return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
+}
+
+function resolveOpenClawFromNpmPrefix() {
+  const npmCommand = buildNpmCommandCandidates().find((candidate) => isExecutableFile(candidate));
+  if (!npmCommand) {
+    return null;
+  }
+
+  try {
+    const prefix = String(execFileSync(npmCommand, ['prefix', '-g'], {
+      encoding: 'utf8',
+      timeout: 5000,
+    })).trim();
+
+    if (!prefix) {
+      return null;
+    }
+
+    const binDir = process.platform === 'win32' ? prefix : path.join(prefix, 'bin');
+    const candidate = path.join(binDir, process.platform === 'win32' ? 'openclaw.cmd' : 'openclaw');
+    return isExecutableFile(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
+}
+
 function buildOpenClawCommandCandidates() {
   const configured = typeof process.env.OPENCLAW_BIN === 'string'
     ? process.env.OPENCLAW_BIN.trim()
@@ -230,21 +288,37 @@ function buildOpenClawCommandCandidates() {
   }
 
   if (process.platform === 'darwin') {
-    candidates.push('/opt/homebrew/bin/openclaw');
-    candidates.push('/usr/local/bin/openclaw');
+    pushCommandCandidates(candidates, '/opt/homebrew/bin');
+    pushCommandCandidates(candidates, '/usr/local/bin');
   } else if (process.platform === 'linux') {
-    candidates.push('/usr/local/bin/openclaw');
-    candidates.push('/usr/bin/openclaw');
-    candidates.push('/snap/bin/openclaw');
+    pushCommandCandidates(candidates, '/usr/local/bin');
+    pushCommandCandidates(candidates, '/usr/bin');
+    pushCommandCandidates(candidates, '/snap/bin');
   }
 
-  candidates.push(path.join(os.homedir(), '.local', 'bin', 'openclaw'));
-  candidates.push(path.join(os.homedir(), 'bin', 'openclaw'));
+  pushCommandCandidates(candidates, path.join(os.homedir(), '.openclaw', 'bin'));
+  pushCommandCandidates(candidates, path.join(os.homedir(), '.local', 'bin'));
+  pushCommandCandidates(candidates, path.join(os.homedir(), '.npm-global', 'bin'));
+  pushCommandCandidates(candidates, path.join(os.homedir(), 'bin'));
+
+  const npmPrefixCandidate = resolveOpenClawFromNpmPrefix();
+  if (npmPrefixCandidate) {
+    candidates.push(npmPrefixCandidate);
+  }
 
   return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
 }
 
 function resolveOpenClawCommand() {
+  const cacheKey = JSON.stringify({
+    openclawBin: process.env.OPENCLAW_BIN || '',
+    path: process.env.PATH || '',
+    execPath: process.execPath,
+  });
+  if (cachedOpenClawCommandKey === cacheKey && cachedOpenClawCommand) {
+    return cachedOpenClawCommand;
+  }
+
   const configured = typeof process.env.OPENCLAW_BIN === 'string'
     ? process.env.OPENCLAW_BIN.trim()
     : '';
@@ -252,17 +326,28 @@ function resolveOpenClawCommand() {
   if (configured && !configured.includes(path.sep) && !configured.startsWith('.')) {
     const pathMatch = buildOpenClawCommandCandidates().find((candidate) => isExecutableFile(candidate));
     if (pathMatch) {
+      cachedOpenClawCommandKey = cacheKey;
+      cachedOpenClawCommand = pathMatch;
       return pathMatch;
     }
     return configured;
   }
 
   if (configured && isExecutableFile(expandHome(configured))) {
-    return expandHome(configured);
+    const resolved = expandHome(configured);
+    cachedOpenClawCommandKey = cacheKey;
+    cachedOpenClawCommand = resolved;
+    return resolved;
   }
 
   const discovered = buildOpenClawCommandCandidates().find((candidate) => isExecutableFile(candidate));
-  return discovered || (configured || 'openclaw');
+  if (discovered) {
+    cachedOpenClawCommandKey = cacheKey;
+    cachedOpenClawCommand = discovered;
+    return discovered;
+  }
+
+  return configured || 'openclaw';
 }
 
 function getOpenClawCommand() {

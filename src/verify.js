@@ -276,7 +276,7 @@ check('agent-to-agent dispatch readiness', () => {
   }
 
   if (!isOpenClawCliAvailable()) {
-    return `OpenClaw CLI not found at "${getOpenClawCommand()}". Install OpenClaw, expose it in PATH, or set OPENCLAW_BIN so ClawBridge can activate local agents for @agent delivery.`;
+    return `OpenClaw CLI not found at "${getOpenClawCommand()}". Install OpenClaw so the binary is on PATH (for example via npm prefix -g, ~/.openclaw/bin/openclaw, or ~/.local/bin/openclaw), or set OPENCLAW_BIN explicitly.`;
   }
 
   const gatewayConfig = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));

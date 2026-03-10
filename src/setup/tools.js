@@ -290,7 +290,7 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
 
   const notes = [];
   if (!existing.bridge && bridge.agent_dispatch?.enabled === false) {
-    notes.push('OpenClaw CLI was not found during setup, so inbound @agent activation was disabled. Install OpenClaw or set OPENCLAW_BIN, then enable bridge.agent_dispatch when you want receiving agents to auto-activate.');
+    notes.push('OpenClaw CLI was not found during setup, so inbound @agent activation was disabled. Install OpenClaw so the binary is on PATH (for example via npm prefix -g, ~/.openclaw/bin/openclaw, or ~/.local/bin/openclaw), or set OPENCLAW_BIN, then enable bridge.agent_dispatch when you want receiving agents to auto-activate.');
   }
 
   return { agent, peers: peersData.peers, token, configDir, bridge, contacts, notes };

@@ -57,7 +57,7 @@ Behavior:
 - lets you add more peers afterwards
 - preserves existing bridge, contacts, and custom skills config when rewriting files
 - preserves `agent.json -> openclaw_agent_id` when you already pinned a specific local OpenClaw agent
-- if you want inbound `@agent` messages to activate the receiving OpenClaw agent, make sure OpenClaw CLI is installed on that node and reachable as `openclaw` (or via `OPENCLAW_BIN`)
+- if you want inbound `@agent` messages to activate the receiving OpenClaw agent, make sure OpenClaw CLI is installed on that node and reachable as `openclaw`; the documented install locations ClawBridge checks are the current `PATH`, `npm prefix -g`, `~/.openclaw/bin/openclaw`, and `~/.local/bin/openclaw` (or set `OPENCLAW_BIN`)
 - fresh setup now defaults `bridge.agent_dispatch` on and uses a real wait timeout instead of the old fire-and-forget dispatch path
 
 ## Environment Variables

@@ -158,7 +158,7 @@ If `target` is omitted, the receiving agent uses `config/agent.json -> default_d
 - Bridge must be enabled
 - `message` tool must be allowed in bridge config
 - Configure `config/agent.json -> default_delivery` if you want `@agent-name` delivery or incoming broadcasts to land somewhere by default
-- If you want `@agent-name` to activate the receiving agent, OpenClaw CLI must be installed on that node and reachable as `openclaw` (or via `OPENCLAW_BIN`)
+- If you want `@agent-name` to activate the receiving agent, OpenClaw CLI must be installed on that node and reachable as `openclaw`; ClawBridge checks the current `PATH`, `npm prefix -g`, `~/.openclaw/bin/openclaw`, and `~/.local/bin/openclaw` before falling back to `OPENCLAW_BIN`
 - Use a platform-specific target ID directly for the local platform when you already know it
 - For local `#channel` names or cross-platform human aliases, define aliases in `config/contacts.json`
 
