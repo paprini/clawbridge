@@ -883,6 +883,14 @@ async function relayActivationReplyToSourcePeer({
       relayParams.channel = sourceReplyChannel.trim();
     }
 
+    logger.info('Relaying activated agent reply to source peer', {
+      sourcePeerId: normalizedSourceAgentId,
+      sourceReplyTarget: relayParams.target || null,
+      sourceReplyChannel: relayParams.channel || null,
+      relayHops: relayParams._relay?.hops || 0,
+      messageLength: relayMessage.length,
+    });
+
     const result = await callPeerSkill(normalizedSourceAgentId, 'chat', relayParams);
 
     if (result && typeof result === 'object' && !Array.isArray(result) && typeof result.error === 'string' && result.error.trim().length > 0) {
@@ -1248,10 +1256,26 @@ async function chat(params) {
           localAgentId: agentId,
           localAgentUrl: agentUrl,
         });
+        const openclawDeliverLocally = !replyRelayPeerId;
+
+        logger.info('Resolved inbound agent reply mode', {
+          requestPeerId: requestPeerId || null,
+          sourceAgentId: agentDeliveryMeta.sourceAgentId || null,
+          sourceUrl: agentDeliveryMeta.sourceUrl || null,
+          sourceReplyTarget: agentDeliveryMeta.sourceReplyTarget || null,
+          sourceReplyChannel: agentDeliveryMeta.sourceReplyChannel || null,
+          replyRelayPeerId: replyRelayPeerId || null,
+          openclawDeliverLocally,
+          dispatchAgentId: activationOptions.agentId,
+          targetSessionId: activationOptions.sessionId,
+          target: requestedTarget || effectiveTarget,
+          resolvedTarget,
+        });
+
         const dispatchResult = await runOpenClawAgentTurn({
           message,
           ...activationOptions,
-          deliver: !replyRelayPeerId,
+          deliver: openclawDeliverLocally,
         });
         const replyRelay = await relayActivationReplyToSourcePeer({
           sourceAgentId: replyRelayPeerId,
@@ -1288,7 +1312,7 @@ async function chat(params) {
           openclaw_agent_id: activationOptions.agentId,
           openclaw_reply_channel: activationOptions.replyChannel,
           openclaw_reply_to: activationOptions.replyTo,
-          openclaw_deliver_locally: !replyRelayPeerId,
+          openclaw_deliver_locally: openclawDeliverLocally,
           openclaw_result: dispatchResult?.result?.status || dispatchResult?.status || null,
           reply_relay: replyRelay.status,
           reply_relay_peer: replyRelay.peerId || null,

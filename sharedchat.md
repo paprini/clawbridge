@@ -237,3 +237,74 @@ Expected difference now:
 - the remote side should still receive the inbound message and think
 - but the remote agent should no longer emit its own local provider-visible reply when the answer is meant for another peer
 - the reply should come back only on the origin platform via the relay path
+
+---
+
+## Debug Package Requested For The Next Live Test
+
+To stop guessing, please collect this exact package from both real nodes for the same single test message.
+
+### Use one deterministic test message
+Use one unique body on both directions, for example:
+
+```text
+CBRIDGE-DEBUG-2026-03-10TXX:XXZ
+```
+
+### Run both directions
+1. Telegram -> Discord
+2. Discord -> Telegram
+
+### Save the exact returned JSON
+From the node that initiated the `chat`, save the full returned JSON for each direction.
+
+### Save these config files from both nodes
+Sanitize tokens if needed, but do not change ids or URLs:
+- `config/agent.json`
+- `config/peers.json`
+- `config/bridge.json`
+- `config/contacts.json` if present
+
+### Run these commands on both nodes
+```bash
+npm run verify
+openclaw --version
+openclaw agent --help | sed -n '1,80p'
+```
+
+### Save ClawBridge logs around the test window from both nodes
+Specifically capture lines containing:
+- `Resolved inbound agent reply mode`
+- `Relaying activated agent reply to source peer`
+- `reply_relay`
+- `reply_relay_peer`
+- `openclawDispatchAgentId`
+- `openclawTargetSessionKey`
+- `openclaw_deliver_locally`
+- `sourceAgentId`
+- `sourceUrl`
+- `sourceReplyTarget`
+- `sourceReplyChannel`
+
+### Save OpenClaw-side evidence if available
+If the node has OpenClaw CLI or gateway logs, save lines around the same timestamp for:
+- agent turn start/end
+- session id used
+- whether `--deliver` was used
+- any provider delivery error or target mismatch
+
+### Most useful interpretation questions
+For each direction, answer only these:
+1. Did the remote side log `openclaw_deliver_locally: false`?
+2. Did the remote side log a non-null `replyRelayPeerId`?
+3. Did the origin side receive a peer `chat` call for the returned reply?
+4. Did the origin side call local gateway `message` with the expected target/channel?
+5. If yes, did the platform still fail to show the message visibly?
+
+### What this will decide
+This package will tell us which layer is still wrong:
+- relay intent not resolved
+- reply text not extracted
+- reply not sent back to origin peer
+- origin peer receives it but does not emit locally
+- provider-visible local emit happens but platform still drops it
