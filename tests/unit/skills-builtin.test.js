@@ -257,7 +257,7 @@ describe('Built-in Skills', () => {
       expect(callPeerSkill).not.toHaveBeenCalled();
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
-        target: '1480310282961289216',
+        target: 'channel:1480310282961289216',
         message: 'Loop prevention',
         channel: 'discord'
       }, {
@@ -266,10 +266,10 @@ describe('Built-in Skills', () => {
       expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
         message: 'Loop prevention',
         agentId: 'discord-agent',
-        target: '1480310282961289216',
+        target: 'channel:1480310282961289216',
         channel: 'discord',
         deliver: true,
-        replyTo: '1480310282961289216',
+        replyTo: 'channel:1480310282961289216',
         replyChannel: 'discord',
         timeoutSeconds: 30,
       }));
@@ -330,6 +330,31 @@ describe('Built-in Skills', () => {
       });
     });
 
+    it('canonicalizes Discord DM reply targets from source delivery metadata on the final local emit', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'guali-discord',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+
+      const result = await chat({
+        target: '1480310282961289216',
+        channel: 'discord',
+        message: 'Reply from Telegram',
+        _sourceDelivery: { type: 'owner', target: '1480310282961289216', channel: 'discord' },
+        _relay: { hops: 2, visited: ['guali-discord', 'monti-telegram'] },
+      });
+
+      expect(result.success).toBe(true);
+      expect(callOpenClawTool).toHaveBeenCalledWith('message', {
+        action: 'send',
+        target: 'user:1480310282961289216',
+        message: 'Reply from Telegram',
+        channel: 'discord',
+      });
+    });
+
     it('activates the receiving session for inbound @agent deliveries', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',
@@ -351,7 +376,7 @@ describe('Built-in Skills', () => {
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
         action: 'send',
-        target: '1480310282961289216',
+        target: 'channel:1480310282961289216',
         channel: 'discord',
       }), {
         sessionKey: 'agent:discord-agent:discord:channel:1480310282961289216',
@@ -359,10 +384,10 @@ describe('Built-in Skills', () => {
       expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
         message: 'Hola from Telegram',
         agentId: 'discord-agent',
-        target: '1480310282961289216',
+        target: 'channel:1480310282961289216',
         channel: 'discord',
         deliver: false,
-        replyTo: '1480310282961289216',
+        replyTo: 'channel:1480310282961289216',
         replyChannel: 'discord',
         timeoutSeconds: 30,
       }));
@@ -404,6 +429,7 @@ describe('Built-in Skills', () => {
         target: '5914004682',
         channel: 'telegram',
         message: 'Hola desde Discord',
+        _sourceDelivery: { type: 'target', target: '5914004682', channel: 'telegram', accountId: null },
         _relay: { hops: 2, visited: ['monti-telegram', 'discord-agent'] },
       });
       expect(result.reply_relay).toBe('delivered');
@@ -473,6 +499,7 @@ describe('Built-in Skills', () => {
         target: '5914004682',
         channel: 'telegram',
         message: 'Hola desde Discord',
+        _sourceDelivery: { type: 'target', target: '5914004682', channel: 'telegram', accountId: null },
         _relay: { hops: 1, visited: ['discord-agent'] },
       });
       expect(result.reply_relay).toBe('delivered');
@@ -512,6 +539,7 @@ describe('Built-in Skills', () => {
         target: '1480310282961289216',
         channel: 'discord',
         message: 'Hola desde Discord',
+        _sourceDelivery: { type: 'target', target: '1480310282961289216', channel: 'discord', accountId: null },
         _relay: { hops: 1, visited: ['main'] },
       });
       expect(result.reply_relay).toBe('delivered');
@@ -555,6 +583,7 @@ describe('Built-in Skills', () => {
         target: '1480310282961289216',
         channel: 'discord',
         message: 'Hola desde Discord',
+        _sourceDelivery: { type: 'target', target: '1480310282961289216', channel: 'discord', accountId: null },
         _relay: { hops: 1, visited: ['guali-discord'] },
       });
       expect(result.reply_relay).toBe('delivered');
@@ -599,6 +628,7 @@ describe('Built-in Skills', () => {
         target: '5914004682',
         channel: 'telegram',
         message: 'Hola desde Discord',
+        _sourceDelivery: { type: 'target', target: '5914004682', channel: 'telegram', accountId: null },
         _relay: { hops: 1, visited: ['main'] },
       });
       expect(result.reply_relay).toBe('delivered');
@@ -642,6 +672,7 @@ describe('Built-in Skills', () => {
         target: '5914004682',
         channel: 'telegram',
         message: 'Hola desde Discord',
+        _sourceDelivery: { type: 'target', target: '5914004682', channel: 'telegram', accountId: null },
         _relay: { hops: 1, visited: ['main'] },
       });
       expect(result.reply_relay).toBe('delivered');
@@ -714,6 +745,7 @@ describe('Built-in Skills', () => {
         target: '5914004682',
         channel: 'telegram',
         message: 'Hola desde Discord',
+        _sourceDelivery: { type: 'target', target: '5914004682', channel: 'telegram', accountId: null },
         _relay: { hops: 1, visited: ['guali-discord'] },
       });
       expect(result.reply_relay).toBe('delivered');
@@ -762,7 +794,7 @@ describe('Built-in Skills', () => {
       });
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
-        target: '1480310282961289216',
+        target: 'channel:1480310282961289216',
         channel: 'discord',
       }), {
         sessionKey: 'agent:main:discord:channel:1480310282961289216',
@@ -770,7 +802,7 @@ describe('Built-in Skills', () => {
       expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
         agentId: 'main',
         deliver: false,
-        replyTo: '1480310282961289216',
+        replyTo: 'channel:1480310282961289216',
       }));
       expect(result.agent_dispatch).toBe('activated');
     });
@@ -871,7 +903,7 @@ describe('Built-in Skills', () => {
       });
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
-        target: '1480310282961289216',
+        target: 'channel:1480310282961289216',
         channel: 'discord',
       }), {
         sessionKey: 'agent:main:discord:channel:1480310282961289216',
@@ -880,7 +912,7 @@ describe('Built-in Skills', () => {
         agentId: 'main',
         sessionId: null,
         deliver: false,
-        replyTo: '1480310282961289216',
+        replyTo: 'channel:1480310282961289216',
         replyChannel: 'discord',
       }));
       expect(result.agent_dispatch).toBe('activated');

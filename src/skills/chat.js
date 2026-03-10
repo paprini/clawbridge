@@ -57,6 +57,7 @@ function normalizeAliasEntry(entry, fallbackChannel) {
       resolvedTarget: entry.trim(),
       relayPeerId: null,
       resolvedChannel: fallbackChannel || null,
+      resolvedType: inferDeliveryTypeFromTarget(entry.trim()),
     };
   }
 
@@ -76,10 +77,32 @@ function normalizeAliasEntry(entry, fallbackChannel) {
     resolvedChannel: typeof entry.channel === 'string' && entry.channel.trim().length > 0
       ? entry.channel.trim()
       : (fallbackChannel || null),
+    resolvedType: normalizeDeliveryType(entry.type, inferDeliveryTypeFromTarget(entry.target.trim())),
   };
 }
 
 function normalizeDefaultDelivery(entry) {
+  return normalizeDeliveryDescriptor(entry, null);
+}
+
+function normalizeDeliveryType(value, fallback = 'target') {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!normalized) {
+    return fallback;
+  }
+
+  if (normalized === 'direct' || normalized === 'dm') {
+    return 'owner';
+  }
+
+  if (['owner', 'channel', 'group', 'target'].includes(normalized)) {
+    return normalized;
+  }
+
+  return fallback;
+}
+
+function normalizeDeliveryDescriptor(entry, fallbackChannel = null) {
   if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
     return null;
   }
@@ -89,14 +112,36 @@ function normalizeDefaultDelivery(entry) {
   }
 
   return {
-    type: typeof entry.type === 'string' && entry.type.trim().length > 0
-      ? entry.type.trim()
-      : 'target',
+    type: normalizeDeliveryType(entry.type, 'target'),
     target: entry.target.trim(),
     channel: typeof entry.channel === 'string' && entry.channel.trim().length > 0
       ? entry.channel.trim()
+      : (fallbackChannel || null),
+    accountId: typeof entry.accountId === 'string' && entry.accountId.trim().length > 0
+      ? entry.accountId.trim()
       : null,
   };
+}
+
+function inferDeliveryTypeFromTarget(target) {
+  const trimmed = typeof target === 'string' ? target.trim() : '';
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.startsWith('channel:') || trimmed.startsWith('#')) {
+    return 'channel';
+  }
+
+  if (trimmed.startsWith('group:')) {
+    return 'group';
+  }
+
+  if (trimmed.startsWith('user:') || /^<@!?[^>]+>$/.test(trimmed)) {
+    return 'owner';
+  }
+
+  return null;
 }
 
 function getLocalAgentContext() {
@@ -191,6 +236,14 @@ function normalizeAgentDeliveryMeta(entry) {
     return null;
   }
 
+  const sourceDelivery = normalizeDeliveryDescriptor(entry.sourceDelivery, typeof entry.sourceReplyChannel === 'string'
+    ? entry.sourceReplyChannel.trim()
+    : null) || normalizeDeliveryDescriptor({
+    type: entry.sourceReplyType,
+    target: entry.sourceReplyTarget,
+    channel: entry.sourceReplyChannel,
+  });
+
   return {
     activateSession: true,
     sourceAgentId: typeof entry.sourceAgentId === 'string' && entry.sourceAgentId.trim().length > 0
@@ -205,12 +258,13 @@ function normalizeAgentDeliveryMeta(entry) {
     remoteChannelTarget: typeof entry.remoteChannelTarget === 'string' && entry.remoteChannelTarget.trim().length > 0
       ? entry.remoteChannelTarget.trim()
       : null,
-    sourceReplyTarget: typeof entry.sourceReplyTarget === 'string' && entry.sourceReplyTarget.trim().length > 0
+    sourceDelivery,
+    sourceReplyTarget: sourceDelivery?.target || (typeof entry.sourceReplyTarget === 'string' && entry.sourceReplyTarget.trim().length > 0
       ? entry.sourceReplyTarget.trim()
-      : null,
-    sourceReplyChannel: typeof entry.sourceReplyChannel === 'string' && entry.sourceReplyChannel.trim().length > 0
+      : null),
+    sourceReplyChannel: sourceDelivery?.channel || (typeof entry.sourceReplyChannel === 'string' && entry.sourceReplyChannel.trim().length > 0
       ? entry.sourceReplyChannel.trim()
-      : null,
+      : null),
   };
 }
 
@@ -219,17 +273,21 @@ function buildAgentDeliveryMeta({
   sourceUrl,
   requestedTarget,
   remoteChannelTarget,
+  sourceDelivery,
   sourceReplyTarget,
   sourceReplyChannel,
 }) {
+  const normalizedSourceDelivery = normalizeDeliveryDescriptor(sourceDelivery);
+
   return {
     activateSession: true,
     ...(sourceAgentId ? { sourceAgentId } : {}),
     ...(sourceUrl ? { sourceUrl } : {}),
     ...(requestedTarget ? { requestedTarget } : {}),
     ...(remoteChannelTarget ? { remoteChannelTarget } : {}),
-    ...(sourceReplyTarget ? { sourceReplyTarget } : {}),
-    ...(sourceReplyChannel ? { sourceReplyChannel } : {}),
+    ...(normalizedSourceDelivery ? { sourceDelivery: normalizedSourceDelivery } : {}),
+    ...(normalizedSourceDelivery?.target || sourceReplyTarget ? { sourceReplyTarget: normalizedSourceDelivery?.target || sourceReplyTarget } : {}),
+    ...(normalizedSourceDelivery?.channel || sourceReplyChannel ? { sourceReplyChannel: normalizedSourceDelivery?.channel || sourceReplyChannel } : {}),
   };
 }
 
@@ -600,6 +658,76 @@ function normalizeComparableDeliveryTarget(channel, value) {
   return normalized;
 }
 
+function resolveEffectiveDelivery({ explicitDelivery, resolvedTarget, deliveryChannel, resolvedType, defaultDelivery, agentDeliveryMeta }) {
+  const explicit = normalizeDeliveryDescriptor(explicitDelivery, deliveryChannel);
+  const normalizedChannel = explicit?.channel || deliveryChannel || defaultDelivery?.channel || null;
+  let normalizedType = explicit?.type || normalizeDeliveryType(resolvedType, null);
+
+  if (!normalizedType && agentDeliveryMeta?.remoteChannelTarget) {
+    normalizedType = 'channel';
+  }
+
+  if (!normalizedType && defaultDelivery) {
+    const sameChannel = normalizeComparableDeliveryChannel(normalizedChannel) === normalizeComparableDeliveryChannel(defaultDelivery.channel);
+    const sameTarget = normalizeComparableDeliveryTarget(normalizedChannel, resolvedTarget) === normalizeComparableDeliveryTarget(defaultDelivery.channel, defaultDelivery.target);
+    if (sameChannel && sameTarget) {
+      normalizedType = normalizeDeliveryType(defaultDelivery.type, null);
+    }
+  }
+
+  if (!normalizedType) {
+    normalizedType = inferDeliveryTypeFromTarget(resolvedTarget);
+  }
+
+  return {
+    type: normalizeDeliveryType(normalizedType, 'target'),
+    target: explicit?.target || resolvedTarget,
+    channel: normalizedChannel,
+    accountId: explicit?.accountId || null,
+  };
+}
+
+function canonicalizeDiscordTarget(target, deliveryType) {
+  const trimmed = typeof target === 'string' ? target.trim() : '';
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('user:') || trimmed.startsWith('channel:') || /^<@!?[^>]+>$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  const normalized = normalizeComparableDeliveryTarget('discord', trimmed);
+  if (!normalized) {
+    return trimmed;
+  }
+
+  const normalizedType = normalizeDeliveryType(deliveryType, 'target');
+  if (normalizedType === 'owner') {
+    return `user:${normalized}`;
+  }
+
+  if (normalizedType === 'channel' || normalizedType === 'group') {
+    return `channel:${normalized}`;
+  }
+
+  return trimmed;
+}
+
+function canonicalizeDeliveryTarget({ target, channel, type }) {
+  const trimmed = typeof target === 'string' ? target.trim() : '';
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  const normalizedChannel = normalizeComparableDeliveryChannel(channel);
+  if (normalizedChannel === 'discord') {
+    return canonicalizeDiscordTarget(trimmed, type);
+  }
+
+  return trimmed;
+}
+
 function extractAgentIdFromSessionKey(sessionKey) {
   const trimmed = typeof sessionKey === 'string' ? sessionKey.trim() : '';
   if (!trimmed.startsWith('agent:')) {
@@ -853,6 +981,7 @@ function extractOpenClawReplyText(dispatchResult) {
 
 async function relayActivationReplyToSourcePeer({
   sourceAgentId,
+  sourceDelivery,
   sourceReplyTarget,
   sourceReplyChannel,
   message,
@@ -874,19 +1003,34 @@ async function relayActivationReplyToSourcePeer({
       message: relayMessage,
       _relay: buildRelayMeta(relayMeta, agentId),
     };
+    const normalizedSourceDelivery = normalizeDeliveryDescriptor(sourceDelivery, typeof sourceReplyChannel === 'string'
+      ? sourceReplyChannel.trim()
+      : null) || normalizeDeliveryDescriptor({
+      target: sourceReplyTarget,
+      channel: sourceReplyChannel,
+    });
 
-    if (typeof sourceReplyTarget === 'string' && sourceReplyTarget.trim().length > 0) {
-      relayParams.target = sourceReplyTarget.trim();
-    }
+    if (normalizedSourceDelivery) {
+      relayParams.target = normalizedSourceDelivery.target;
+      relayParams._sourceDelivery = normalizedSourceDelivery;
+      if (normalizedSourceDelivery.channel) {
+        relayParams.channel = normalizedSourceDelivery.channel;
+      }
+    } else {
+      if (typeof sourceReplyTarget === 'string' && sourceReplyTarget.trim().length > 0) {
+        relayParams.target = sourceReplyTarget.trim();
+      }
 
-    if (typeof sourceReplyChannel === 'string' && sourceReplyChannel.trim().length > 0) {
-      relayParams.channel = sourceReplyChannel.trim();
+      if (typeof sourceReplyChannel === 'string' && sourceReplyChannel.trim().length > 0) {
+        relayParams.channel = sourceReplyChannel.trim();
+      }
     }
 
     logger.info('Relaying activated agent reply to source peer', {
       sourcePeerId: normalizedSourceAgentId,
       sourceReplyTarget: relayParams.target || null,
       sourceReplyChannel: relayParams.channel || null,
+      sourceReplyType: relayParams._sourceDelivery?.type || null,
       relayHops: relayParams._relay?.hops || 0,
       messageLength: relayMessage.length,
     });
@@ -943,6 +1087,7 @@ function resolveTarget(target, channel) {
     resolvedTarget: target,
     relayPeerId: null,
     resolvedChannel: channel || null,
+    resolvedType: inferDeliveryTypeFromTarget(target),
     alias: null,
   };
 }
@@ -975,6 +1120,7 @@ async function chat(params) {
   const { agentId, openclawAgentId, agentUrl, defaultDelivery } = getLocalAgentContext();
   const relayMeta = normalizeRelayMeta(params._relay);
   let agentDeliveryMeta = normalizeAgentDeliveryMeta(params._agentDelivery);
+  const explicitSourceDelivery = normalizeDeliveryDescriptor(params._sourceDelivery, requestedChannel);
   const requestPeerId = sanitizePeerId(params._requestPeerId);
 
   if (target !== undefined && typeof target !== 'string') {
@@ -1010,11 +1156,12 @@ async function chat(params) {
   const requestedTarget = typeof target === 'string' ? target.trim() : '';
   let effectiveTarget = requestedTarget;
   let effectiveChannel = requestedChannel;
-  const sourceReplyTarget = defaultDelivery?.target || null;
-  const sourceReplyChannel = defaultDelivery?.channel || null;
+  const sourceReplyTarget = defaultDelivery?.target || explicitSourceDelivery?.target || null;
+  const sourceReplyChannel = defaultDelivery?.channel || explicitSourceDelivery?.channel || null;
+  const sourceDelivery = defaultDelivery || explicitSourceDelivery || null;
 
   if (!effectiveTarget) {
-    if (!defaultDelivery) {
+    if (!defaultDelivery && !explicitSourceDelivery) {
       return {
         error: 'Missing target and no default delivery is configured.',
         suggestion: `${getTargetingSuggestion()} Configure config/agent.json -> default_delivery to support @agent delivery and broadcasts.`,
@@ -1022,8 +1169,8 @@ async function chat(params) {
       };
     }
 
-    effectiveTarget = defaultDelivery.target;
-    effectiveChannel = effectiveChannel || defaultDelivery.channel;
+    effectiveTarget = (explicitSourceDelivery || defaultDelivery).target;
+    effectiveChannel = effectiveChannel || explicitSourceDelivery?.channel || defaultDelivery?.channel;
   }
 
   const agentTarget = parseAgentTarget(effectiveTarget);
@@ -1034,6 +1181,7 @@ async function chat(params) {
         sourceUrl: agentUrl,
         requestedTarget: requestedTarget || effectiveTarget,
         remoteChannelTarget: agentTarget.channelTarget,
+        sourceDelivery,
         sourceReplyTarget,
         sourceReplyChannel,
       });
@@ -1074,6 +1222,7 @@ async function chat(params) {
         sourceUrl: agentUrl,
         requestedTarget: requestedTarget || effectiveTarget,
         remoteChannelTarget: agentTarget.channelTarget,
+        sourceDelivery,
         sourceReplyTarget,
         sourceReplyChannel,
       });
@@ -1114,6 +1263,15 @@ async function chat(params) {
 
   const resolved = resolveTarget(effectiveTarget, effectiveChannel);
   const resolvedTarget = resolved.resolvedTarget;
+  const resolvedDelivery = resolveEffectiveDelivery({
+    explicitDelivery: explicitSourceDelivery,
+    resolvedTarget,
+    deliveryChannel: resolved.resolvedChannel || effectiveChannel,
+    resolvedType: resolved.resolvedType,
+    defaultDelivery,
+    agentDeliveryMeta,
+  });
+  const canonicalResolvedTarget = canonicalizeDeliveryTarget(resolvedDelivery);
 
   if (resolved.relayPeerId && resolved.relayPeerId !== agentId) {
     const relayGuard = getRelayGuardFailure(relayMeta, agentId);
@@ -1211,7 +1369,7 @@ async function chat(params) {
     // The gateway expects a platform-specific target identifier.
     const messageArgs = {
       action: 'send',
-      target: resolvedTarget,
+      target: canonicalResolvedTarget,
       message
     };
 
@@ -1223,6 +1381,7 @@ async function chat(params) {
     logger.info('Sending chat message via gateway', {
       target: requestedTarget || effectiveTarget,
       resolvedTarget,
+      canonicalTarget: canonicalResolvedTarget,
       targetAlias: resolved.alias,
       messageLength: message.length,
       channel: resolved.resolvedChannel || effectiveChannel || 'auto',
@@ -1230,11 +1389,17 @@ async function chat(params) {
       openclawTargetSessionKey: dispatchConfig?.targetSessionKey || null,
     });
 
-    if (dispatchConfig?.targetSessionKey) {
-      await callOpenClawTool('message', messageArgs, { sessionKey: dispatchConfig.targetSessionKey });
-    } else {
-      await callOpenClawTool('message', messageArgs);
-    }
+    const messageResult = dispatchConfig?.targetSessionKey
+      ? await callOpenClawTool('message', messageArgs, { sessionKey: dispatchConfig.targetSessionKey })
+      : await callOpenClawTool('message', messageArgs);
+
+    logger.info('Gateway message send result', {
+      target: requestedTarget || effectiveTarget,
+      resolvedTarget,
+      canonicalTarget: canonicalResolvedTarget,
+      channel: resolved.resolvedChannel || effectiveChannel || 'auto',
+      gatewayResult: messageResult || null,
+    });
 
     if (agentDeliveryMeta?.activateSession) {
       const inspection = dispatchConfig
@@ -1246,6 +1411,16 @@ async function chat(params) {
         sessionRow,
         resolvedTarget,
         deliveryChannel: resolved.resolvedChannel || effectiveChannel,
+      });
+      const canonicalActivationReplyTo = canonicalizeDeliveryTarget({
+        type: resolvedDelivery.type,
+        channel: activationOptions.replyChannel || resolvedDelivery.channel,
+        target: activationOptions.replyTo,
+      });
+      const canonicalActivationTarget = canonicalizeDeliveryTarget({
+        type: resolvedDelivery.type,
+        channel: activationOptions.channel || resolvedDelivery.channel,
+        target: activationOptions.target,
       });
 
       try {
@@ -1264,6 +1439,7 @@ async function chat(params) {
           sourceUrl: agentDeliveryMeta.sourceUrl || null,
           sourceReplyTarget: agentDeliveryMeta.sourceReplyTarget || null,
           sourceReplyChannel: agentDeliveryMeta.sourceReplyChannel || null,
+          sourceReplyType: agentDeliveryMeta.sourceDelivery?.type || null,
           replyRelayPeerId: replyRelayPeerId || null,
           openclawDeliverLocally,
           dispatchAgentId: activationOptions.agentId,
@@ -1275,10 +1451,13 @@ async function chat(params) {
         const dispatchResult = await runOpenClawAgentTurn({
           message,
           ...activationOptions,
+          target: canonicalActivationTarget,
+          replyTo: canonicalActivationReplyTo,
           deliver: openclawDeliverLocally,
         });
         const replyRelay = await relayActivationReplyToSourcePeer({
           sourceAgentId: replyRelayPeerId,
+          sourceDelivery: agentDeliveryMeta.sourceDelivery,
           sourceReplyTarget: agentDeliveryMeta.sourceReplyTarget,
           sourceReplyChannel: agentDeliveryMeta.sourceReplyChannel,
           message: extractOpenClawReplyText(dispatchResult),
@@ -1311,7 +1490,7 @@ async function chat(params) {
           openclaw_session_id: activationOptions.sessionId,
           openclaw_agent_id: activationOptions.agentId,
           openclaw_reply_channel: activationOptions.replyChannel,
-          openclaw_reply_to: activationOptions.replyTo,
+          openclaw_reply_to: canonicalActivationReplyTo,
           openclaw_deliver_locally: openclawDeliverLocally,
           openclaw_result: dispatchResult?.result?.status || dispatchResult?.status || null,
           reply_relay: replyRelay.status,

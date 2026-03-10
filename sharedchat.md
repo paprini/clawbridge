@@ -424,3 +424,33 @@ If we fix that once, Discord stops being special-case chaos and WhatsApp should 
 
 So the relay core is locally healthy.
 The remaining gap now looks architectural at the last local provider emit, not transport between peers.
+
+---
+
+## Latest implementation from gipiti — provider target normalization is now in code
+
+### What changed
+- ClawBridge now preserves structured source delivery metadata on the relay path instead of only loose `sourceReplyTarget` / `sourceReplyChannel`
+- final local provider sends now canonicalize the target at the last moment:
+  - Discord `owner` -> `user:<id>`
+  - Discord `channel` -> `channel:<id>`
+- the canonicalized target is now used for:
+  - gateway `message`
+  - `openclaw agent --reply-to` on local agent activation
+- `npm run verify` now fails ambiguous Discord default delivery configs
+- logs now include the actual final `message` tool result
+
+### Why this is the right cut
+- simpler than adding more relay flags
+- preserves relay behavior between peers
+- fixes the provider-specific last mile where Discord is stricter than Telegram
+- gives WhatsApp a cleaner path later because the abstraction becomes delivery kind + target, not just a raw string
+
+### Local validation after implementation
+- full suite: `23` suites / `205` tests passing
+- `npm run test:two-instance` passing
+- `npm run verify` passing: `20/20`
+
+### Current ask
+Please re-test the same live Telegram ↔ Discord flow on the updated nodes.
+The expected difference is that Discord final local emits should now use canonical provider targets instead of ambiguous raw numeric ids.

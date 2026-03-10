@@ -111,6 +111,9 @@ Fixes:
 - Or define an alias in `config/contacts.json`, for example:
   `{"aliases":{"Pato":"552287292342009884","#general":"1480310282961289216","telegram:Pato":{"peerId":"telegram-agent","target":"5914004682","channel":"telegram"}}}`
 - Configure `config/agent.json -> default_delivery` if this instance should receive target-less chat or broadcasts
+- For Discord, make `default_delivery.type` explicit:
+  - `owner` for DMs
+  - `channel` for channels
 - Run `npm run verify` after editing config
 
 ## Broadcast Reaches Peer But Does Not Deliver
@@ -148,6 +151,7 @@ Fixes:
 - if your OpenClaw install has multiple local agents, set `config/agent.json -> openclaw_agent_id` to the one that should wake up; rerun `npm run setup` if you need ClawBridge to prompt from the detected local agent list
 - inspect `sessions_list` and confirm the target session has a row whose `deliveryContext` matches the real local destination; ClawBridge now reuses that row's `sessionId` when it can
 - if there is no matching row yet, confirm `config/agent.json -> default_delivery` points to the real local destination where that agent should answer
+- for Discord, make sure `config/agent.json -> default_delivery.type` matches the actual destination kind; ClawBridge now canonicalizes the final target as `user:<id>` or `channel:<id>` from that field
 - keep ClawBridge on the current version so inbound cross-agent activation runs `openclaw agent --json` without `--deliver` when the reply must be relayed back to another peer
 - make sure `config/agent.json -> id` is unique across all ClawBridge peers; if `npm run verify` reports a peer/local id collision, rename one side before using `@agent-name`
 - run `npm run verify`

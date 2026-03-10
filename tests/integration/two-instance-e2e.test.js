@@ -448,7 +448,7 @@ describe('two-instance cross-node chat', () => {
     expect(messageCalls).toEqual(expect.arrayContaining([
       expect.objectContaining({
         args: expect.objectContaining({
-          target: '1480310282961289216',
+          target: 'channel:1480310282961289216',
           channel: 'discord',
           message: 'Hola desde Telegram',
         }),
@@ -457,7 +457,7 @@ describe('two-instance cross-node chat', () => {
         args: expect.objectContaining({
           target: '5914004682',
           channel: 'telegram',
-          message: expect.stringContaining('reply:main:discord:1480310282961289216:Hola desde Telegram'),
+          message: expect.stringContaining('reply:main:discord:channel:1480310282961289216:Hola desde Telegram'),
         }),
       }),
     ]));
@@ -468,6 +468,7 @@ describe('two-instance cross-node chat', () => {
         agent: 'main',
         channel: 'discord',
         deliver: false,
+        replyTo: 'channel:1480310282961289216',
       }),
     ]));
   });
@@ -571,7 +572,7 @@ describe('two-instance cross-node chat', () => {
     expect(messageCalls).toEqual(expect.arrayContaining([
       expect.objectContaining({
         args: expect.objectContaining({
-          target: '1480310282961289216',
+          target: 'channel:1480310282961289216',
           channel: 'discord',
           message: 'Hola desde Telegram',
         }),
@@ -580,7 +581,7 @@ describe('two-instance cross-node chat', () => {
         args: expect.objectContaining({
           target: '5914004682',
           channel: 'telegram',
-          message: expect.stringContaining('reply:main:discord:1480310282961289216:Hola desde Telegram'),
+          message: expect.stringContaining('reply:main:discord:channel:1480310282961289216:Hola desde Telegram'),
         }),
       }),
     ]));
@@ -591,6 +592,7 @@ describe('two-instance cross-node chat', () => {
         agent: 'main',
         channel: 'discord',
         deliver: false,
+        replyTo: 'channel:1480310282961289216',
       }),
     ]));
   });

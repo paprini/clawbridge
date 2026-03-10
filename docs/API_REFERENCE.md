@@ -181,6 +181,10 @@ Primary local identity and delivery config.
 - Setup now asks for this value from the detected local OpenClaw agent list.
 - If it is omitted on a multi-agent install, `npm run verify` fails because agent identity cannot be guaranteed safely.
 - `id` must not collide with any configured peer id in `config/peers.json`; `npm run verify` now fails that configuration because `@agent-name` routing becomes ambiguous.
+- `default_delivery.type` matters on provider-specific final sends. For Discord:
+  - `owner` means ClawBridge emits `user:<id>`
+  - `channel` means ClawBridge emits `channel:<id>`
+  - `npm run verify` now rejects ambiguous Discord defaults
 
 ### config/contacts.json (optional)
 Alias map for human-friendly names and local channel names used by `chat`. Channel-specific aliases can be declared as `channel:name`. Entries may be simple target strings or relay objects with `peerId`.

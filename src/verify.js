@@ -47,6 +47,31 @@ function normalizeAgentId(value) {
   return trimmed.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
 }
 
+function normalizeChannel(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function normalizeDeliveryType(value) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized === 'direct' || normalized === 'dm') {
+    return 'owner';
+  }
+
+  if (['owner', 'channel', 'group', 'target'].includes(normalized)) {
+    return normalized;
+  }
+
+  return normalized;
+}
+
+function looksLikeBareNumericTarget(value) {
+  return typeof value === 'string' && /^\d+$/.test(value.trim());
+}
+
 console.log('\n🔍 ClawBridge setup verification\n');
 console.log(`ClawBridge version: ${getClawBridgeVersion()}`);
 console.log(`Config dir: ${configDir}\n`);
@@ -296,6 +321,48 @@ check('broadcast default delivery readiness', () => {
   const agent = loadJSON('agent.json');
   if (!agent?.default_delivery || typeof agent.default_delivery.target !== 'string' || agent.default_delivery.target.trim().length === 0) {
     return 'broadcast is exposed, but agent.json has no default_delivery.target. Incoming broadcasts and @agent delivery to this instance will fail.';
+  }
+
+  return true;
+});
+
+check('provider delivery target readiness', () => {
+  const agent = loadJSON('agent.json');
+  const delivery = agent?.default_delivery;
+  if (!delivery || typeof delivery !== 'object' || Array.isArray(delivery)) {
+    return true;
+  }
+
+  const channel = normalizeChannel(delivery.channel);
+  const deliveryType = normalizeDeliveryType(delivery.type);
+  const target = typeof delivery.target === 'string' ? delivery.target.trim() : '';
+
+  if (!channel || !target) {
+    return true;
+  }
+
+  if (channel === 'discord') {
+    if (!deliveryType) {
+      return 'agent.json default_delivery for Discord must declare type "owner" or "channel" so ClawBridge can canonicalize the final target.';
+    }
+
+    if (!['owner', 'channel'].includes(deliveryType)) {
+      return `agent.json default_delivery.type "${delivery.type}" is not supported for Discord. Use "owner" for DMs or "channel" for channels.`;
+    }
+
+    if (looksLikeBareNumericTarget(target)) {
+      return true;
+    }
+
+    if (deliveryType === 'owner' && (target.startsWith('user:') || /^<@!?[^>]+>$/.test(target))) {
+      return true;
+    }
+
+    if (deliveryType === 'channel' && target.startsWith('channel:')) {
+      return true;
+    }
+
+    return `agent.json default_delivery.target "${target}" is ambiguous for Discord. Use a bare numeric id with an explicit type, or a canonical target like user:<id> / channel:<id>.`;
   }
 
   return true;

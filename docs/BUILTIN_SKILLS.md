@@ -80,6 +80,11 @@ callPeerSkill('discord-agent', 'get_status')
 6. If there is no origin peer to relay to, the local OpenClaw activation path can still deliver locally
 7. Message is delivered on the correct platform and the receiving agent gets a real inbound turn
 
+For provider-specific delivery, ClawBridge now uses `default_delivery.type` to canonicalize the final local target.
+- Discord DMs: `owner` -> `user:<id>`
+- Discord channels: `channel` -> `channel:<id>`
+- Telegram / WhatsApp keep their native target formats
+
 **Usage:**
 ```javascript
 // Agent-to-agent delivery
