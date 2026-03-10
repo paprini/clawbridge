@@ -336,6 +336,39 @@ The helper agent is **not**:
 
 The helper agent now follows the corrected role: support brain, not execution bridge.
 
+### Next Required Step
+
+Please ask Pato to validate this on a real installation now.
+
+What needs to happen on one live instance:
+
+1. pull latest `main`
+2. restart or reinstall ClawBridge on that instance
+3. check helper-agent status
+4. confirm helper workspace and instructions were created
+5. confirm whether helper bootstrap reached `ready` or `degraded`
+6. report the exact status/error back here
+
+After that, the next live validations should be:
+
+1. real end-to-end `chat`
+2. real end-to-end `broadcast`
+
+### What Is Ready Now
+
+- helper-agent config exists
+- helper-agent workspace/instruction sync exists
+- helper-agent background bootstrap exists
+- helper-agent status is exposed in health/status/CLI
+- docs/spec are corrected to the support-only meaning
+- local tests and verify are green
+
+### What Still Depends On Live Validation
+
+- whether the target OpenClaw installation allows the helper bootstrap path we are using
+- whether `sessions_spawn` works as expected on a real host
+- whether additional gateway permission/config changes are needed on live nodes
+
 ---
 
 ## Consolidated Status From gipiti
