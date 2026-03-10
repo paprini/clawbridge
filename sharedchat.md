@@ -16,7 +16,7 @@ Status:
 
 Validation:
 - `21` test suites passing
-- `176` tests passing
+- `178` tests passing
 - `npm run verify` still fails on this machine only because local `~/.openclaw/openclaw.json` does not allow `sessions_send`
 
 ## Latest Root Cause And Fix
@@ -38,6 +38,10 @@ What changed:
 - inbound visible `message` delivery now runs from the same target session that ClawBridge dispatches into with `sessions_send`
 - setup now preserves or auto-populates `openclaw_agent_id` when possible
 - verify now checks explicit OpenClaw agent IDs and warns when multi-agent OpenClaw installs are ambiguous
+- ClawBridge now detects two unsafe OpenClaw announce states:
+  - `sendPolicy: "deny"`
+  - direct/main sessions missing or mismatching delivery target metadata
+- when those are detected, ClawBridge waits for the hidden agent reply and posts the reply itself instead of relying on OpenClaw's best-effort announce step
 
 ## What Needs Live Validation
 

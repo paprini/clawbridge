@@ -81,6 +81,13 @@ ClawBridge peer IDs are not OpenClaw agent IDs. If the receiving OpenClaw instan
 
 If neither is set, ClawBridge auto-resolves from OpenClaw bindings or the default OpenClaw agent.
 
+ClawBridge also guards against two OpenClaw announce-path failures:
+
+- `session.sendPolicy = deny`
+- direct/main sessions missing delivery target metadata (`lastChannel` / `lastTo` / `deliveryContext`)
+
+When it detects those states, it waits for the hidden agent reply and delivers that reply manually instead of relying on OpenClaw's best-effort announce step.
+
 ## Restart And Validate
 
 After changing bridge config:

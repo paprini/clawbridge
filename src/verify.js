@@ -294,6 +294,10 @@ check('agent-to-agent dispatch readiness', () => {
     : ['main'];
   const agent = loadJSON('agent.json');
   const configuredDispatchAgentId = normalizeAgentId(dispatch.agentId || agent?.openclaw_agent_id);
+  const sendPolicyDefault = typeof gatewayConfig?.session?.sendPolicy?.default === 'string'
+    ? gatewayConfig.session.sendPolicy.default.trim().toLowerCase()
+    : '';
+  const bindings = Array.isArray(gatewayConfig?.bindings) ? gatewayConfig.bindings : [];
 
   if (configuredDispatchAgentId && !knownAgentIds.includes(configuredDispatchAgentId)) {
     return `Configured OpenClaw agent "${dispatch.agentId || agent?.openclaw_agent_id}" does not exist in ~/.openclaw/openclaw.json`;
@@ -305,6 +309,31 @@ check('agent-to-agent dispatch readiness', () => {
 
   if (visibility === 'tree' && requesterSessionKey === 'main') {
     return 'bridge agent_dispatch.requesterSessionKey=main can be blocked by OpenClaw tools.sessions.visibility=tree. Prefer requesterSessionKey="auto".';
+  }
+
+  if (sendPolicyDefault === 'deny') {
+    console.log('    ℹ️  OpenClaw session.sendPolicy default=deny. ClawBridge can use manual reply fallback, but existing sessions may still need /send on or explicit allow rules for visible replies.');
+  }
+
+  const defaultDelivery = agent?.default_delivery;
+  const defaultDeliveryChannel = typeof defaultDelivery?.channel === 'string'
+    ? defaultDelivery.channel.trim().toLowerCase()
+    : '';
+  const defaultDeliveryTarget = typeof defaultDelivery?.target === 'string'
+    ? defaultDelivery.target.trim().toLowerCase()
+    : '';
+  const defaultDeliveryKind = typeof defaultDelivery?.type === 'string' && defaultDelivery.type.trim().toLowerCase() === 'channel'
+    ? 'channel'
+    : 'direct';
+  const hasMatchingBinding = defaultDeliveryChannel && defaultDeliveryTarget
+    ? bindings.some((binding) => normalizeAgentId(binding?.agentId)
+        && String(binding?.match?.channel || '').trim().toLowerCase() === defaultDeliveryChannel
+        && String(binding?.match?.peer?.kind || '').trim().toLowerCase().replace(/^dm$/, 'direct') === defaultDeliveryKind
+        && String(binding?.match?.peer?.id || '').trim().toLowerCase() === defaultDeliveryTarget)
+    : false;
+
+  if (knownAgentIds.length > 1 && defaultDeliveryChannel && defaultDeliveryTarget && !hasMatchingBinding && !configuredDispatchAgentId) {
+    console.log('    ℹ️  No explicit OpenClaw binding matches agent.json default_delivery. ClawBridge will rely on delivery metadata/default agent; set openclaw_agent_id or add a binding for stronger inbound agent routing.');
   }
 
   return true;

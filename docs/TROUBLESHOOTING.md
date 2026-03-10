@@ -138,6 +138,8 @@ Causes:
 - `bridge.agent_dispatch.requesterSessionKey` was forced to `main`, which can be blocked when OpenClaw uses `tools.sessions.visibility=tree`
 - ClawBridge is targeting the wrong local OpenClaw agent because `config/agent.json.id` was assumed to be the OpenClaw agent ID
 - visible delivery was posted from the wrong session instead of the same target session used for agent activation
+- OpenClaw session `sendPolicy` is `deny`
+- direct/main target session is missing `deliveryContext`, `lastChannel`, or `lastTo`
 
 Fixes:
 - ensure `config/bridge.json -> agent_dispatch.enabled` is `true`
@@ -146,6 +148,8 @@ Fixes:
 - allow `sessions_send` in `~/.openclaw/openclaw.json` under `gateway.tools.allow`
 - if your OpenClaw install has multiple local agents, set `config/agent.json -> openclaw_agent_id` to the one that should wake up
 - keep ClawBridge on the current version so visible delivery and `sessions_send` use the same target session
+- if the session has `/send off`, switch it back with `/send on`
+- inspect session routing with `sessions_list` and confirm the target session has the expected `lastChannel` and `lastTo`
 - run `npm run verify`
 
 ## Config Not Found

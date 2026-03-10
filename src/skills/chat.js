@@ -15,6 +15,8 @@ const logger = require('../logger');
 const MAX_RELAY_HOPS = 4;
 const DEFAULT_OPENCLAW_MAIN_KEY = 'main';
 const DEFAULT_OPENCLAW_ACCOUNT_ID = 'default';
+const MANUAL_REPLY_WAIT_SECONDS = 20;
+const SESSION_LIST_LIMIT = 200;
 
 function getTargetingSuggestion() {
   return 'Use @agent-name for agent-to-agent, #channel for local channels, #channel@agent for remote channels, or configure config/contacts.json aliases.';
@@ -394,7 +396,131 @@ function buildInboundDispatchMessage({ message, requestedTarget, resolvedTarget,
   return lines.join('\n');
 }
 
-async function dispatchInboundAgentTurn({ message, requestedTarget, resolvedTarget, agentDeliveryMeta, dispatchConfig }) {
+function stripAgentSessionPrefix(sessionKey) {
+  const trimmed = typeof sessionKey === 'string' ? sessionKey.trim() : '';
+  if (!trimmed) {
+    return '';
+  }
+
+  const parts = trimmed.split(':').filter(Boolean);
+  if (parts.length >= 3 && parts[0] === 'agent') {
+    return parts.slice(2).join(':');
+  }
+
+  return trimmed;
+}
+
+function isChannelScopedSessionKey(sessionKey) {
+  const stripped = stripAgentSessionPrefix(sessionKey);
+  const parts = stripped.split(':').filter(Boolean);
+  return parts.length >= 3 && (parts[1] === 'group' || parts[1] === 'channel');
+}
+
+function normalizeSessionComparisonValue(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
+
+function matchesGatewaySessionRow(rowKey, targetSessionKey) {
+  const normalizedRowKey = normalizeSessionComparisonValue(rowKey);
+  const normalizedTarget = normalizeSessionComparisonValue(targetSessionKey);
+  if (!normalizedRowKey || !normalizedTarget) {
+    return false;
+  }
+
+  return normalizedRowKey === normalizedTarget
+    || normalizedRowKey === normalizeSessionComparisonValue(stripAgentSessionPrefix(targetSessionKey));
+}
+
+function resolveSessionDeliveryTarget(row) {
+  if (!row || typeof row !== 'object' || Array.isArray(row)) {
+    return { channel: null, to: null, accountId: null };
+  }
+
+  return {
+    channel: typeof row?.deliveryContext?.channel === 'string' && row.deliveryContext.channel.trim().length > 0
+      ? row.deliveryContext.channel.trim()
+      : (typeof row?.lastChannel === 'string' && row.lastChannel.trim().length > 0 ? row.lastChannel.trim() : null),
+    to: typeof row?.deliveryContext?.to === 'string' && row.deliveryContext.to.trim().length > 0
+      ? row.deliveryContext.to.trim()
+      : (typeof row?.lastTo === 'string' && row.lastTo.trim().length > 0 ? row.lastTo.trim() : null),
+    accountId: typeof row?.deliveryContext?.accountId === 'string' && row.deliveryContext.accountId.trim().length > 0
+      ? row.deliveryContext.accountId.trim()
+      : (typeof row?.lastAccountId === 'string' && row.lastAccountId.trim().length > 0 ? row.lastAccountId.trim() : null),
+  };
+}
+
+async function inspectDispatchSession(dispatchConfig) {
+  if (!dispatchConfig?.targetSessionKey) {
+    return null;
+  }
+
+  try {
+    const result = await invokeGatewayTool('sessions_list', {
+      limit: SESSION_LIST_LIMIT,
+      messageLimit: 0,
+    }, {
+      gateway: dispatchConfig.gateway,
+      sessionKey: dispatchConfig.targetSessionKey,
+      timeoutMs: dispatchConfig.timeoutMs,
+    });
+    const sessions = Array.isArray(result?.sessions) ? result.sessions : [];
+    return sessions.find((row) => matchesGatewaySessionRow(row?.key, dispatchConfig.targetSessionKey)) || null;
+  } catch (err) {
+    logger.warn('Unable to inspect target OpenClaw session before dispatch', {
+      error: err.message,
+      targetSessionKey: dispatchConfig.targetSessionKey,
+    });
+    return null;
+  }
+}
+
+function resolveManualReplyFallbackReason({ sessionRow, dispatchConfig, resolvedTarget, deliveryChannel }) {
+  if (!sessionRow || !dispatchConfig?.targetSessionKey) {
+    return null;
+  }
+
+  if (typeof sessionRow.sendPolicy === 'string' && sessionRow.sendPolicy.trim().toLowerCase() === 'deny') {
+    return 'send_policy_deny';
+  }
+
+  if (isChannelScopedSessionKey(dispatchConfig.targetSessionKey)) {
+    return null;
+  }
+
+  const delivery = resolveSessionDeliveryTarget(sessionRow);
+  if (!delivery.channel || !delivery.to) {
+    return 'missing_delivery_target';
+  }
+
+  const expectedChannel = normalizeSessionComparisonValue(deliveryChannel);
+  const actualChannel = normalizeSessionComparisonValue(delivery.channel);
+  const expectedTarget = normalizeSessionComparisonValue(resolvedTarget);
+  const actualTarget = normalizeSessionComparisonValue(delivery.to);
+
+  if ((expectedChannel && actualChannel && actualChannel !== expectedChannel)
+    || (expectedTarget && actualTarget && actualTarget !== expectedTarget)) {
+    return 'delivery_target_mismatch';
+  }
+
+  return null;
+}
+
+function getDispatchTimeoutSeconds(dispatchConfig, manualReplyFallbackReason) {
+  if (!manualReplyFallbackReason) {
+    return dispatchConfig.timeoutSeconds;
+  }
+
+  return Math.max(dispatchConfig.timeoutSeconds || 0, MANUAL_REPLY_WAIT_SECONDS);
+}
+
+async function dispatchInboundAgentTurn({
+  message,
+  requestedTarget,
+  resolvedTarget,
+  agentDeliveryMeta,
+  dispatchConfig,
+  timeoutSecondsOverride,
+}) {
 
   if (!dispatchConfig) {
     return {
@@ -411,7 +537,7 @@ async function dispatchInboundAgentTurn({ message, requestedTarget, resolvedTarg
       resolvedTarget,
       agentDeliveryMeta,
     }),
-    timeoutSeconds: dispatchConfig.timeoutSeconds,
+    timeoutSeconds: timeoutSecondsOverride ?? dispatchConfig.timeoutSeconds,
   }, {
     gateway: dispatchConfig.gateway,
     sessionKey: dispatchConfig.requesterSessionKey,
@@ -722,6 +848,28 @@ async function chat(params) {
     }
 
     if (agentDeliveryMeta?.activateSession) {
+      const sessionRow = dispatchConfig
+        ? await inspectDispatchSession(dispatchConfig)
+        : null;
+      const manualReplyFallbackReason = resolveManualReplyFallbackReason({
+        sessionRow,
+        dispatchConfig,
+        resolvedTarget,
+        deliveryChannel: resolved.resolvedChannel || effectiveChannel,
+      });
+
+      if (manualReplyFallbackReason) {
+        logger.warn('OpenClaw announce path looks unsafe; using manual reply fallback', {
+          target: requestedTarget || effectiveTarget,
+          resolvedTarget,
+          targetSessionKey: dispatchConfig?.targetSessionKey || null,
+          reason: manualReplyFallbackReason,
+          sendPolicy: sessionRow?.sendPolicy || null,
+          sessionLastChannel: sessionRow?.lastChannel || null,
+          sessionLastTo: sessionRow?.lastTo || null,
+        });
+      }
+
       try {
         const dispatchResult = await dispatchInboundAgentTurn({
           message,
@@ -729,7 +877,61 @@ async function chat(params) {
           resolvedTarget,
           agentDeliveryMeta,
           dispatchConfig,
+          timeoutSecondsOverride: getDispatchTimeoutSeconds(dispatchConfig, manualReplyFallbackReason),
         });
+
+        if (manualReplyFallbackReason) {
+          const manualReply = typeof dispatchResult?.reply === 'string' ? dispatchResult.reply.trim() : '';
+
+          if (dispatchResult?.status === 'ok' && manualReply) {
+            const manualReplyArgs = {
+              action: 'send',
+              target: resolvedTarget,
+              message: manualReply,
+            };
+            if (resolved.resolvedChannel || effectiveChannel) {
+              manualReplyArgs.channel = resolved.resolvedChannel || effectiveChannel;
+            }
+
+            await callOpenClawTool('message', manualReplyArgs, { sessionKey: dispatchConfig.targetSessionKey });
+
+            return {
+              success: true,
+              delivered_to: requestedTarget || effectiveTarget,
+              resolved_target: resolvedTarget,
+              channel: resolved.resolvedChannel || effectiveChannel || 'auto',
+              message_length: message.length,
+              agent_dispatch: 'manual_reply',
+              manual_reply_reason: manualReplyFallbackReason,
+              reply_length: manualReply.length,
+              timestamp: new Date().toISOString(),
+            };
+          }
+
+          if (dispatchResult?.status === 'timeout') {
+            return {
+              error: 'Message was delivered, but the receiving agent did not produce a reply before the fallback timeout.',
+              delivered_to: requestedTarget || effectiveTarget,
+              resolved_target: resolvedTarget,
+              transport_delivered: true,
+              agent_dispatch: 'timeout',
+              manual_reply_reason: manualReplyFallbackReason,
+              details: dispatchResult?.error || `No visible reply within ${getDispatchTimeoutSeconds(dispatchConfig, manualReplyFallbackReason)}s.`,
+              suggestion: 'Check OpenClaw sendPolicy, bindings, and sessions_send logs on the receiving node.',
+            };
+          }
+
+          return {
+            error: 'Message was delivered, but the receiving agent did not produce a manual fallback reply.',
+            delivered_to: requestedTarget || effectiveTarget,
+            resolved_target: resolvedTarget,
+            transport_delivered: true,
+            agent_dispatch: dispatchResult?.status || 'error',
+            manual_reply_reason: manualReplyFallbackReason,
+            details: dispatchResult?.error || 'sessions_send completed without a reply payload',
+            suggestion: 'Check OpenClaw sendPolicy, bindings, and sessions_send logs on the receiving node.',
+          };
+        }
 
         if (!['accepted', 'ok'].includes(dispatchResult?.status)) {
           return {
