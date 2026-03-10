@@ -7,7 +7,14 @@ const path = require('path');
 const tmpDir = path.join(os.tmpdir(), `clawbridge-gateway-test-${Date.now()}`);
 const openClawConfigPath = path.join(tmpDir, 'openclaw.json');
 
-const { invokeGatewayTool, unwrapGatewayToolResult } = require('../../src/openclaw-gateway');
+const {
+  invokeGatewayTool,
+  listGatewayAgentIds,
+  resolveGatewayAgentId,
+  resolveGatewayBindingAgentId,
+  resolveGatewayDefaultAgentId,
+  unwrapGatewayToolResult,
+} = require('../../src/openclaw-gateway');
 
 describe('openclaw gateway helpers', () => {
   const originalConfigDir = process.env.A2A_CONFIG_DIR;
@@ -28,6 +35,21 @@ describe('openclaw gateway helpers', () => {
     }));
 
     fs.writeFileSync(openClawConfigPath, JSON.stringify({
+      agents: {
+        list: [
+          { id: 'main' },
+          { id: 'discord-helper' },
+        ],
+      },
+      bindings: [
+        {
+          agentId: 'discord-helper',
+          match: {
+            channel: 'discord',
+            peer: { kind: 'channel', id: '1480310282961289216' },
+          },
+        },
+      ],
       gateway: {
         auth: {
           token: 'test-token',
@@ -75,5 +97,45 @@ describe('openclaw gateway helpers', () => {
     await expect(invokeGatewayTool('sessions_send', { sessionKey: 'agent:test:main', message: 'hello' }))
       .resolves
       .toEqual({ status: 'accepted', sessionKey: 'agent:test:main' });
+  });
+
+  test('lists configured gateway agent ids', () => {
+    expect(listGatewayAgentIds(openClawConfigPath)).toEqual(['main', 'discord-helper']);
+    expect(resolveGatewayDefaultAgentId(openClawConfigPath)).toBe('main');
+  });
+
+  test('resolves a bound agent id from gateway bindings', () => {
+    expect(resolveGatewayBindingAgentId({
+      tokenPath: openClawConfigPath,
+      channel: 'discord',
+      peerKind: 'channel',
+      peerId: '1480310282961289216',
+    })).toBe('discord-helper');
+  });
+
+  test('prefers a known explicit agent id, otherwise falls back to binding/default', () => {
+    expect(resolveGatewayAgentId({
+      tokenPath: openClawConfigPath,
+      preferredAgentId: 'discord-helper',
+      channel: 'discord',
+      peerKind: 'channel',
+      peerId: '1480310282961289216',
+    })).toBe('discord-helper');
+
+    expect(resolveGatewayAgentId({
+      tokenPath: openClawConfigPath,
+      preferredAgentId: 'missing-agent',
+      channel: 'discord',
+      peerKind: 'channel',
+      peerId: '1480310282961289216',
+    })).toBe('discord-helper');
+
+    expect(resolveGatewayAgentId({
+      tokenPath: openClawConfigPath,
+      preferredAgentId: 'missing-agent',
+      channel: 'telegram',
+      peerKind: 'direct',
+      peerId: '5914004682',
+    })).toBe('main');
   });
 });

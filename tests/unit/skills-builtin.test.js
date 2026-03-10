@@ -11,14 +11,14 @@ jest.mock('../../src/client');
 jest.mock('../../src/logger');
 jest.mock('../../src/openclaw-gateway');
 jest.mock('../../src/config', () => ({
-  loadAgentConfig: jest.fn(() => ({ id: 'local-agent', default_delivery: null })),
+  loadAgentConfig: jest.fn(() => ({ id: 'local-agent', openclaw_agent_id: null, default_delivery: null })),
   loadContactsConfig: jest.fn(() => ({ aliases: {} })),
   loadPeersConfig: jest.fn(() => []),
 }));
 
 const { callOpenClawTool, loadBridgeConfig } = require('../../src/bridge');
 const { callPeerSkill, callPeers } = require('../../src/client');
-const { invokeGatewayTool } = require('../../src/openclaw-gateway');
+const { invokeGatewayTool, resolveGatewayAgentId } = require('../../src/openclaw-gateway');
 const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../../src/config');
 
 describe('Built-in Skills', () => {
@@ -28,10 +28,11 @@ describe('Built-in Skills', () => {
       enabled: true,
       exposed_tools: ['message'],
     });
-    loadAgentConfig.mockReturnValue({ id: 'local-agent', default_delivery: null });
+    loadAgentConfig.mockReturnValue({ id: 'local-agent', openclaw_agent_id: null, default_delivery: null });
     loadContactsConfig.mockReturnValue({ aliases: {} });
     loadPeersConfig.mockReturnValue([]);
     invokeGatewayTool.mockResolvedValue({ status: 'accepted' });
+    resolveGatewayAgentId.mockImplementation(({ preferredAgentId }) => preferredAgentId || 'main');
   });
 
   describe('chat', () => {
@@ -235,6 +236,7 @@ describe('Built-in Skills', () => {
     it('treats @self as local default delivery instead of relaying', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',
+        openclaw_agent_id: 'discord-agent',
         default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
       });
       callOpenClawTool.mockResolvedValue({ ok: true });
@@ -250,6 +252,8 @@ describe('Built-in Skills', () => {
         target: '1480310282961289216',
         message: 'Loop prevention',
         channel: 'discord'
+      }, {
+        sessionKey: 'agent:discord-agent:discord:channel:1480310282961289216',
       });
       expect(invokeGatewayTool).toHaveBeenCalledWith('sessions_send', expect.objectContaining({
         sessionKey: 'agent:discord-agent:discord:channel:1480310282961289216',
@@ -294,6 +298,7 @@ describe('Built-in Skills', () => {
     it('activates the receiving session for inbound @agent deliveries', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',
+        openclaw_agent_id: 'discord-agent',
         default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
       });
       callOpenClawTool.mockResolvedValue({ ok: true });
@@ -307,7 +312,13 @@ describe('Built-in Skills', () => {
         },
       });
 
-      expect(callOpenClawTool).toHaveBeenCalled();
+      expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
+        action: 'send',
+        target: '1480310282961289216',
+        channel: 'discord',
+      }), {
+        sessionKey: 'agent:discord-agent:discord:channel:1480310282961289216',
+      });
       expect(invokeGatewayTool).toHaveBeenCalledWith('sessions_send', expect.objectContaining({
         sessionKey: 'agent:discord-agent:discord:channel:1480310282961289216',
         timeoutSeconds: 0,
@@ -322,6 +333,7 @@ describe('Built-in Skills', () => {
     it('returns partial failure when inbound dispatch fails after delivery', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',
+        openclaw_agent_id: 'discord-agent',
         default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
       });
       callOpenClawTool.mockResolvedValue({ ok: true });
@@ -340,6 +352,37 @@ describe('Built-in Skills', () => {
       expect(result.error).toContain('receiving agent activation failed');
       expect(result.transport_delivered).toBe(true);
       expect(result.details).toContain('sessions_send');
+    });
+
+    it('uses openclaw_agent_id instead of the ClawBridge peer id for dispatch sessions', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'guali-discord',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'monti-telegram',
+          requestedTarget: '@guali-discord',
+        },
+      });
+
+      expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
+        target: '1480310282961289216',
+        channel: 'discord',
+      }), {
+        sessionKey: 'agent:main:discord:channel:1480310282961289216',
+      });
+      expect(invokeGatewayTool).toHaveBeenCalledWith('sessions_send', expect.objectContaining({
+        sessionKey: 'agent:main:discord:channel:1480310282961289216',
+      }), expect.objectContaining({
+        sessionKey: 'agent:main:discord:channel:1480310282961289216',
+      }));
+      expect(result.agent_dispatch).toBe('accepted');
     });
 
     it('handles gateway errors gracefully', async () => {

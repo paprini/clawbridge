@@ -74,6 +74,13 @@ For inbound `@agent-name` delivery, ClawBridge also needs the local gateway to a
 
 `requesterSessionKey: "auto"` is intentionally visibility-safe. It dispatches from the target session itself by default, which avoids OpenClaw rejecting the send under `tools.sessions.visibility=tree`.
 
+ClawBridge peer IDs are not OpenClaw agent IDs. If the receiving OpenClaw instance has multiple local agents and you want to pin which one wakes up for inbound `@agent` delivery, set either:
+
+- `config/agent.json -> openclaw_agent_id`
+- `config/bridge.json -> agent_dispatch.agentId`
+
+If neither is set, ClawBridge auto-resolves from OpenClaw bindings or the default OpenClaw agent.
+
 ## Restart And Validate
 
 After changing bridge config:

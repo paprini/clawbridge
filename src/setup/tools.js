@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { fetchAgentCard, validatePeerUrl } = require('../client');
+const { resolveGatewayDefaultAgentId } = require('../openclaw-gateway');
 
 /**
  * Get the local subnet (e.g. "192.168.1") from network interfaces.
@@ -196,6 +197,21 @@ function normalizeDefaultDelivery(defaultDelivery) {
   };
 }
 
+function resolveOpenClawAgentId(existingAgent) {
+  const configured = typeof existingAgent?.openclaw_agent_id === 'string'
+    ? existingAgent.openclaw_agent_id.trim()
+    : '';
+  if (configured) {
+    return configured;
+  }
+
+  try {
+    return resolveGatewayDefaultAgentId('~/.openclaw/openclaw.json');
+  } catch {
+    return null;
+  }
+}
+
 /**
  * Write config files with validation.
  */
@@ -223,6 +239,7 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
   const normalizedDefaultDelivery = normalizeDefaultDelivery(defaultDelivery)
     || normalizeDefaultDelivery(existing.agent?.default_delivery)
     || null;
+  const openclawAgentId = resolveOpenClawAgentId(existing.agent);
 
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
@@ -235,6 +252,9 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
     description: agentDescription || `A2A agent: ${agentName}`,
     url: agentUrl || 'http://localhost:9100/a2a',
     version: '0.1.0',
+    ...(openclawAgentId
+      ? { openclaw_agent_id: openclawAgentId }
+      : {}),
     default_delivery: normalizedDefaultDelivery,
   };
   fs.writeFileSync(path.join(configDir, 'agent.json'), JSON.stringify(agent, null, 2) + '\n');

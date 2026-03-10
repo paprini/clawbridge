@@ -27,6 +27,103 @@ function loadGatewayToken(tokenPath) {
   return token;
 }
 
+function normalizeGatewayAgentId(value) {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed) {
+    return 'main';
+  }
+
+  const normalized = trimmed.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+  return normalized || 'main';
+}
+
+function normalizeGatewayPeerKind(value) {
+  const trimmed = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (!trimmed) {
+    return 'direct';
+  }
+
+  if (trimmed === 'dm') {
+    return 'direct';
+  }
+
+  if (trimmed === 'owner' || trimmed === 'target') {
+    return 'direct';
+  }
+
+  return trimmed;
+}
+
+function listGatewayAgentIds(tokenPath) {
+  const config = loadGatewayConfig(tokenPath);
+  const agents = Array.isArray(config?.agents?.list) ? config.agents.list : [];
+  const ids = agents
+    .map((agent) => normalizeGatewayAgentId(agent?.id))
+    .filter(Boolean);
+
+  return ids.length > 0 ? ids : ['main'];
+}
+
+function resolveGatewayDefaultAgentId(tokenPath) {
+  const ids = listGatewayAgentIds(tokenPath);
+  if (ids.includes('main')) {
+    return 'main';
+  }
+
+  return ids[0] || 'main';
+}
+
+function resolveGatewayBindingAgentId({ tokenPath, channel, peerKind, peerId }) {
+  const config = loadGatewayConfig(tokenPath);
+  const bindings = Array.isArray(config?.bindings) ? config.bindings : [];
+  const normalizedChannel = typeof channel === 'string' ? channel.trim().toLowerCase() : '';
+  const normalizedPeerKind = normalizeGatewayPeerKind(peerKind);
+  const normalizedPeerId = typeof peerId === 'string' ? peerId.trim().toLowerCase() : '';
+
+  if (!normalizedChannel || !normalizedPeerId) {
+    return null;
+  }
+
+  const matched = bindings.find((binding) => {
+    const matchChannel = typeof binding?.match?.channel === 'string'
+      ? binding.match.channel.trim().toLowerCase()
+      : '';
+    const matchPeerKind = normalizeGatewayPeerKind(binding?.match?.peer?.kind);
+    const matchPeerId = typeof binding?.match?.peer?.id === 'string'
+      ? binding.match.peer.id.trim().toLowerCase()
+      : '';
+
+    return matchChannel === normalizedChannel
+      && matchPeerKind === normalizedPeerKind
+      && matchPeerId === normalizedPeerId;
+  });
+
+  return matched?.agentId ? normalizeGatewayAgentId(matched.agentId) : null;
+}
+
+function resolveGatewayAgentId({ tokenPath, preferredAgentId, channel, peerKind, peerId }) {
+  const normalizedPreferred = typeof preferredAgentId === 'string' && preferredAgentId.trim().length > 0
+    ? normalizeGatewayAgentId(preferredAgentId)
+    : null;
+
+  const knownIds = listGatewayAgentIds(tokenPath);
+  if (normalizedPreferred && knownIds.includes(normalizedPreferred)) {
+    return normalizedPreferred;
+  }
+
+  const boundAgentId = resolveGatewayBindingAgentId({
+    tokenPath,
+    channel,
+    peerKind,
+    peerId,
+  });
+  if (boundAgentId) {
+    return boundAgentId;
+  }
+
+  return resolveGatewayDefaultAgentId(tokenPath);
+}
+
 function tryParseTextPayload(content) {
   if (!Array.isArray(content)) {
     return null;
@@ -125,5 +222,10 @@ module.exports = {
   loadGatewayDefaults,
   loadGatewayToken,
   invokeGatewayTool,
+  listGatewayAgentIds,
+  resolveGatewayAgentId,
+  resolveGatewayBindingAgentId,
+  resolveGatewayDefaultAgentId,
+  normalizeGatewayAgentId,
   unwrapGatewayToolResult,
 };

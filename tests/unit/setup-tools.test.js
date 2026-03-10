@@ -80,6 +80,10 @@ describe('Setup Tools', () => {
       const agent = JSON.parse(fs.readFileSync(path.join(tmpDir, 'agent.json'), 'utf8'));
       expect(agent.name).toBe('test-agent');
       expect(agent.default_delivery).toEqual({ type: 'owner', target: '5914004682', channel: 'telegram' });
+      if (agent.openclaw_agent_id !== undefined) {
+        expect(typeof agent.openclaw_agent_id).toBe('string');
+        expect(agent.openclaw_agent_id.length).toBeGreaterThan(0);
+      }
 
       const peers = JSON.parse(fs.readFileSync(path.join(tmpDir, 'peers.json'), 'utf8'));
       expect(peers.peers[0].id).toBe('peer1');
@@ -112,6 +116,10 @@ describe('Setup Tools', () => {
       expect(result.bridge.enabled).toBe(true);
       expect(result.contacts.aliases).toEqual({});
       expect(result.agent.default_delivery).toEqual({ type: 'owner', target: '5914004682', channel: 'telegram' });
+      if (result.agent.openclaw_agent_id !== undefined) {
+        expect(typeof result.agent.openclaw_agent_id).toBe('string');
+        expect(result.agent.openclaw_agent_id.length).toBeGreaterThan(0);
+      }
     });
 
     test('preserves existing bridge, contacts, skills, and default delivery on re-run', () => {

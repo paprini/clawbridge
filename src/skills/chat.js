@@ -5,7 +5,11 @@
 const { callOpenClawTool, loadBridgeConfig } = require('../bridge');
 const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../config');
 const { callPeerSkill } = require('../client');
-const { invokeGatewayTool, loadGatewayConfig } = require('../openclaw-gateway');
+const {
+  invokeGatewayTool,
+  loadGatewayConfig,
+  resolveGatewayAgentId,
+} = require('../openclaw-gateway');
 const logger = require('../logger');
 
 const MAX_RELAY_HOPS = 4;
@@ -99,11 +103,15 @@ function getLocalAgentContext() {
       agentId: typeof config?.id === 'string' && config.id.trim().length > 0
         ? config.id.trim()
         : null,
+      openclawAgentId: typeof config?.openclaw_agent_id === 'string' && config.openclaw_agent_id.trim().length > 0
+        ? config.openclaw_agent_id.trim()
+        : null,
       defaultDelivery: normalizeDefaultDelivery(config?.default_delivery),
     };
   } catch {
     return {
       agentId: null,
+      openclawAgentId: null,
       defaultDelivery: null,
     };
   }
@@ -286,36 +294,39 @@ function resolveRequesterSessionKey(rawValue, { targetSessionKey, mainSessionKey
   return rawValue.trim();
 }
 
-function resolveDispatchSessionKeys({ dispatchConfig, agentId, defaultDelivery, resolvedTarget, deliveryChannel, agentDeliveryMeta }) {
-  const dispatchAgentId = dispatchConfig.agentId || agentId || 'main';
+function resolveDispatchSessionKeys({ dispatchConfig, openclawAgentId, defaultDelivery, resolvedTarget, deliveryChannel, agentDeliveryMeta }) {
   const { mainKey, dmScope } = loadGatewaySessionSettings(dispatchConfig.gateway);
-  const mainSessionKey = buildAgentMainSessionKey(dispatchAgentId, mainKey);
   const explicitTargetSessionKey = resolveConfiguredSessionKey(dispatchConfig.sessionKey, null);
-  let targetSessionKey = explicitTargetSessionKey;
-
-  if (!targetSessionKey) {
-    const deliveryType = typeof defaultDelivery?.type === 'string'
-      ? defaultDelivery.type.trim().toLowerCase()
-      : 'target';
-    const routeChannel = (deliveryChannel || defaultDelivery?.channel || '').trim().toLowerCase();
-    const shouldUseChannelRoute = Boolean(agentDeliveryMeta?.remoteChannelTarget) || deliveryType === 'channel';
-
-    if (routeChannel && typeof resolvedTarget === 'string' && resolvedTarget.trim().length > 0) {
-      targetSessionKey = buildAgentPeerSessionKey({
-        agentId: dispatchAgentId,
-        channel: routeChannel,
-        accountId: dispatchConfig.accountId || DEFAULT_OPENCLAW_ACCOUNT_ID,
-        peerKind: shouldUseChannelRoute ? 'channel' : 'direct',
-        peerId: resolvedTarget,
-        dmScope,
-        mainKey,
-      });
-    } else {
-      targetSessionKey = mainSessionKey;
-    }
-  }
+  const deliveryType = typeof defaultDelivery?.type === 'string'
+    ? defaultDelivery.type.trim().toLowerCase()
+    : 'target';
+  const routeChannel = (deliveryChannel || defaultDelivery?.channel || '').trim().toLowerCase();
+  const shouldUseChannelRoute = Boolean(agentDeliveryMeta?.remoteChannelTarget) || deliveryType === 'channel';
+  const peerKind = shouldUseChannelRoute ? 'channel' : 'direct';
+  const dispatchAgentId = resolveGatewayAgentId({
+    tokenPath: dispatchConfig.gateway?.tokenPath || '~/.openclaw/openclaw.json',
+    preferredAgentId: dispatchConfig.agentId || openclawAgentId,
+    channel: routeChannel,
+    peerKind,
+    peerId: resolvedTarget,
+  });
+  const mainSessionKey = buildAgentMainSessionKey(dispatchAgentId, mainKey);
+  const targetSessionKey = explicitTargetSessionKey || (
+    routeChannel && typeof resolvedTarget === 'string' && resolvedTarget.trim().length > 0
+      ? buildAgentPeerSessionKey({
+          agentId: dispatchAgentId,
+          channel: routeChannel,
+          accountId: dispatchConfig.accountId || DEFAULT_OPENCLAW_ACCOUNT_ID,
+          peerKind,
+          peerId: resolvedTarget,
+          dmScope,
+          mainKey,
+        })
+      : mainSessionKey
+  );
 
   return {
+    dispatchAgentId,
     requesterSessionKey: resolveRequesterSessionKey(dispatchConfig.requesterSessionKey, {
       targetSessionKey,
       mainSessionKey,
@@ -324,7 +335,7 @@ function resolveDispatchSessionKeys({ dispatchConfig, agentId, defaultDelivery, 
   };
 }
 
-function getAgentDispatchConfig({ agentId, defaultDelivery, resolvedTarget, deliveryChannel, agentDeliveryMeta }) {
+function getAgentDispatchConfig({ openclawAgentId, defaultDelivery, resolvedTarget, deliveryChannel, agentDeliveryMeta }) {
   const bridgeConfig = loadBridgeConfig();
   const dispatchConfig = bridgeConfig?.agent_dispatch || {};
 
@@ -332,12 +343,12 @@ function getAgentDispatchConfig({ agentId, defaultDelivery, resolvedTarget, deli
     return null;
   }
 
-  const { requesterSessionKey, targetSessionKey } = resolveDispatchSessionKeys({
+  const resolvedSessions = resolveDispatchSessionKeys({
     dispatchConfig: {
       ...dispatchConfig,
       gateway: bridgeConfig.gateway,
     },
-    agentId,
+    openclawAgentId,
     defaultDelivery,
     resolvedTarget,
     deliveryChannel,
@@ -345,8 +356,9 @@ function getAgentDispatchConfig({ agentId, defaultDelivery, resolvedTarget, deli
   });
 
   return {
-    requesterSessionKey,
-    targetSessionKey,
+    dispatchAgentId: resolvedSessions.dispatchAgentId,
+    requesterSessionKey: resolvedSessions.requesterSessionKey,
+    targetSessionKey: resolvedSessions.targetSessionKey,
     timeoutSeconds: typeof dispatchConfig.timeoutSeconds === 'number' && Number.isFinite(dispatchConfig.timeoutSeconds)
       ? Math.max(0, Math.floor(dispatchConfig.timeoutSeconds))
       : 0,
@@ -382,14 +394,7 @@ function buildInboundDispatchMessage({ message, requestedTarget, resolvedTarget,
   return lines.join('\n');
 }
 
-async function dispatchInboundAgentTurn({ message, requestedTarget, resolvedTarget, deliveryChannel, agentId, defaultDelivery, agentDeliveryMeta }) {
-  const dispatchConfig = getAgentDispatchConfig({
-    agentId,
-    defaultDelivery,
-    resolvedTarget,
-    deliveryChannel,
-    agentDeliveryMeta,
-  });
+async function dispatchInboundAgentTurn({ message, requestedTarget, resolvedTarget, agentDeliveryMeta, dispatchConfig }) {
 
   if (!dispatchConfig) {
     return {
@@ -471,7 +476,7 @@ async function chat(params) {
   const requestedChannel = typeof channel === 'string' && channel.trim().length > 0
     ? channel.trim()
     : null;
-  const { agentId, defaultDelivery } = getLocalAgentContext();
+  const { agentId, openclawAgentId, defaultDelivery } = getLocalAgentContext();
   const relayMeta = normalizeRelayMeta(params._relay);
   let agentDeliveryMeta = normalizeAgentDeliveryMeta(params._agentDelivery);
 
@@ -678,6 +683,16 @@ async function chat(params) {
   }
 
   try {
+    const dispatchConfig = agentDeliveryMeta?.activateSession
+      ? getAgentDispatchConfig({
+          openclawAgentId,
+          defaultDelivery,
+          resolvedTarget,
+          deliveryChannel: resolved.resolvedChannel || effectiveChannel,
+          agentDeliveryMeta,
+        })
+      : null;
+
     // The gateway expects a platform-specific target identifier.
     const messageArgs = {
       action: 'send',
@@ -695,10 +710,16 @@ async function chat(params) {
       resolvedTarget,
       targetAlias: resolved.alias,
       messageLength: message.length,
-      channel: resolved.resolvedChannel || effectiveChannel || 'auto'
+      channel: resolved.resolvedChannel || effectiveChannel || 'auto',
+      openclawDispatchAgentId: dispatchConfig?.dispatchAgentId || null,
+      openclawTargetSessionKey: dispatchConfig?.targetSessionKey || null,
     });
 
-    await callOpenClawTool('message', messageArgs);
+    if (dispatchConfig?.targetSessionKey) {
+      await callOpenClawTool('message', messageArgs, { sessionKey: dispatchConfig.targetSessionKey });
+    } else {
+      await callOpenClawTool('message', messageArgs);
+    }
 
     if (agentDeliveryMeta?.activateSession) {
       try {
@@ -706,10 +727,8 @@ async function chat(params) {
           message,
           requestedTarget: requestedTarget || effectiveTarget,
           resolvedTarget,
-          deliveryChannel: resolved.resolvedChannel || effectiveChannel,
-          agentId,
-          defaultDelivery,
           agentDeliveryMeta,
+          dispatchConfig,
         });
 
         if (!['accepted', 'ok'].includes(dispatchResult?.status)) {
@@ -720,7 +739,7 @@ async function chat(params) {
             transport_delivered: true,
             agent_dispatch: dispatchResult?.status || 'error',
             details: dispatchResult?.error || 'Unknown dispatch error',
-            suggestion: 'Allow the sessions_send gateway tool and confirm bridge.agent_dispatch.sessionKey points to the receiving OpenClaw agent session.',
+            suggestion: 'Allow the sessions_send gateway tool and confirm agent.json.openclaw_agent_id or bridge.agent_dispatch.agentId matches the receiving OpenClaw agent.',
           };
         }
 
@@ -739,6 +758,8 @@ async function chat(params) {
           target: requestedTarget || effectiveTarget,
           resolvedTarget,
           sourceAgentId: agentDeliveryMeta.sourceAgentId || null,
+          dispatchAgentId: dispatchConfig?.dispatchAgentId || null,
+          targetSessionKey: dispatchConfig?.targetSessionKey || null,
         });
 
         return {
@@ -748,7 +769,7 @@ async function chat(params) {
           transport_delivered: true,
           agent_dispatch: 'error',
           details: err.message,
-          suggestion: 'Allow the sessions_send gateway tool and confirm bridge.agent_dispatch.sessionKey points to the receiving OpenClaw agent session.',
+          suggestion: 'Allow the sessions_send gateway tool and confirm agent.json.openclaw_agent_id or bridge.agent_dispatch.agentId matches the receiving OpenClaw agent.',
         };
       }
     }

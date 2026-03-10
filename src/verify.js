@@ -36,6 +36,15 @@ function expandHome(filePath) {
   return typeof filePath === 'string' ? filePath.replace(/^~/, os.homedir()) : filePath;
 }
 
+function normalizeAgentId(value) {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed) {
+    return '';
+  }
+
+  return trimmed.toLowerCase().replace(/[^a-z0-9_-]+/g, '-').replace(/^-+/, '').replace(/-+$/, '');
+}
+
 console.log('\n🔍 ClawBridge setup verification\n');
 console.log(`Config dir: ${configDir}\n`);
 
@@ -46,6 +55,10 @@ check('agent.json exists', () => {
   if (!a) return 'File not found. Run: npm run setup';
   if (!a.id) return 'Missing "id" field';
   if (!a.name) return 'Missing "name" field';
+  if (a.openclaw_agent_id !== undefined
+    && (typeof a.openclaw_agent_id !== 'string' || a.openclaw_agent_id.trim().length === 0)) {
+    return '"openclaw_agent_id" must be a non-empty string when provided';
+  }
   if (a.default_delivery !== undefined && a.default_delivery !== null) {
     if (typeof a.default_delivery !== 'object' || Array.isArray(a.default_delivery)) {
       return '"default_delivery" must be an object when configured';
@@ -274,6 +287,21 @@ check('agent-to-agent dispatch readiness', () => {
   const requesterSessionKey = typeof dispatch.requesterSessionKey === 'string'
     ? dispatch.requesterSessionKey.trim().toLowerCase()
     : 'auto';
+  const knownAgentIds = Array.isArray(gatewayConfig?.agents?.list)
+    ? gatewayConfig.agents.list
+      .map((agent) => normalizeAgentId(agent?.id))
+      .filter(Boolean)
+    : ['main'];
+  const agent = loadJSON('agent.json');
+  const configuredDispatchAgentId = normalizeAgentId(dispatch.agentId || agent?.openclaw_agent_id);
+
+  if (configuredDispatchAgentId && !knownAgentIds.includes(configuredDispatchAgentId)) {
+    return `Configured OpenClaw agent "${dispatch.agentId || agent?.openclaw_agent_id}" does not exist in ~/.openclaw/openclaw.json`;
+  }
+
+  if (!configuredDispatchAgentId && knownAgentIds.length > 1) {
+    console.log(`    ℹ️  Multiple OpenClaw agents detected (${knownAgentIds.join(', ')}). ClawBridge will auto-resolve @agent delivery from bindings/default agent; set agent.json.openclaw_agent_id to pin a specific one.`);
+  }
 
   if (visibility === 'tree' && requesterSessionKey === 'main') {
     return 'bridge agent_dispatch.requesterSessionKey=main can be blocked by OpenClaw tools.sessions.visibility=tree. Prefer requesterSessionKey="auto".';

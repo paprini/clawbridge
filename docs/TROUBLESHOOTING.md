@@ -136,12 +136,16 @@ Causes:
 - `bridge.agent_dispatch` is still disabled after setup
 - `bridge.agent_dispatch.sessionKey` was forced to a wrong literal session instead of `auto`
 - `bridge.agent_dispatch.requesterSessionKey` was forced to `main`, which can be blocked when OpenClaw uses `tools.sessions.visibility=tree`
+- ClawBridge is targeting the wrong local OpenClaw agent because `config/agent.json.id` was assumed to be the OpenClaw agent ID
+- visible delivery was posted from the wrong session instead of the same target session used for agent activation
 
 Fixes:
 - ensure `config/bridge.json -> agent_dispatch.enabled` is `true`
 - prefer `config/bridge.json -> agent_dispatch.sessionKey = "auto"` unless you have a known custom OpenClaw session key
 - prefer `config/bridge.json -> agent_dispatch.requesterSessionKey = "auto"` unless you intentionally need a different requester session
 - allow `sessions_send` in `~/.openclaw/openclaw.json` under `gateway.tools.allow`
+- if your OpenClaw install has multiple local agents, set `config/agent.json -> openclaw_agent_id` to the one that should wake up
+- keep ClawBridge on the current version so visible delivery and `sessions_send` use the same target session
 - run `npm run verify`
 
 ## Config Not Found

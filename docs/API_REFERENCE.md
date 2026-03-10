@@ -156,7 +156,22 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 {"enabled": true, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json", "sessionKey": "main"}, "agent_dispatch": {"enabled": true, "sessionKey": "auto", "requesterSessionKey": "auto", "timeoutSeconds": 0}, "exposed_tools": ["message", "web_search"], "timeout_ms": 300000, "max_concurrent": 5}
 ```
 
-`agent_dispatch` is used for inbound `@agent-name` delivery. It dispatches the received message into the local OpenClaw session via `sessions_send` after the visible message is posted. `sessionKey: "auto"` means ClawBridge derives the correct agent-scoped OpenClaw target session. `requesterSessionKey: "auto"` means it invokes `sessions_send` from that same target session by default, which avoids OpenClaw visibility blockers under the default `tools.sessions.visibility=tree`.
+`agent_dispatch` is used for inbound `@agent-name` delivery. It dispatches the received message into the local OpenClaw session via `sessions_send` after the visible message is posted.
+
+- `sessionKey: "auto"` means ClawBridge derives the correct agent-scoped OpenClaw target session.
+- `requesterSessionKey: "auto"` means it invokes `sessions_send` from that same target session by default, which avoids OpenClaw visibility blockers under the default `tools.sessions.visibility=tree`.
+- For inbound agent delivery, ClawBridge now also posts the visible `message` from that same target session so OpenClaw keeps delivery context aligned with the activated session.
+- ClawBridge peer ID and OpenClaw agent ID are different concepts. If you need to pin the receiving OpenClaw agent explicitly, set `config/agent.json -> openclaw_agent_id` or `config/bridge.json -> agent_dispatch.agentId`.
+
+### config/agent.json
+Primary local identity and delivery config.
+```json
+{"id": "guali-discord", "name": "Guali Discord", "openclaw_agent_id": "main", "default_delivery": {"type": "channel", "target": "1480310282961289216", "channel": "discord"}}
+```
+
+- `id` is the ClawBridge peer ID used by other ClawBridge instances.
+- `openclaw_agent_id` is optional and refers to the local OpenClaw agent to activate for inbound `@agent` delivery.
+- If `openclaw_agent_id` is omitted, ClawBridge auto-resolves from OpenClaw bindings or the default OpenClaw agent.
 
 ### config/contacts.json (optional)
 Alias map for human-friendly names and local channel names used by `chat`. Channel-specific aliases can be declared as `channel:name`. Entries may be simple target strings or relay objects with `peerId`.
