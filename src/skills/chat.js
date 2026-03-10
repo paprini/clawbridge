@@ -277,6 +277,29 @@ function resolveReplyRelayPeerId({ requestPeerId, sourceAgentId, sourceUrl, loca
   return normalizeRequestPeerId(sourceAgentId, localAgentId);
 }
 
+function getRelayGuardFailure(relayMeta, agentId) {
+  if (agentId && relayMeta.visited.includes(agentId)) {
+    return {
+      error: 'Relay loop detected while delivering chat.',
+      suggestion: 'Check config/contacts.json relay aliases and @agent routing to avoid circular peer delivery.',
+      relay_hops: relayMeta.hops,
+      relay_path: relayMeta.visited,
+    };
+  }
+
+  if (relayMeta.hops >= MAX_RELAY_HOPS) {
+    return {
+      error: 'Relay hop limit exceeded while delivering chat.',
+      suggestion: 'Check config/contacts.json and peer routing for circular or overly indirect delivery paths.',
+      relay_hops: relayMeta.hops,
+      max_hops: MAX_RELAY_HOPS,
+      relay_path: relayMeta.visited,
+    };
+  }
+
+  return null;
+}
+
 function normalizeSessionToken(value, fallback) {
   const trimmed = typeof value === 'string' ? value.trim() : '';
   if (!trimmed) {
@@ -812,6 +835,14 @@ async function relayActivationReplyToSourcePeer({ sourceAgentId, message, relayM
       _relay: buildRelayMeta(relayMeta, agentId),
     });
 
+    if (result && typeof result === 'object' && !Array.isArray(result) && typeof result.error === 'string' && result.error.trim().length > 0) {
+      return {
+        status: 'error',
+        peerId: normalizedSourceAgentId,
+        error: result.error,
+      };
+    }
+
     return {
       status: 'delivered',
       peerId: normalizedSourceAgentId,
@@ -918,25 +949,6 @@ async function chat(params) {
     };
   }
 
-  if (agentId && relayMeta.visited.includes(agentId)) {
-    return {
-      error: 'Relay loop detected while delivering chat.',
-      suggestion: 'Check config/contacts.json relay aliases and @agent routing to avoid circular peer delivery.',
-      relay_hops: relayMeta.hops,
-      relay_path: relayMeta.visited,
-    };
-  }
-
-  if (relayMeta.hops >= MAX_RELAY_HOPS) {
-    return {
-      error: 'Relay hop limit exceeded while delivering chat.',
-      suggestion: 'Check config/contacts.json and peer routing for circular or overly indirect delivery paths.',
-      relay_hops: relayMeta.hops,
-      max_hops: MAX_RELAY_HOPS,
-      relay_path: relayMeta.visited,
-    };
-  }
-
   const requestedTarget = typeof target === 'string' ? target.trim() : '';
   let effectiveTarget = requestedTarget;
   let effectiveChannel = requestedChannel;
@@ -977,6 +989,11 @@ async function chat(params) {
         };
       }
     } else {
+      const relayGuard = getRelayGuardFailure(relayMeta, agentId);
+      if (relayGuard) {
+        return relayGuard;
+      }
+
       if (!peerExists(agentTarget.peerId)) {
         return {
           error: `Unknown peer target "${agentTarget.peerId}".`,
@@ -1035,6 +1052,11 @@ async function chat(params) {
   const resolvedTarget = resolved.resolvedTarget;
 
   if (resolved.relayPeerId && resolved.relayPeerId !== agentId) {
+    const relayGuard = getRelayGuardFailure(relayMeta, agentId);
+    if (relayGuard) {
+      return relayGuard;
+    }
+
     try {
       logger.info('Relaying chat message to peer', {
         target: requestedTarget || effectiveTarget,

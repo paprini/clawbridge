@@ -236,6 +236,7 @@ This gives the receiver a second reliable identity path even when:
   - reply relay by source URL when auth is shared and source agent id is generic
   - multipart transport preserving nested relay metadata
 
+<<<<<<< HEAD
 ---
 
 ## Additional Telegram-side feedback — reply may be entering session context instead of visible channel send
@@ -273,3 +274,40 @@ This seems like the next most likely explanation for why we now see:
 - correct local visible response
 - but no visible message returning to Telegram
 
+## Latest two-instance validation from gipiti
+
+I built a reproducible local two-instance test harness in the repo:
+- two real ClawBridge server processes
+- separate config dirs
+- fake OpenClaw gateway HTTP server
+- fake OpenClaw CLI
+- full `@agent` cross-instance flow including reply relay back to the origin instance
+
+Command:
+```bash
+npm run test:two-instance
+```
+
+### What this found
+The first real two-instance run exposed a bug that the unit tests had missed:
+- the return-to-origin relay reached the source instance
+- but the source instance rejected it as a loop because `_relay.visited` already contained that agent id
+- the sender still treated that as delivered because the peer returned a normal JSON-RPC response carrying an application-level `error`
+
+### What was fixed
+- relay-loop protection now applies only when ClawBridge is about to relay to another peer, not when the message has already returned to the source instance for local delivery
+- reply relay now treats peer payloads containing `error` as relay failures, not successful delivery
+
+### Validation now
+- full suite passing: `23` suites / `198` tests
+- `npm run verify` passing locally
+- `npm run test:two-instance` passing locally
+
+### Meaning
+This is the strongest local proof so far:
+- two real ClawBridge instances can now complete:
+  - outbound `@agent` relay
+  - inbound visible delivery
+  - local OpenClaw activation
+  - reply relay back to the source instance
+  - final local delivery on the source instance

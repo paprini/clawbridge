@@ -292,9 +292,10 @@ describe('Built-in Skills', () => {
         id: 'discord-agent',
         default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
       });
+      loadPeersConfig.mockReturnValue([{ id: 'instagram-agent', url: 'http://10.0.1.12:9100', token: 'abc123' }]);
 
       const result = await chat({
-        target: 'Pato',
+        target: '@instagram-agent',
         message: 'Hello',
         _relay: { hops: 2, visited: ['instagram-agent', 'discord-agent'] },
       });
@@ -303,6 +304,28 @@ describe('Built-in Skills', () => {
       expect(result.relay_path).toEqual(['instagram-agent', 'discord-agent']);
       expect(callPeerSkill).not.toHaveBeenCalled();
       expect(callOpenClawTool).not.toHaveBeenCalled();
+    });
+
+    it('delivers locally when a reply relay returns to the source agent', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'monti-telegram',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+
+      const result = await chat({
+        message: 'Reply from Discord',
+        _relay: { hops: 2, visited: ['monti-telegram', 'guali-discord'] },
+      });
+
+      expect(result.success).toBe(true);
+      expect(callOpenClawTool).toHaveBeenCalledWith('message', {
+        action: 'send',
+        target: '5914004682',
+        message: 'Reply from Discord',
+        channel: 'telegram',
+      });
     });
 
     it('activates the receiving session for inbound @agent deliveries', async () => {
@@ -375,6 +398,37 @@ describe('Built-in Skills', () => {
       });
       expect(result.reply_relay).toBe('delivered');
       expect(result.reply_relay_peer).toBe('monti-telegram');
+    });
+
+    it('marks reply relay as error when the origin peer rejects the returned chat', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'discord-agent',
+        openclaw_agent_id: 'discord-agent',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+      callPeerSkill.mockResolvedValue({ error: 'Relay loop detected while delivering chat.' });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _relay: { hops: 1, visited: ['monti-telegram'] },
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'monti-telegram',
+          requestedTarget: '@discord-agent',
+        },
+      });
+
+      expect(result.reply_relay).toBe('error');
+      expect(result.reply_relay_error).toContain('Relay loop detected');
     });
 
     it('falls back to the authenticated peer when inbound relay metadata is missing', async () => {
