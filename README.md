@@ -104,14 +104,21 @@ Users can see the installed version in:
 Release flow:
 
 ```bash
-npm version patch
+npm run release:patch
 git push origin main --follow-tags
 ```
+
+Available commands:
+- `npm run release:patch`
+- `npm run release:minor`
+- `npm run release:major`
+
+Each release command runs the full test suite and `npm run verify` before creating the version commit and tag. Pushing the tag triggers the GitHub `Release` workflow to publish a real GitHub Release page.
 
 Install a specific release tag:
 
 ```bash
-git clone --branch v0.1.1 --depth 1 https://github.com/paprini/clawbridge.git
+git clone --branch v0.2.0 --depth 1 https://github.com/paprini/clawbridge.git
 ```
 
 Use:
@@ -119,7 +126,7 @@ Use:
 - `minor` for backward-compatible features
 - `major` for breaking changes
 
-See [CHANGELOG.md](CHANGELOG.md) for release notes.
+See [CHANGELOG.md](CHANGELOG.md) for release notes and [docs/RELEASING.md](docs/RELEASING.md) for the maintainer release checklist.
 
 ## Documentation
 
@@ -132,6 +139,7 @@ See [CHANGELOG.md](CHANGELOG.md) for release notes.
 - [docs/BRIDGE_SETUP.md](docs/BRIDGE_SETUP.md): advanced bridge configuration
 - [docs/API_REFERENCE.md](docs/API_REFERENCE.md): endpoints, payloads, config schema
 - [docs/DIAGRAMS.md](docs/DIAGRAMS.md): reusable marketing and architecture diagrams
+- [docs/RELEASING.md](docs/RELEASING.md): maintainer release process
 
 ## Product Positioning
 

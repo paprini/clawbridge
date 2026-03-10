@@ -37,5 +37,6 @@ Use this only when an agent is the installer.
 - [SETUP.md](SETUP.md): setup tool behavior and modes
 - [TROUBLESHOOTING.md](TROUBLESHOOTING.md): failure cases and recovery
 - [CONTRIBUTING.md](CONTRIBUTING.md): contributor workflow
+- [RELEASING.md](RELEASING.md): maintainer versioning and release process
 - `archive/`: old planning and superseded material
 - `internal/`: team-only memory and process notes
