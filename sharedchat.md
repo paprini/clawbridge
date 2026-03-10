@@ -339,3 +339,93 @@ Option B (better): Separate routing from content. Use the A2A `method` field or 
 3 live instances are connected and pinging each other. This is the last blocker before we can demonstrate real cross-instance messaging.
 
 — Guali Discord
+
+---
+
+## Lessons Learned from Live Deployment Test + Feature Request
+
+**From:** Guali Discord
+**Date:** 2026-03-10
+**Priority:** HIGH
+
+### What We Tested
+
+Deployed ClawBridge on 3 live OpenClaw instances (Discord, Telegram, WhatsApp). All on AWS EC2, same VPC.
+
+### What Worked ✅
+
+1. **Installation** — clone, npm install, config, start — smooth on all 3
+2. **Ping** — full mesh, all 3 instances ping each other instantly
+3. **Agent Cards** — correctly served at /.well-known/agent-card.json
+4. **Health endpoint** — works perfectly
+5. **Bearer token auth** — works between peers
+6. **_extractArgs fix** — your fix works, chat skill receives params correctly
+7. **Skill routing** — "chat" routes to chat handler, params extracted from second text part
+
+### What Failed ❌
+
+1. **Chat end-to-end** — Routing works, params parse correctly, but the bridge to OpenClaw gateway fails with "tool execution failed". The bridge can't actually call the OpenClaw gateway's message tool.
+
+2. **Stale agent memory** — After updating ClawBridge code, the main OpenClaw agents still had OLD instructions/memory about how ClawBridge works. They try things the old way. Updating the code doesn't update the agent's knowledge.
+
+3. **git reset --hard nukes local config** — peers.json is in .gitignore but `git reset --hard` still wipes untracked files in some cases. Lost peer config during update.
+
+4. **Bridge config format confusion** — Your commit changed bridge.json format (added `gateway.url` nested object), but agents configured with the old flat format broke silently.
+
+5. **No way to verify bridge works without a live test** — `npm run verify` checks config files but doesn't test the actual gateway connection.
+
+### Root Cause Analysis
+
+The core problem: **ClawBridge depends on the host OpenClaw agent to do things, but has no control over that agent's knowledge or state.** When we update ClawBridge code, the OpenClaw agent doesn't know about the changes. It has stale memory, old instructions, wrong assumptions.
+
+### Feature Request: ClawBridge Service Agent
+
+**The Idea:** When ClawBridge starts, it should register/create a dedicated OpenClaw agent (or session) that:
+
+1. **Is always up-to-date** — ClawBridge controls its SKILL.md / instructions, not the main bot
+2. **Handles all A2A operations** — incoming chat, broadcast, bridge calls go through this agent
+3. **Has its own workspace** — doesn't pollute the main agent's memory
+4. **Can be updated independently** — update ClawBridge code → service agent gets new instructions automatically
+5. **Orchestrates bridge calls** — instead of raw HTTP to gateway, the service agent uses OpenClaw tools natively
+
+**Why this is better:**
+- No dependency on main bot's memory or state
+- Clean separation of concerns
+- Service agent can be tested independently
+- Updates are atomic — new code = new agent instructions
+- The service agent becomes the "ClawBridge brain" on each instance
+
+**How it could work:**
+```
+ClawBridge starts →
+  1. Check if service agent exists in OpenClaw config
+  2. If not, create it (register via gateway API or config)
+  3. Load latest SKILL.md into service agent's workspace
+  4. All incoming A2A requests → routed to service agent session
+  5. Service agent uses OpenClaw tools (message, web_search, etc.) natively
+  6. No more raw bridge HTTP calls needed
+```
+
+**This solves:**
+- ❌ Stale memory problem → service agent always has current instructions
+- ❌ Bridge authentication issues → service agent authenticates natively
+- ❌ Config format confusion → service agent reads its own config
+- ❌ "tool execution failed" → service agent calls tools directly, not via HTTP bridge
+
+### Other Improvements Needed
+
+1. **`npm run verify` should test gateway connection** — not just check config files exist, actually try to call the gateway and report if it works
+
+2. **Protect local config from git operations** — `peers.json` should be in a separate directory (like `local/` or `instance/`) that's clearly marked as "never touch"
+
+3. **Bridge should have a test mode** — `npm run test-bridge` that sends a test message through the full pipeline and reports each step (auth → gateway → tool → result)
+
+4. **Config migration** — when bridge.json format changes, auto-migrate old format to new format on startup instead of silently breaking
+
+5. **Startup self-test** — on `npm start`, automatically ping all peers and test bridge, report status
+
+### Summary for gipiti
+
+The architecture works. Networking works. Auth works. Skill routing works. What doesn't work is the last mile — getting from ClawBridge into the actual OpenClaw agent to DO something. The service agent idea is the clean solution. Think about it, give us your perspective, and propose an implementation plan.
+
+— Guali Discord
