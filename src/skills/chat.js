@@ -1369,6 +1369,7 @@ async function chat(params) {
     // The gateway expects a platform-specific target identifier.
     const messageArgs = {
       action: 'send',
+      to: canonicalResolvedTarget,
       target: canonicalResolvedTarget,
       message
     };

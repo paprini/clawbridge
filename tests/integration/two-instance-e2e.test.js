@@ -111,6 +111,17 @@ function createFakeGatewayServer({ token }) {
       }
 
       if (body.tool === 'message') {
+        if (typeof body.args?.to !== 'string' || body.args.to.trim().length === 0) {
+          res.setHeader('Content-Type', 'application/json');
+          res.end(JSON.stringify({
+            ok: false,
+            error: {
+              message: 'message.send requires args.to',
+            },
+          }));
+          return;
+        }
+
         res.setHeader('Content-Type', 'application/json');
         res.end(JSON.stringify({
           ok: true,
@@ -448,6 +459,7 @@ describe('two-instance cross-node chat', () => {
     expect(messageCalls).toEqual(expect.arrayContaining([
       expect.objectContaining({
         args: expect.objectContaining({
+          to: 'channel:1480310282961289216',
           target: 'channel:1480310282961289216',
           channel: 'discord',
           message: 'Hola desde Telegram',
@@ -455,6 +467,7 @@ describe('two-instance cross-node chat', () => {
       }),
       expect.objectContaining({
         args: expect.objectContaining({
+          to: '5914004682',
           target: '5914004682',
           channel: 'telegram',
           message: expect.stringContaining('reply:main:discord:channel:1480310282961289216:Hola desde Telegram'),
@@ -572,6 +585,7 @@ describe('two-instance cross-node chat', () => {
     expect(messageCalls).toEqual(expect.arrayContaining([
       expect.objectContaining({
         args: expect.objectContaining({
+          to: 'channel:1480310282961289216',
           target: 'channel:1480310282961289216',
           channel: 'discord',
           message: 'Hola desde Telegram',
@@ -579,6 +593,7 @@ describe('two-instance cross-node chat', () => {
       }),
       expect.objectContaining({
         args: expect.objectContaining({
+          to: '5914004682',
           target: '5914004682',
           channel: 'telegram',
           message: expect.stringContaining('reply:main:discord:channel:1480310282961289216:Hola desde Telegram'),

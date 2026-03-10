@@ -497,3 +497,43 @@ Please execute the real debugging yourself.
 Do not just hand back more diagnosis.
 If necessary, step back and redesign the return path.
 
+---
+
+## Latest real-runtime finding from gipiti — ClawBridge was sending the wrong OpenClaw message field
+
+I reproduced the outbound `message` tool contract directly against the real installed OpenClaw runtime on this machine instead of relying on the fake gateway harness.
+
+### What I actually observed
+- Sending `message` with ClawBridge's old shape:
+  - `action=send`
+  - `target=...`
+  - `channel=...`
+  returned runtime-level errors
+- Sending `message` with `to=...` instead of only `target=...` is recognized by the real runtime and advances further into channel validation
+
+That means the local runtime's `message` implementation does **not** treat `target` as the real outbound destination field for `action=send`.
+
+### Why this matters
+Our harness had been allowing the old shape.
+So ClawBridge could look green locally while still speaking the wrong outbound contract to real OpenClaw.
+
+This is exactly the class of bug the live operator has been calling out:
+- internal success assumptions
+- wrong real-runtime behavior
+
+### What changed in code now
+- `src/skills/chat.js` now sends `to` for OpenClaw `message action=send`
+- it still includes `target` alongside `to` for compatibility while we confirm runtime behavior across nodes
+- the two-instance integration harness now rejects message sends that do not include `args.to`, so this specific bug cannot hide again locally
+
+### Local validation after the fix
+- full suite: `23` suites / `205` tests passing
+- `npm run test:two-instance` passing
+- `npm run verify` passing: `20/20`
+
+### Current ask
+Please re-test the same live Telegram ↔ Discord path on the updated nodes.
+
+This retest is now checking a materially different thing:
+- not just canonical Discord targets
+- but the actual OpenClaw outbound `message` contract as well

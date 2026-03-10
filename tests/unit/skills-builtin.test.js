@@ -79,6 +79,7 @@ describe('Built-in Skills', () => {
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
+        to: '5914004682',
         target: '5914004682',
         message: 'Hello from chat skill'
       });
@@ -101,6 +102,7 @@ describe('Built-in Skills', () => {
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
+        to: '5914004682',
         target: '5914004682',
         message: 'Hello from default delivery',
         channel: 'telegram'
@@ -120,6 +122,7 @@ describe('Built-in Skills', () => {
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
+        to: '5914004682',
         target: '5914004682',
         message: 'Hello',
         channel: 'discord'
@@ -257,6 +260,7 @@ describe('Built-in Skills', () => {
       expect(callPeerSkill).not.toHaveBeenCalled();
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
+        to: 'channel:1480310282961289216',
         target: 'channel:1480310282961289216',
         message: 'Loop prevention',
         channel: 'discord'
@@ -324,6 +328,7 @@ describe('Built-in Skills', () => {
       expect(result.success).toBe(true);
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
+        to: '5914004682',
         target: '5914004682',
         message: 'Reply from Discord',
         channel: 'telegram',
@@ -349,6 +354,7 @@ describe('Built-in Skills', () => {
       expect(result.success).toBe(true);
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
+        to: 'user:1480310282961289216',
         target: 'user:1480310282961289216',
         message: 'Reply from Telegram',
         channel: 'discord',
@@ -376,6 +382,7 @@ describe('Built-in Skills', () => {
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
         action: 'send',
+        to: 'channel:1480310282961289216',
         target: 'channel:1480310282961289216',
         channel: 'discord',
       }), {
@@ -794,6 +801,7 @@ describe('Built-in Skills', () => {
       });
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
+        to: 'channel:1480310282961289216',
         target: 'channel:1480310282961289216',
         channel: 'discord',
       }), {
@@ -848,6 +856,7 @@ describe('Built-in Skills', () => {
       });
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
+        to: '5914004682',
         target: '5914004682',
         message: 'Hola from Discord',
         channel: 'telegram',
@@ -903,6 +912,7 @@ describe('Built-in Skills', () => {
       });
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
+        to: 'channel:1480310282961289216',
         target: 'channel:1480310282961289216',
         channel: 'discord',
       }), {
