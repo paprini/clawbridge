@@ -2,8 +2,7 @@
 
 Hello developer, I am `gipiti`, the expert developer instance working directly in this local clone of `clawbridge`.
 
-Use this file for **current implementation status, active blockers, and exact live validation feedback only**.
-Historical discussion should not stay here once distilled.
+Use this file for current implementation status, active blockers, and exact live validation feedback only.
 
 Archive:
 - `docs/archive/sharedchat-history-2026-03-09.md`
@@ -11,10 +10,9 @@ Archive:
 ## Current State — 2026-03-10
 
 ### Repo status
-- latest pulled on live Discord node
-- latest tested commit on live node: `c4b9fab`
-- test suite status previously reported by gipiti: passing
-- live install/verify on Discord node: `17/17` passing
+- latest local fix prepared on top of current `origin/main`
+- full suite passing locally: `22` suites / `181` tests
+- local `npm run verify` still fails only because this machine's `~/.openclaw/openclaw.json` does not allow `sessions_send`
 
 ### Confirmed working on live nodes
 - peer auth ✅
@@ -24,7 +22,7 @@ Archive:
 - dispatch path no longer hard-fails early ✅
 
 ### Current blocker
-Live Discord → Telegram test still does **not** produce a true downstream agent wake-up/reply.
+Live Discord → Telegram still does not produce a clean announce-mode downstream wake-up/reply.
 
 Latest real result from Discord node:
 
@@ -40,35 +38,43 @@ Latest real result from Discord node:
 }
 ```
 
-### Interpretation
-This means:
-- transport works
-- delivery works
-- peer resolution works
-- ClawBridge now explicitly detects that real downstream activation is still unsafe/impossible in this state
-- it falls back to manual reply mode instead of falsely claiming success
+### Latest fix from gipiti
+What I confirmed locally:
+- OpenClaw `sessions_send` has no explicit announce-target parameter
+- announce-mode delivery depends on the target session's stored `deliveryContext`
+- ClawBridge was still trusting the statically derived target session key too much
 
-### What still needs to be solved
-**End goal:**
-`chat({ target: "@monti-telegram", message: "hello" })`
-should cause the receiving agent to wake up as a real OpenClaw turn and visibly respond.
+What changed now:
+- before inbound dispatch, ClawBridge inspects `sessions_list`
+- if OpenClaw already has a unique session row whose delivery context matches the real target, ClawBridge retargets both:
+  - visible `message`
+  - `sessions_send`
+- delivery-target comparison is now more tolerant of provider prefixes such as `telegram:` / `channel:` / `user:`
 
-**Current reality:**
-message arrives, but true downstream agent activation still does not happen correctly on live nodes.
+Why this matters:
+- it should eliminate false `delivery_target_mismatch` cases when OpenClaw already has the right target session row
+- it makes dispatch follow real runtime session state instead of config-only inference
 
-### What we need from gipiti now
-Please continue investigating the exact cause of `manual_reply_reason: "delivery_target_mismatch"` on real-node behavior.
+### What needs live validation next
+Please re-test this exact case on the live Discord ↔ Telegram nodes with the latest `main`:
 
-Do whatever is needed in your local environment to finish reproducing and closing this gap:
-- install extra tooling if needed
-- stand up richer local OpenClaw test environments if needed
-- emulate multi-agent / multi-session routing if needed
-- do not stop at repo-only JS tests if they do not cover the real announce/dispatch path
+```js
+chat({ target: "@monti-telegram", message: "hello" })
+```
 
-### If you need anything from us
-Ask here for any of the following and we will provide them:
-- latest exact JSON results from live nodes
-- config snapshots
-- relevant logs
-- repeated Discord ↔ Telegram validation
+Expected improvement:
+- if the receiving node already has a Telegram session row for that destination, ClawBridge should stop returning `manual_reply_reason: "delivery_target_mismatch"`
+- receiving agent should visibly respond without ClawBridge needing the manual fallback path
 
+### If it still fails
+Please report back with:
+- exact returned JSON
+- receiving node `config/agent.json`
+- receiving node `config/bridge.json`
+- receiving node `~/.openclaw/openclaw.json` sections:
+  - `agents`
+  - `bindings`
+  - `gateway.tools.allow`
+  - `tools.sessions.visibility`
+  - `session.dmScope`
+- relevant OpenClaw gateway logs around `sessions_send`

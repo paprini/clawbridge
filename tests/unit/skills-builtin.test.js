@@ -485,6 +485,66 @@ describe('Built-in Skills', () => {
       expect(result.manual_reply_reason).toBe('missing_delivery_target');
     });
 
+    it('retargets inbound dispatch to the unique OpenClaw session whose delivery context matches the real target', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'telegram-agent',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      invokeGatewayTool.mockImplementation(async (toolName) => {
+        if (toolName === 'sessions_list') {
+          return {
+            sessions: [
+              {
+                key: 'agent:main:main',
+                deliveryContext: { channel: 'telegram', to: '9999999999' },
+                lastChannel: 'telegram',
+                lastTo: '9999999999',
+              },
+              {
+                key: 'agent:main:telegram:direct:5914004682',
+                deliveryContext: { channel: 'telegram', to: '5914004682' },
+                lastChannel: 'telegram',
+                lastTo: '5914004682',
+              },
+            ],
+          };
+        }
+
+        if (toolName === 'sessions_send') {
+          return { status: 'accepted' };
+        }
+
+        return { status: 'accepted' };
+      });
+
+      const result = await chat({
+        message: 'Hola from Discord',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'discord-agent',
+          requestedTarget: '@telegram-agent',
+        },
+      });
+
+      expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
+        target: '5914004682',
+        message: 'Hola from Discord',
+        channel: 'telegram',
+      }), {
+        sessionKey: 'agent:main:telegram:direct:5914004682',
+      });
+      expect(invokeGatewayTool).toHaveBeenCalledWith('sessions_send', expect.objectContaining({
+        sessionKey: 'agent:main:telegram:direct:5914004682',
+        timeoutSeconds: 0,
+      }), expect.objectContaining({
+        sessionKey: 'agent:main:telegram:direct:5914004682',
+      }));
+      expect(result.success).toBe(true);
+      expect(result.agent_dispatch).toBe('accepted');
+    });
+
     it('handles gateway errors gracefully', async () => {
       callOpenClawTool.mockRejectedValue(new Error('Gateway unavailable'));
 

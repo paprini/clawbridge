@@ -282,14 +282,28 @@ function resolveConfiguredSessionKey(rawValue, fallback) {
   return trimmed;
 }
 
-function resolveRequesterSessionKey(rawValue, { targetSessionKey, mainSessionKey }) {
+function normalizeRequesterSessionMode(rawValue) {
   const trimmed = typeof rawValue === 'string' ? rawValue.trim().toLowerCase() : '';
 
   if (!trimmed || trimmed === 'auto' || trimmed === 'target') {
-    return targetSessionKey;
+    return 'target';
   }
 
   if (trimmed === 'main') {
+    return 'main';
+  }
+
+  return 'custom';
+}
+
+function resolveRequesterSessionKey(rawValue, { targetSessionKey, mainSessionKey }) {
+  const mode = normalizeRequesterSessionMode(rawValue);
+
+  if (mode === 'target') {
+    return targetSessionKey;
+  }
+
+  if (mode === 'main') {
     return mainSessionKey;
   }
 
@@ -329,6 +343,7 @@ function resolveDispatchSessionKeys({ dispatchConfig, openclawAgentId, defaultDe
 
   return {
     dispatchAgentId,
+    mainSessionKey,
     requesterSessionKey: resolveRequesterSessionKey(dispatchConfig.requesterSessionKey, {
       targetSessionKey,
       mainSessionKey,
@@ -359,6 +374,7 @@ function getAgentDispatchConfig({ openclawAgentId, defaultDelivery, resolvedTarg
 
   return {
     dispatchAgentId: resolvedSessions.dispatchAgentId,
+    requesterSessionBehavior: normalizeRequesterSessionMode(dispatchConfig.requesterSessionKey),
     requesterSessionKey: resolvedSessions.requesterSessionKey,
     targetSessionKey: resolvedSessions.targetSessionKey,
     timeoutSeconds: typeof dispatchConfig.timeoutSeconds === 'number' && Number.isFinite(dispatchConfig.timeoutSeconds)
@@ -420,6 +436,72 @@ function normalizeSessionComparisonValue(value) {
   return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }
 
+function normalizeComparableDeliveryChannel(value) {
+  const normalized = normalizeSessionComparisonValue(value);
+  if (!normalized) {
+    return '';
+  }
+
+  if (normalized === 'tg') {
+    return 'telegram';
+  }
+
+  return normalized;
+}
+
+function normalizeComparableDeliveryTarget(channel, value) {
+  let normalized = normalizeSessionComparisonValue(value);
+  if (!normalized) {
+    return '';
+  }
+
+  const normalizedChannel = normalizeComparableDeliveryChannel(channel);
+  const providerPrefixes = [
+    `${normalizedChannel}:`,
+    'telegram:',
+    'tg:',
+    'discord:',
+    'slack:',
+    'whatsapp:',
+    'signal:',
+    'line:',
+  ].filter(Boolean);
+
+  for (const prefix of providerPrefixes) {
+    if (normalized.startsWith(prefix)) {
+      normalized = normalized.slice(prefix.length);
+    }
+  }
+
+  if (normalized.startsWith('user:')) {
+    normalized = normalized.slice(5);
+  } else if (normalized.startsWith('channel:')) {
+    normalized = normalized.slice(8);
+  } else if (normalized.startsWith('group:')) {
+    normalized = normalized.slice(6);
+  }
+
+  if (normalized.startsWith('@') || normalized.startsWith('#')) {
+    normalized = normalized.slice(1);
+  }
+
+  return normalized;
+}
+
+function extractAgentIdFromSessionKey(sessionKey) {
+  const trimmed = typeof sessionKey === 'string' ? sessionKey.trim() : '';
+  if (!trimmed.startsWith('agent:')) {
+    return '';
+  }
+
+  const parts = trimmed.split(':').filter(Boolean);
+  if (parts.length < 2) {
+    return '';
+  }
+
+  return normalizeSessionComparisonValue(parts[1]);
+}
+
 function matchesGatewaySessionRow(rowKey, targetSessionKey) {
   const normalizedRowKey = normalizeSessionComparisonValue(rowKey);
   const normalizedTarget = normalizeSessionComparisonValue(targetSessionKey);
@@ -451,7 +533,7 @@ function resolveSessionDeliveryTarget(row) {
 
 async function inspectDispatchSession(dispatchConfig) {
   if (!dispatchConfig?.targetSessionKey) {
-    return null;
+    return { row: null, sessions: [] };
   }
 
   try {
@@ -464,14 +546,103 @@ async function inspectDispatchSession(dispatchConfig) {
       timeoutMs: dispatchConfig.timeoutMs,
     });
     const sessions = Array.isArray(result?.sessions) ? result.sessions : [];
-    return sessions.find((row) => matchesGatewaySessionRow(row?.key, dispatchConfig.targetSessionKey)) || null;
+    return {
+      row: sessions.find((row) => matchesGatewaySessionRow(row?.key, dispatchConfig.targetSessionKey)) || null,
+      sessions,
+    };
   } catch (err) {
     logger.warn('Unable to inspect target OpenClaw session before dispatch', {
       error: err.message,
       targetSessionKey: dispatchConfig.targetSessionKey,
     });
-    return null;
+    return { row: null, sessions: [] };
   }
+}
+
+function findMatchingDeliverySessionRows(sessions, { resolvedTarget, deliveryChannel }) {
+  const expectedChannel = normalizeComparableDeliveryChannel(deliveryChannel);
+  const expectedTarget = normalizeComparableDeliveryTarget(expectedChannel, resolvedTarget);
+  if (!expectedChannel || !expectedTarget) {
+    return [];
+  }
+
+  return sessions.filter((row) => {
+    const delivery = resolveSessionDeliveryTarget(row);
+    return normalizeComparableDeliveryChannel(delivery.channel) === expectedChannel
+      && normalizeComparableDeliveryTarget(expectedChannel, delivery.to) === expectedTarget;
+  });
+}
+
+function maybeRetargetDispatchSession({ dispatchConfig, inspection, resolvedTarget, deliveryChannel }) {
+  if (!dispatchConfig?.targetSessionKey) {
+    return {
+      dispatchConfig,
+      sessionRow: null,
+      sessions: [],
+      retargeted: false,
+    };
+  }
+
+  const sessions = Array.isArray(inspection?.sessions) ? inspection.sessions : [];
+  const exactRow = inspection?.row || null;
+  const matchingRows = findMatchingDeliverySessionRows(sessions, {
+    resolvedTarget,
+    deliveryChannel,
+  });
+
+  if (matchingRows.length === 0) {
+    return {
+      dispatchConfig,
+      sessionRow: exactRow,
+      sessions,
+      retargeted: false,
+    };
+  }
+
+  const currentAgentId = extractAgentIdFromSessionKey(dispatchConfig.targetSessionKey);
+  const sameAgentRows = currentAgentId
+    ? matchingRows.filter((row) => extractAgentIdFromSessionKey(row?.key) === currentAgentId)
+    : [];
+  const preferredRows = sameAgentRows.length > 0 ? sameAgentRows : matchingRows;
+
+  if (preferredRows.length !== 1) {
+    return {
+      dispatchConfig,
+      sessionRow: exactRow,
+      sessions,
+      retargeted: false,
+    };
+  }
+
+  const candidate = preferredRows[0];
+  if (!candidate?.key || matchesGatewaySessionRow(candidate.key, dispatchConfig.targetSessionKey)) {
+    return {
+      dispatchConfig,
+      sessionRow: exactRow || candidate,
+      sessions,
+      retargeted: false,
+    };
+  }
+
+  logger.info('Retargeting OpenClaw agent dispatch to matching session context', {
+    previousTargetSessionKey: dispatchConfig.targetSessionKey,
+    nextTargetSessionKey: candidate.key,
+    deliveryChannel: deliveryChannel || null,
+    resolvedTarget,
+  });
+
+  return {
+    dispatchConfig: {
+      ...dispatchConfig,
+      targetSessionKey: candidate.key,
+      requesterSessionKey: dispatchConfig.requesterSessionBehavior === 'target'
+        ? candidate.key
+        : dispatchConfig.requesterSessionKey,
+    },
+    sessionRow: candidate,
+    sessions,
+    retargeted: true,
+  };
 }
 
 function resolveManualReplyFallbackReason({ sessionRow, dispatchConfig, resolvedTarget, deliveryChannel }) {
@@ -492,10 +663,10 @@ function resolveManualReplyFallbackReason({ sessionRow, dispatchConfig, resolved
     return 'missing_delivery_target';
   }
 
-  const expectedChannel = normalizeSessionComparisonValue(deliveryChannel);
-  const actualChannel = normalizeSessionComparisonValue(delivery.channel);
-  const expectedTarget = normalizeSessionComparisonValue(resolvedTarget);
-  const actualTarget = normalizeSessionComparisonValue(delivery.to);
+  const expectedChannel = normalizeComparableDeliveryChannel(deliveryChannel);
+  const actualChannel = normalizeComparableDeliveryChannel(delivery.channel);
+  const expectedTarget = normalizeComparableDeliveryTarget(expectedChannel, resolvedTarget);
+  const actualTarget = normalizeComparableDeliveryTarget(actualChannel, delivery.to);
 
   if ((expectedChannel && actualChannel && actualChannel !== expectedChannel)
     || (expectedTarget && actualTarget && actualTarget !== expectedTarget)) {
@@ -809,7 +980,7 @@ async function chat(params) {
   }
 
   try {
-    const dispatchConfig = agentDeliveryMeta?.activateSession
+    let dispatchConfig = agentDeliveryMeta?.activateSession
       ? getAgentDispatchConfig({
           openclawAgentId,
           defaultDelivery,
@@ -818,6 +989,25 @@ async function chat(params) {
           agentDeliveryMeta,
         })
       : null;
+    let preDispatchInspection = dispatchConfig
+      ? await inspectDispatchSession(dispatchConfig)
+      : { row: null, sessions: [] };
+
+    if (dispatchConfig) {
+      const retargeted = maybeRetargetDispatchSession({
+        dispatchConfig,
+        inspection: preDispatchInspection,
+        resolvedTarget,
+        deliveryChannel: resolved.resolvedChannel || effectiveChannel,
+      });
+      dispatchConfig = retargeted.dispatchConfig;
+      if (retargeted.retargeted) {
+        preDispatchInspection = {
+          row: retargeted.sessionRow,
+          sessions: retargeted.sessions,
+        };
+      }
+    }
 
     // The gateway expects a platform-specific target identifier.
     const messageArgs = {
@@ -848,9 +1038,10 @@ async function chat(params) {
     }
 
     if (agentDeliveryMeta?.activateSession) {
-      const sessionRow = dispatchConfig
+      const inspection = dispatchConfig
         ? await inspectDispatchSession(dispatchConfig)
-        : null;
+        : { row: null, sessions: [] };
+      const sessionRow = inspection.row || preDispatchInspection.row;
       const manualReplyFallbackReason = resolveManualReplyFallbackReason({
         sessionRow,
         dispatchConfig,

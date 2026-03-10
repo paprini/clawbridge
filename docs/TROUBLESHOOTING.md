@@ -147,6 +147,7 @@ Fixes:
 - prefer `config/bridge.json -> agent_dispatch.requesterSessionKey = "auto"` unless you intentionally need a different requester session
 - allow `sessions_send` in `~/.openclaw/openclaw.json` under `gateway.tools.allow`
 - if your OpenClaw install has multiple local agents, set `config/agent.json -> openclaw_agent_id` to the one that should wake up
+- make sure OpenClaw has a session row whose `deliveryContext` matches the real target; ClawBridge now retargets to a unique matching row automatically, but ambiguous or missing rows still force manual fallback
 - keep ClawBridge on the current version so visible delivery and `sessions_send` use the same target session
 - if the session has `/send off`, switch it back with `/send on`
 - inspect session routing with `sessions_list` and confirm the target session has the expected `lastChannel` and `lastTo`

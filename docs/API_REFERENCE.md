@@ -164,6 +164,7 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 - `sessionKey: "auto"` means ClawBridge derives the correct agent-scoped OpenClaw target session.
 - `requesterSessionKey: "auto"` means it invokes `sessions_send` from that same target session by default, which avoids OpenClaw visibility blockers under the default `tools.sessions.visibility=tree`.
 - For inbound agent delivery, ClawBridge now also posts the visible `message` from that same target session so OpenClaw keeps delivery context aligned with the activated session.
+- Before inbound dispatch, ClawBridge inspects `sessions_list` and, when OpenClaw already has a unique session row whose delivery context matches the real target, retargets both visible delivery and `sessions_send` to that row.
 - If OpenClaw reports a risky target session state, such as `sendPolicy: "deny"` or a direct session with no delivery target metadata, ClawBridge switches to a manual reply fallback: it waits for the hidden agent reply and posts that reply itself through the known target.
 - ClawBridge peer ID and OpenClaw agent ID are different concepts. If you need to pin the receiving OpenClaw agent explicitly, set `config/agent.json -> openclaw_agent_id` or `config/bridge.json -> agent_dispatch.agentId`.
 
