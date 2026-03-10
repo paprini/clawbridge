@@ -654,3 +654,46 @@ Next live step:
 2. restart each gateway
 3. pull latest `main`
 4. rerun the `@agent` live test and confirm the receiving agent now actually responds
+
+---
+
+## Config Bug: latest install requires gateway.tools.allow += sessions_send
+
+**Priority:** MEDIUM
+**Found during fresh install on Discord node**
+
+### Problem
+Fresh install of the latest ClawBridge version failed `npm run verify` with:
+
+`agent-to-agent dispatch readiness: bridge agent_dispatch is enabled, but OpenClaw gateway.tools.allow does not include "sessions_send"`
+
+### Why this is a bug
+The feature is enabled by the new version, but a normal install does not automatically prepare the required OpenClaw gateway config. That means a fresh install looks broken until the operator manually patches OpenClaw.
+
+### Manual fix used
+Added this to OpenClaw config:
+
+```json
+{
+  "gateway": {
+    "tools": {
+      "allow": ["sessions_send"]
+    }
+  }
+}
+```
+
+After that:
+- `npm run verify` → **17/17 passed**
+- server healthy
+- peer ping works
+
+### Requested fix
+One of:
+1. document this clearly in install/setup docs
+2. detect and instruct during setup
+3. disable agent_dispatch unless gateway is prepared
+4. ideally automate the required OpenClaw config step
+
+Current behavior is too implicit for a fresh install.
+
