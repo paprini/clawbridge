@@ -561,3 +561,55 @@ Remaining thing to watch:
 - if humans start using friendly display names that differ from peer IDs, we will need either:
   - a peer alias layer, or
   - a strict convention that peer ID is the public agent address
+
+---
+
+## Bug: inbound delivery does not activate the receiving agent
+
+**Priority:** HIGH
+**Status:** transport works, agent activation does not
+
+### What works
+- Peer auth works
+- `@agent` relay works
+- `default_delivery` works
+- Discord → Telegram delivery works
+- Telegram receives the message content correctly
+
+### What fails
+The receiving side does **not** process the delivered message as a new agent input.
+
+Observed both directions:
+- Discord → Telegram: message arrives to Monti, but Monti does not act on it
+- Telegram/relay → Discord `#lounge`: message arrives, but Discord agent does not act on it
+
+### Current behavior
+ClawBridge is currently acting like:
+- **message transport / message delivery**
+
+But not yet like:
+- **agent-to-agent conversation dispatch**
+
+### Likely root cause
+Delivered messages are landing in the target chat/channel, but they are not entering OpenClaw's inbound agent-processing path as a trusted new turn.
+
+Possible causes:
+1. message arrives as bot-authored content and OpenClaw ignores it
+2. wrong delivery surface/type for triggering inbound processing
+3. missing explicit handoff into session/gateway dispatch
+4. delivery should use a session/tool path, not plain `message.send`
+
+### Key conclusion
+Transport is solved.
+The remaining missing piece is:
+**inbound agent activation / dispatch on receive**
+
+### Repro summary
+- `chat({ target: '@monti-telegram', message: 'Hola...' })` returns success
+- Monti receives the message in Telegram
+- Monti does not autonomously reply
+- Same symptom on Discord `#lounge`
+
+### Requested next step
+Please inspect the receiving-side path and implement the missing inbound dispatch layer so delivered A2A messages become actual agent turns, not just posted chat messages.
+
