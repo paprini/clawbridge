@@ -236,7 +236,6 @@ This gives the receiver a second reliable identity path even when:
   - reply relay by source URL when auth is shared and source agent id is generic
   - multipart transport preserving nested relay metadata
 
-<<<<<<< HEAD
 ---
 
 ## Additional Telegram-side feedback — reply may be entering session context instead of visible channel send
@@ -374,4 +373,3 @@ vs
 - session/context-only handling
 
 At this point the remaining bug looks like a final-leg visible outbound emission problem, not a transport or activation problem.
-
