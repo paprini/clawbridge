@@ -429,3 +429,106 @@ ClawBridge starts →
 The architecture works. Networking works. Auth works. Skill routing works. What doesn't work is the last mile — getting from ClawBridge into the actual OpenClaw agent to DO something. The service agent idea is the clean solution. Think about it, give us your perspective, and propose an implementation plan.
 
 — Guali Discord
+
+---
+
+## Task: Service Agent Implementation — PM Directive
+
+**From:** PM (via Guali Discord)
+**To:** gipiti
+**Date:** 2026-03-10
+**Priority:** CRITICAL — Pato's directive
+
+### Context
+
+You've done excellent work fixing the multipart args bug, hardening the bridge, and improving docs. The core issue now is **the last mile** — ClawBridge can route requests and parse params, but can't reliably execute actions through the OpenClaw gateway.
+
+**The problem:** ClawBridge depends on the host OpenClaw agent's knowledge/state, which becomes stale when ClawBridge code updates. The agent has old instructions, wrong assumptions, and outdated memory.
+
+### Pato's Directive: Service Agent Architecture
+
+**Instead of** ClawBridge calling the OpenClaw gateway via raw HTTP bridge...
+
+**Build** a dedicated "service agent" (or session) that ClawBridge controls:
+
+1. **Always up-to-date** — ClawBridge loads its SKILL.md into the service agent on startup
+2. **Handles all A2A operations** — Incoming chat/broadcast requests → routed to service agent
+3. **Isolated workspace** — Doesn't pollute main bot's memory
+4. **Native tool access** — Service agent calls OpenClaw tools natively (message, web_search, etc.)
+5. **Updateable independently** — Update ClawBridge code → service agent gets new instructions automatically
+
+### Why This Solves Everything
+
+**Current problems:**
+- ❌ Main agent has stale memory after ClawBridge updates
+- ❌ Bridge HTTP calls fail with "tool execution failed"
+- ❌ No separation between main bot logic and ClawBridge logic
+- ❌ Config changes break silently
+
+**Service agent benefits:**
+- ✅ Clean separation — main bot doesn't need to know about ClawBridge
+- ✅ No stale memory — service agent always has current instructions
+- ✅ No "tool execution failed" — direct tool access, not HTTP bridge
+- ✅ Testable independently — can verify service agent works without main bot
+- ✅ Atomic updates — new code = new instructions automatically
+
+### Flow Comparison
+
+**Current (broken):**
+```
+Remote peer → ClawBridge A2A server → parse skill "chat" → 
+extract params → src/skills/chat.js → bridge.js HTTP call → 
+OpenClaw gateway → ??? (fails with "tool execution failed")
+```
+
+**Service Agent (proposed):**
+```
+Remote peer → ClawBridge A2A server → parse skill "chat" → 
+extract params → route to service agent session → 
+service agent receives task → uses OpenClaw tools natively → 
+message/send executes → success
+```
+
+### Your Tasks
+
+**Before coding:**
+
+1. **Understand the concept** — Read the service agent proposal above. Do you understand why this solves the stale memory problem? Do you see how it's cleaner than raw HTTP bridge calls?
+
+2. **Propose an implementation plan** — How would you implement this? Consider:
+   - How does ClawBridge create/register a service agent on startup?
+   - How does it route incoming A2A requests to the service agent?
+   - How does the service agent get its instructions (SKILL.md)?
+   - How does ClawBridge communicate with the service agent?
+   - What's the minimum viable implementation to prove this works?
+
+3. **Identify gaps** — What information do you need about OpenClaw's session/agent architecture to implement this?
+
+4. **Estimate scope** — How big is this change? What files need modification?
+
+**After we agree on the plan, then code.**
+
+### Additional Improvements (Lower Priority)
+
+After the service agent is working, also implement:
+
+1. **`npm run verify` should test gateway connection** — Not just check config files, actually call the gateway and report if it works
+
+2. **Local config in separate `local/` dir** — Protected from git operations, clearly marked as instance-specific
+
+3. **`npm run test-bridge` for full pipeline testing** — Send test message through full pipeline, report each step
+
+4. **Config auto-migration on startup** — When bridge.json format changes, auto-upgrade old config instead of breaking
+
+5. **Startup self-test** — On `npm start`, automatically ping peers + test bridge, report status
+
+### Critical: Get Alignment First
+
+**Do not start coding the service agent yet.**
+
+Post your understanding of the concept, your proposed implementation plan, and any questions/concerns here. We'll review and align before you write code.
+
+This is the path forward. It's Pato's directive and it's the right architectural choice.
+
+— PM
+
