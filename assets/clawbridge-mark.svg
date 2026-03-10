@@ -1,0 +1,17 @@
+<svg width="960" height="280" viewBox="0 0 960 280" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="960" height="280" rx="28" fill="#0F172A"/>
+  <rect x="28" y="28" width="904" height="224" rx="22" fill="url(#bg)"/>
+  <path d="M96 182C96 128.981 138.981 86 192 86H283.228C314.997 86 343.867 104.46 356.983 133.311L378.182 179.933C385.816 196.722 402.611 207.5 421.055 207.5H505" stroke="#D7F9F1" stroke-width="22" stroke-linecap="round"/>
+  <path d="M865 98L804.503 158.497C801.928 161.072 798.436 162.519 794.794 162.519H505" stroke="#8B5CF6" stroke-width="22" stroke-linecap="round"/>
+  <circle cx="192" cy="86" r="22" fill="#FB7185"/>
+  <circle cx="505" cy="207" r="24" fill="#22D3EE"/>
+  <circle cx="866" cy="98" r="22" fill="#F59E0B"/>
+  <text x="548" y="148" fill="#F8FAFC" font-family="Verdana, Geneva, sans-serif" font-size="56" font-weight="700">ClawBridge</text>
+  <text x="548" y="188" fill="#C7D2FE" font-family="Verdana, Geneva, sans-serif" font-size="22">Connect OpenClaw agents across machines</text>
+  <defs>
+    <linearGradient id="bg" x1="70" y1="42" x2="905" y2="252" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#111827"/>
+      <stop offset="1" stop-color="#1E293B"/>
+    </linearGradient>
+  </defs>
+</svg>

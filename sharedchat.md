@@ -162,6 +162,53 @@ Write your responses, questions, and status updates in this file. We'll read the
 
 ---
 
+## Documentation Update From gipiti
+
+**Date:** 2026-03-10
+**Status:** public docs architecture rewritten for audience separation
+
+### Problem Addressed
+
+The repo docs were mixing beginner messaging, operator guidance, protocol details, and agent-only instructions in overlapping surfaces. That made the product harder to market clearly and increased the chance of confusing both simple and advanced users.
+
+### Changes Made
+
+- Rewrote the root `README.md` into a product landing page with explicit audience routing.
+- Added a simple brand mark at `assets/clawbridge-mark.svg` so the repo has a stronger visual identity without introducing build/tooling requirements.
+- Added `docs/QUICKSTART_SIMPLE.md` as the beginner-first path.
+- Added `docs/OPERATOR_GUIDE.md` as the operator/production path.
+- Reframed `docs/USER_GUIDE.md` into a conceptual normal-user guide instead of a mixed setup/protocol manual.
+- Reframed `docs/SETUP.md` into setup-tool reference rather than primary onboarding.
+- Rewrote `docs/PUBLIC_QUICKSTART.md` to target operators doing the fastest public HTTPS deploy.
+- Rewrote `docs/AGENT_INSTALL.md` so it is short, clearly scoped, and explicitly for AI agents.
+- Rewrote `docs/BRIDGE_SETUP.md` so it reads as an advanced feature guide, not a first-run path.
+- Rewrote `docs/README.md` into an audience-based documentation map.
+
+### Intended Positioning
+
+- Simple users get a short, linear path.
+- Operators get deployment and policy guidance.
+- Advanced users get bridge/API detail separately.
+- Agents get an agent-only install guide.
+
+### Remaining Documentation Work If We Want To Push Further
+
+- Align secondary docs like `GETTING_STARTED.md`, `QUICK_INSTALL.txt`, and some older guides to the new audience model.
+- Consider a short product video or animated GIF later if we want a stronger community-facing launch page.
+
+### Follow-Up Completed
+
+- Aligned `GETTING_STARTED.md` to contributor/developer onboarding instead of mixed user messaging.
+- Aligned `QUICK_INSTALL.txt` so it routes readers into the right audience path instead of acting like a one-size-fits-all install guide.
+- Reworked `DIAGRAMS.md` into a reusable marketing/explainer asset set with:
+  - a community overview diagram
+  - a benefit diagram
+  - a docs audience model diagram
+- Added the stronger benefit diagram directly to the root `README.md`.
+- Added audience framing to secondary docs like `BUILTIN_SKILLS.md` and `TROUBLESHOOTING.md`.
+
+---
+
 ## Bug Report: _extractArgs only reads first text part
 
 **From:** Guali Discord

@@ -1,15 +1,27 @@
-# OpenClaw Bridge Setup
+# Bridge Setup
 
-Connect your A2A agent to the local OpenClaw gateway so peers can call OpenClaw tools remotely.
+**Audience:** advanced users and operators  
+**Do not start here first:** get a normal peer connection working before enabling bridge tools
 
-## Prerequisites
+ClawBridge can expose a limited subset of local OpenClaw gateway tools to trusted peers.
 
-- OpenClaw installed and gateway running (`openclaw gateway start`)
-- A2A server running (`node src/server.js`)
+## Before You Enable It
 
-## 1. Enable the bridge
+You should already have:
+- `ping` working between peers
+- a clear permission model
+- a reason to expose a bridge tool at all
 
-Edit `config/bridge.json`:
+## What The Bridge Does
+
+It maps approved local OpenClaw tools into A2A-visible skills like:
+- `openclaw_web_search`
+- `openclaw_web_fetch`
+- `openclaw_memory_search`
+
+## Safe Starting Point
+
+Example `config/bridge.json`:
 
 ```json
 {
@@ -20,6 +32,7 @@ Edit `config/bridge.json`:
     "sessionKey": "main"
   },
   "exposed_tools": [
+    "message",
     "web_search",
     "web_fetch",
     "memory_search",
@@ -30,55 +43,62 @@ Edit `config/bridge.json`:
 }
 ```
 
-## 2. Choose which tools to expose
+## Risk Model
 
-Only tools in `exposed_tools` are callable via A2A. Safe defaults:
+Start with low-risk tools:
 
-| Tool | Risk | Description |
-|------|------|-------------|
-| `web_search` | Low | Search the web (read-only) |
-| `web_fetch` | Low | Fetch URL content (read-only) |
-| `memory_search` | Low | Search agent memory (read-only) |
-| `session_status` | Low | Get session info (read-only) |
-| `Read` | Medium | Read files (validate paths) |
-| `image` | Medium | Analyze images |
-| `pdf` | Medium | Analyze PDFs |
-| `exec` | **HIGH** | Run shell commands — do NOT expose unless you trust all peers |
-| `Write` | **HIGH** | Write files — do NOT expose unless you trust all peers |
+| Tool | Recommended default | Notes |
+|------|---------------------|-------|
+| `message` | Yes | required for `chat` delivery |
+| `web_search` | Yes | read-oriented |
+| `web_fetch` | Yes | read-oriented |
+| `memory_search` | Yes | read-oriented |
+| `session_status` | Yes | inspection only |
+| `image` | Maybe | depends on data sensitivity |
+| `pdf` | Maybe | depends on document sensitivity |
+| `Read` | Usually no | only after path review |
+| `exec` | No | dangerous |
+| `Write` | No | dangerous |
+| `Edit` | No | dangerous |
+| `browser` | No | dangerous |
 
-## 3. Restart the A2A server
+High-risk tools are blocked by default unless you explicitly opt in.
+
+## Restart And Validate
+
+After changing bridge config:
 
 ```bash
-node src/server.js
+npm run verify
+npm start
 ```
 
-Bridged tools appear in the Agent Card with `openclaw_` prefix (e.g. `openclaw_web_search`).
+Then confirm the bridge-backed skills appear in the agent card.
 
-## 4. Test from a peer
+## Test From A Peer
 
-```bash
-curl -X POST http://YOUR_IP:9100/a2a \
-  -H "Authorization: Bearer YOUR_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "jsonrpc": "2.0",
-    "method": "message/send",
-    "params": {
-      "message": {
-        "kind": "message",
-        "messageId": "test",
-        "role": "user",
-        "parts": [{"kind": "text", "text": "openclaw_web_search {\"query\": \"OpenClaw docs\"}"}]
-      }
-    },
-    "id": 1
-  }'
+Example:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "1",
+  "method": "message/send",
+  "params": {
+    "message": {
+      "messageId": "bridge-test",
+      "role": "user",
+      "parts": [
+        { "kind": "text", "text": "openclaw_web_search" },
+        { "kind": "text", "text": "{\"query\":\"OpenClaw docs\"}" }
+      ]
+    }
+  }
+}
 ```
 
-## Troubleshooting
+## Related Docs
 
-- **"Bridge not configured"** — Set `enabled: true` in config/bridge.json
-- **"Tool not in whitelist"** — Add the tool name to `exposed_tools`
-- **"Gateway not running"** — Run `openclaw gateway start`
-- **"Gateway auth failed"** — Check token in `~/.openclaw/openclaw.json`
-- **"Tool not found on gateway"** — The tool may be in the gateway's HTTP deny list. Edit `~/.openclaw/openclaw.json` to add it to `gateway.tools.allow`
+- [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
+- [PRODUCTION_DEPLOY.md](PRODUCTION_DEPLOY.md)
+- [API_REFERENCE.md](API_REFERENCE.md)

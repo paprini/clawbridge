@@ -1,4 +1,10 @@
-# Troubleshooting — clawbridge
+# Troubleshooting
+
+**Audience:** all users  
+**Tip:** start with the guide that matches your role:
+- simple users: [QUICKSTART_SIMPLE.md](QUICKSTART_SIMPLE.md)
+- operators: [OPERATOR_GUIDE.md](OPERATOR_GUIDE.md)
+- advanced bridge users: [BRIDGE_SETUP.md](BRIDGE_SETUP.md)
 
 ## Quick Diagnostics
 

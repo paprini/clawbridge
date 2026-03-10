@@ -1,11 +1,21 @@
-Install ClawBridge to bridge your OpenClaw agents across machines:
+ClawBridge quick install
 
-cd ~ && git clone https://github.com/paprini/clawbridge.git && cd clawbridge && npm install && npm run setup
+Choose your path first:
 
-After setup, start with: npm start
+- Simple human setup:
+  docs/QUICKSTART_SIMPLE.md
 
-Test connectivity: npm run ping
+- Public / production operator setup:
+  docs/OPERATOR_GUIDE.md
 
-This bridges your agents across machines. Your agent can call skills on other agents remotely.
+- AI agent installer:
+  docs/AGENT_INSTALL.md
 
-Repo: https://github.com/paprini/clawbridge
+Fast local start:
+
+git clone https://github.com/paprini/clawbridge.git
+cd clawbridge
+npm install
+npm run setup
+npm run verify
+npm start

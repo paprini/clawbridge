@@ -1,6 +1,10 @@
-# ClawBridge Built-in Skills
+# Built-in Skills
 
-ClawBridge comes with **3 essential built-in skills** that enable agent-to-agent communication and coordination.
+**Audience:** advanced users, integrators, and contributors
+
+If you are new to ClawBridge, start with [QUICKSTART_SIMPLE.md](QUICKSTART_SIMPLE.md) first.
+
+ClawBridge comes with built-in skills for connectivity, inspection, messaging, and fan-out.
 
 ---
 
