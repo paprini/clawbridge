@@ -1,4 +1,4 @@
-# Lessons Learned — openclaw-a2a
+# Lessons Learned — ClawBridge
 
 ## Phase 1
 
@@ -42,4 +42,4 @@
 
 ---
 
-_Last updated: 2026-03-09 23:20 UTC_
+_Last updated: 2026-03-10_

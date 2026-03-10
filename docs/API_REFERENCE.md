@@ -10,6 +10,10 @@ Health check. No auth required.
   "status": "healthy",
   "uptime": 12345.67,
   "timestamp": "2026-03-09T20:00:00.000Z",
+  "helper_agent": {
+    "status": "ready",
+    "sessionKey": "clawbridge-helper"
+  },
   "calls_total": 100,
   "calls_success": 95,
   "calls_failed": 5,
@@ -25,11 +29,66 @@ Health check. No auth required.
 ### GET /metrics
 Prometheus-compatible metrics. No auth required.
 
+### GET /status
+Public-safe runtime status. No auth required.
+
+```json
+{
+  "name": "My Agent",
+  "version": "0.1.0",
+  "uptime": 12345,
+  "skills": ["ping", "get_status"],
+  "protocol": "0.3.0",
+  "helper_agent": {
+    "status": "ready",
+    "sessionKey": "clawbridge-helper"
+  }
+}
+```
+
 ### GET /.well-known/agent-card.json
 A2A Agent Card (discovery). No auth required. Returns skills, capabilities, auth requirements.
 
 ### POST /a2a
 A2A JSON-RPC endpoint. Bearer token required.
+
+Example request:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "method": "message/send",
+  "params": {
+    "message": {
+      "kind": "message",
+      "messageId": "req-1",
+      "role": "user",
+      "parts": [
+        { "kind": "text", "text": "ping" }
+      ]
+    }
+  }
+}
+```
+
+Example response:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "result": {
+    "kind": "message",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "{\"status\":\"pong\",\"timestamp\":\"2026-03-09T20:00:00.000Z\"}"
+      }
+    ]
+  }
+}
+```
 
 ---
 
@@ -38,14 +97,14 @@ A2A JSON-RPC endpoint. Bearer token required.
 ### ping
 Health check. Returns pong with timestamp.
 
-Request: `"text": "ping"`
-Response: `{"status": "pong", "timestamp": "..."}`
+Request text part: `"ping"`
+Response text part: `{"status": "pong", "timestamp": "..."}`
 
 ### get_status
 Agent info: name, version, uptime, available skills.
 
-Request: `"text": "get_status"`
-Response: `{"agent": {"id": "...", "name": "..."}, "version": "0.1.0", "uptime": 123, "skills": ["ping", "get_status"]}`
+Request text part: `"get_status"`
+Response text part: `{"agent": {"id": "...", "name": "..."}, "version": "0.1.0", "uptime": 123, "skills": ["ping", "get_status"]}`
 
 ### openclaw_* (bridged tools)
 When bridge is enabled, OpenClaw tools are exposed with `openclaw_` prefix. Pass JSON args in the message text.
@@ -89,7 +148,13 @@ Rate limiting config. If absent, sensible defaults apply (200/min global, 60/min
 ### config/bridge.json (optional)
 OpenClaw gateway bridge config. Disabled by default.
 ```json
-{"enabled": false, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json"}, "exposed_tools": ["web_search"], "timeout_ms": 300000, "max_concurrent": 5}
+{"enabled": false, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json"}, "exposed_tools": ["message", "web_search"], "timeout_ms": 300000, "max_concurrent": 5}
+```
+
+### config/helper-agent.json (optional)
+Helper-agent bootstrap config. Used only for the local support helper, not for request routing.
+```json
+{"enabled": true, "agentId": "clawbridge-helper", "sessionKey": "clawbridge-helper", "workspaceDir": "~/.clawbridge/helper-agent", "healInBackground": true, "visibleTo": ["main"], "alertSession": "main", "bootstrapViaGateway": true, "retryIntervalMs": 60000, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json"}}
 ```
 
 ---
@@ -102,6 +167,7 @@ OpenClaw gateway bridge config. Disabled by default.
 | `A2A_BIND` | Bind address | `0.0.0.0` |
 | `A2A_SHARED_TOKEN` | Shared bearer token | (none) |
 | `A2A_CONFIG_DIR` | Config directory | `./config` |
+| `ALLOW_REPO_MANAGED_PEERS` | Allow real peers in tracked `config/peers.json` | (unset) |
 | `OPENAI_API_KEY` | LLM API key (setup agent) | (none) |
 | `OPENAI_BASE_URL` | LLM API URL (setup agent) | `https://api.openai.com/v1` |
 | `OPENAI_MODEL` | LLM model (setup agent) | `gpt-4o-mini` |

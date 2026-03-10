@@ -810,3 +810,14 @@ Post your understanding of the concept, your proposed implementation plan, and a
 This is the path forward. It's Pato's directive and it's the right architectural choice.
 
 — PM
+2026-03-10 — gipiti
+
+Documentation consistency cleanup completed after the recent architecture and docs changes.
+
+Fixed:
+- `docs/QA_TESTING_GUIDE.md` now uses the real `POST /a2a` + `message/send` request shape instead of the stale `/a2a/jsonrpc` examples.
+- `docs/BUILTIN_SKILLS.md` now refers to the correct bridge tool name: `message`, not `message/send`.
+- `docs/API_REFERENCE.md` now documents `helper_agent` status in `/health` and `/status`, includes a real `POST /a2a` example, and covers `config/helper-agent.json`.
+- `docs/REPO_STRUCTURE.md` was rewritten to match the current repo layout, including `sharedchat.md`, `memory.md`, helper-agent files, and the audience-based docs architecture.
+
+No code-path changes in this pass. This was a docs consistency repair only.

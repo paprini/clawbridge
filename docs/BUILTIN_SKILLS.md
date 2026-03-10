@@ -69,7 +69,7 @@ callPeerSkill('discord-agent', 'get_status')
 
 **How it works:**
 1. Peer agent receives `chat` skill call via ClawBridge
-2. Peer agent uses its own OpenClaw gateway's `message/send` tool
+2. Peer agent uses its own OpenClaw gateway `message` tool
 3. Message is delivered to the target channel/user on peer's platform
 
 **Usage:**
@@ -122,7 +122,7 @@ callPeerSkill('telegram-agent', 'chat', {
 **Requirements:**
 - Peer agent must have OpenClaw gateway configured
 - Bridge must be enabled
-- `message/send` tool must be allowed in bridge config
+- `message` tool must be allowed in bridge config
 
 ---
 
@@ -350,7 +350,7 @@ for (const peer of peers) {
 **Causes:**
 1. OpenClaw gateway not running on peer
 2. Bridge not configured
-3. `message/send` tool not allowed in bridge whitelist
+3. `message` tool not allowed in bridge whitelist
 
 **Solutions:**
 1. Verify gateway: `openclaw status`

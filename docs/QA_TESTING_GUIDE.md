@@ -115,29 +115,30 @@ npm run setup:auto
 **Enter:** `n`
 
 **Expected output:**
-```
-🔧 clawbridge setup
+```text
+🔧 ClawBridge setup (non-interactive)
 
 Agent name [hostname]: discord-agent
 Agent URL [http://10.0.1.10:9100/a2a]: http://10.0.1.10:9100/a2a
-Generated bearer token (4ee91249...)
 
-Add a peer? (y/n) y
-Peer name: whatsapp-agent
-Peer URL: http://10.0.1.11:9100/a2a
-✅ Added peer: whatsapp-agent
+✅ Generated bearer token (4ee91249...)
 
-Add another peer? (y/n) y
-Peer name: telegram-agent
-Peer URL: http://10.0.1.12:9100/a2a
-✅ Added peer: telegram-agent
+Add a peer? (y/N): y
+  Peer name: whatsapp-agent
+  Peer URL (e.g. http://10.0.1.11:9100): http://10.0.1.11:9100
+  Add another? (y/N): y
+  Peer name: telegram-agent
+  Peer URL (e.g. http://10.0.1.12:9100): http://10.0.1.12:9100
+  Add another? (y/N): n
 
-Add another peer? (y/n) n
+✅ Config written to config/
+Testing whatsapp-agent... ✅ connected
+Testing telegram-agent... ✅ connected
 
 ✅ Setup complete!
 
 Next step: Start your agent
-  From this directory: node src/server.js
+  node src/server.js
 ```
 
 **Expected files created:**
@@ -154,18 +155,29 @@ ls -la config/
 cat config/agent.json
 # Should show:
 # {
+#   "id": "discord-agent",
 #   "name": "discord-agent",
+#   "description": "A2A agent: discord-agent",
 #   "url": "http://10.0.1.10:9100/a2a",
-#   "bearerToken": "64-char-hex-string"
+#   "version": "0.1.0"
 # }
 
 cat config/peers.json
-# Should show array with 2 peers (whatsapp, telegram)
+# Should show:
+# {
+#   "peers": [
+#     { "id": "whatsapp-agent", "url": "http://10.0.1.11:9100", "token": "64-char-hex-string" },
+#     { "id": "telegram-agent", "url": "http://10.0.1.12:9100", "token": "64-char-hex-string" }
+#   ]
+# }
 
 cat config/skills.json
 # Should show:
 # {
-#   "exposed_skills": ["ping", "get_status"]
+#   "exposed_skills": [
+#     { "name": "ping", "public": true, ... },
+#     { "name": "get_status", "public": true, ... }
+#   ]
 # }
 ```
 
@@ -205,12 +217,9 @@ node src/server.js
 ```
 
 **Expected output:**
-```
-🔧 Starting A2A agent...
-✅ Agent card: discord-agent
-✅ Listening: http://10.0.1.10:9100
-✅ Ready to serve 2 skills: ping, get_status
-```
+- ✅ Process starts without exiting
+- ✅ Log includes `ClawBridge started`
+- ✅ `curl http://10.0.1.10:9100/health` returns 200 OK
 
 **Repeat on WhatsApp and Telegram instances**
 
@@ -275,12 +284,21 @@ cat config/peers.json | grep -A 5 "whatsapp-agent"
 curl -X POST \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
-  http://10.0.1.11:9100/a2a/jsonrpc \
+  http://10.0.1.11:9100/a2a \
   -d '{
     "jsonrpc": "2.0",
     "id": 1,
-    "method": "ping",
-    "params": {}
+    "method": "message/send",
+    "params": {
+      "message": {
+        "kind": "message",
+        "messageId": "qa-ping-1",
+        "role": "user",
+        "parts": [
+          { "kind": "text", "text": "ping" }
+        ]
+      }
+    }
   }'
 ```
 
@@ -290,8 +308,13 @@ curl -X POST \
   "jsonrpc": "2.0",
   "id": 1,
   "result": {
-    "pong": true,
-    "timestamp": "2026-03-09T19:42:00.000Z"
+    "kind": "message",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "{\"status\":\"pong\",\"timestamp\":\"2026-03-09T19:42:00.000Z\"}"
+      }
+    ]
   }
 }
 ```
@@ -310,12 +333,21 @@ curl -X POST \
 curl -X POST \
   -H "Authorization: Bearer <TOKEN>" \
   -H "Content-Type: application/json" \
-  http://10.0.1.11:9100/a2a/jsonrpc \
+  http://10.0.1.11:9100/a2a \
   -d '{
     "jsonrpc": "2.0",
     "id": 2,
-    "method": "get_status",
-    "params": {}
+    "method": "message/send",
+    "params": {
+      "message": {
+        "kind": "message",
+        "messageId": "qa-status-1",
+        "role": "user",
+        "parts": [
+          { "kind": "text", "text": "get_status" }
+        ]
+      }
+    }
   }'
 ```
 
@@ -325,10 +357,13 @@ curl -X POST \
   "jsonrpc": "2.0",
   "id": 2,
   "result": {
-    "status": "ok",
-    "agent": "whatsapp-agent",
-    "uptime": 123.456,
-    "skills": ["ping", "get_status"]
+    "kind": "message",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "{\"agent\":{\"id\":\"whatsapp-agent\",\"name\":\"whatsapp-agent\"},\"uptime\":123.456,\"skills\":[\"ping\",\"get_status\"]}"
+      }
+    ]
   }
 }
 ```
@@ -350,9 +385,9 @@ curl -X POST \
 
 **For each combination:**
 1. Get token from source's peers.json
-2. Call target's /a2a/jsonrpc endpoint
+2. Call target's `/a2a` endpoint with JSON-RPC `message/send`
 3. Verify response is valid JSON-RPC 2.0
-4. Check result has expected fields
+4. Parse `result.parts[0].text` as JSON and check the expected fields
 
 **Expected:** All 12 calls succeed (200 OK, valid response)
 
@@ -366,28 +401,27 @@ curl -X POST \
 # Attempt ping without auth
 curl -X POST \
   -H "Content-Type: application/json" \
-  http://10.0.1.11:9100/a2a/jsonrpc \
+  http://10.0.1.11:9100/a2a \
   -d '{
     "jsonrpc": "2.0",
     "id": 1,
-    "method": "ping",
-    "params": {}
+    "method": "message/send",
+    "params": {
+      "message": {
+        "kind": "message",
+        "messageId": "qa-auth-missing",
+        "role": "user",
+        "parts": [
+          { "kind": "text", "text": "ping" }
+        ]
+      }
+    }
   }'
 ```
 
-**Expected:**
-```json
-{
-  "jsonrpc": "2.0",
-  "id": 1,
-  "error": {
-    "code": 401,
-    "message": "Unauthorized: Missing or invalid bearer token"
-  }
-}
-```
+**Expected:** HTTP `401 Unauthorized`
 
-**Verify:** ✅ 401 Unauthorized response
+**Verify:** ✅ 401 response from the server
 
 ---
 
@@ -398,16 +432,25 @@ curl -X POST \
 curl -X POST \
   -H "Authorization: Bearer invalid_token_12345" \
   -H "Content-Type: application/json" \
-  http://10.0.1.11:9100/a2a/jsonrpc \
+  http://10.0.1.11:9100/a2a \
   -d '{
     "jsonrpc": "2.0",
     "id": 1,
-    "method": "ping",
-    "params": {}
+    "method": "message/send",
+    "params": {
+      "message": {
+        "kind": "message",
+        "messageId": "qa-auth-invalid",
+        "role": "user",
+        "parts": [
+          { "kind": "text", "text": "ping" }
+        ]
+      }
+    }
   }'
 ```
 
-**Expected:** 401 Unauthorized
+**Expected:** HTTP `403 Forbidden`
 
 ---
 
@@ -418,12 +461,21 @@ curl -X POST \
 curl -X POST \
   -H "Authorization: Bearer <VALID_TOKEN>" \
   -H "Content-Type: application/json" \
-  http://10.0.1.11:9100/a2a/jsonrpc \
+  http://10.0.1.11:9100/a2a \
   -d '{
     "jsonrpc": "2.0",
     "id": 1,
-    "method": "delete_all_files",
-    "params": {}
+    "method": "message/send",
+    "params": {
+      "message": {
+        "kind": "message",
+        "messageId": "qa-invalid-skill",
+        "role": "user",
+        "parts": [
+          { "kind": "text", "text": "delete_all_files" }
+        ]
+      }
+    }
   }'
 ```
 
@@ -432,9 +484,14 @@ curl -X POST \
 {
   "jsonrpc": "2.0",
   "id": 1,
-  "error": {
-    "code": 404,
-    "message": "Skill not found: delete_all_files"
+  "result": {
+    "kind": "message",
+    "parts": [
+      {
+        "kind": "text",
+        "text": "{\"error\":\"Unknown skill. Run `npm run status` to see available skills.\"}"
+      }
+    ]
   }
 }
 ```
