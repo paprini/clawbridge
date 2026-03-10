@@ -256,7 +256,7 @@ describe('Built-in Skills', () => {
         timeoutSeconds: 0,
         message: expect.stringContaining('Loop prevention'),
       }), expect.objectContaining({
-        sessionKey: 'agent:discord-agent:main',
+        sessionKey: 'agent:discord-agent:discord:channel:1480310282961289216',
       }));
       expect(result.success).toBe(true);
       expect(result.agent_dispatch).toBe('accepted');
@@ -313,7 +313,7 @@ describe('Built-in Skills', () => {
         timeoutSeconds: 0,
         message: expect.stringContaining('Source agent: monti-telegram'),
       }), expect.objectContaining({
-        sessionKey: 'agent:discord-agent:main',
+        sessionKey: 'agent:discord-agent:discord:channel:1480310282961289216',
       }));
       expect(result.success).toBe(true);
       expect(result.agent_dispatch).toBe('accepted');

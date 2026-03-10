@@ -135,10 +135,12 @@ Causes:
 - local OpenClaw gateway does not allow `sessions_send`
 - `bridge.agent_dispatch` is still disabled after setup
 - `bridge.agent_dispatch.sessionKey` was forced to a wrong literal session instead of `auto`
+- `bridge.agent_dispatch.requesterSessionKey` was forced to `main`, which can be blocked when OpenClaw uses `tools.sessions.visibility=tree`
 
 Fixes:
 - ensure `config/bridge.json -> agent_dispatch.enabled` is `true`
 - prefer `config/bridge.json -> agent_dispatch.sessionKey = "auto"` unless you have a known custom OpenClaw session key
+- prefer `config/bridge.json -> agent_dispatch.requesterSessionKey = "auto"` unless you intentionally need a different requester session
 - allow `sessions_send` in `~/.openclaw/openclaw.json` under `gateway.tools.allow`
 - run `npm run verify`
 

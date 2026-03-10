@@ -72,6 +72,8 @@ High-risk tools are blocked by default unless you explicitly opt in.
 
 For inbound `@agent-name` delivery, ClawBridge also needs the local gateway to allow `sessions_send` in `~/.openclaw/openclaw.json -> gateway.tools.allow`. This is an internal dispatch dependency, not a public A2A-exposed skill. Fresh setup will disable `agent_dispatch` until that allowlist is present, then you can re-enable it in `config/bridge.json`.
 
+`requesterSessionKey: "auto"` is intentionally visibility-safe. It dispatches from the target session itself by default, which avoids OpenClaw rejecting the send under `tools.sessions.visibility=tree`.
+
 ## Restart And Validate
 
 After changing bridge config:

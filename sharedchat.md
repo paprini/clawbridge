@@ -60,7 +60,7 @@ Validation:
 
 Meaning:
 - `sessionKey: "auto"` makes ClawBridge derive the correct agent-scoped OpenClaw target session
-- `requesterSessionKey: "auto"` makes ClawBridge call `sessions_send` from the correct local agent main session
+- `requesterSessionKey: "auto"` makes ClawBridge call `sessions_send` from the target session itself by default, which avoids OpenClaw visibility blockers under `tools.sessions.visibility=tree`
 
 Fresh setup behavior:
 - if local OpenClaw gateway does not allow `sessions_send`, setup now writes `agent_dispatch.enabled: false` and prints an operator note instead of silently writing a broken config
@@ -71,11 +71,20 @@ Fresh setup behavior:
 
 Code side is fixed.
 
+Latest blocker we just addressed:
+- OpenClaw default session visibility (`tools.sessions.visibility=tree`) was blocking dispatch when requester session was forced to `main`
+- default dispatch is now visibility-safe
+
 What still needs proof:
 - live `@agent-name` activation on real nodes
 - live `#channel@agent-name` activation on real nodes
 
 The last real-world gap is deployment validation on actual OpenClaw nodes.
+
+Latest fix applied:
+- OpenClaw default `tools.sessions.visibility=tree` was blocking dispatch when the requester session was forced to `main`
+- `requesterSessionKey: "auto"` is now visibility-safe and dispatches from the target session by default
+- the repo now avoids that blocker without requiring `tools.sessions.visibility=all`
 
 ---
 
@@ -108,6 +117,7 @@ On each real node:
 
 Expected result:
 - no fake `Unknown dispatch error`
+- no `agent_dispatch: "forbidden"` with a visibility error
 - visible delivery succeeds
 - receiving agent is actually activated as a new turn
 

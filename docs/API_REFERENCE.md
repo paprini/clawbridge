@@ -156,7 +156,7 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 {"enabled": true, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json", "sessionKey": "main"}, "agent_dispatch": {"enabled": true, "sessionKey": "auto", "requesterSessionKey": "auto", "timeoutSeconds": 0}, "exposed_tools": ["message", "web_search"], "timeout_ms": 300000, "max_concurrent": 5}
 ```
 
-`agent_dispatch` is used for inbound `@agent-name` delivery. It dispatches the received message into the local OpenClaw session via `sessions_send` after the visible message is posted. `sessionKey: "auto"` means ClawBridge derives the correct agent-scoped OpenClaw session key instead of using a raw global `main`.
+`agent_dispatch` is used for inbound `@agent-name` delivery. It dispatches the received message into the local OpenClaw session via `sessions_send` after the visible message is posted. `sessionKey: "auto"` means ClawBridge derives the correct agent-scoped OpenClaw target session. `requesterSessionKey: "auto"` means it invokes `sessions_send` from that same target session by default, which avoids OpenClaw visibility blockers under the default `tools.sessions.visibility=tree`.
 
 ### config/contacts.json (optional)
 Alias map for human-friendly names and local channel names used by `chat`. Channel-specific aliases can be declared as `channel:name`. Entries may be simple target strings or relay objects with `peerId`.

@@ -268,6 +268,17 @@ check('agent-to-agent dispatch readiness', () => {
     return 'bridge agent_dispatch is enabled, but OpenClaw gateway.tools.allow does not include "sessions_send"';
   }
 
+  const visibility = typeof gatewayConfig?.tools?.sessions?.visibility === 'string'
+    ? gatewayConfig.tools.sessions.visibility.trim().toLowerCase()
+    : 'tree';
+  const requesterSessionKey = typeof dispatch.requesterSessionKey === 'string'
+    ? dispatch.requesterSessionKey.trim().toLowerCase()
+    : 'auto';
+
+  if (visibility === 'tree' && requesterSessionKey === 'main') {
+    return 'bridge agent_dispatch.requesterSessionKey=main can be blocked by OpenClaw tools.sessions.visibility=tree. Prefer requesterSessionKey="auto".';
+  }
+
   return true;
 });
 

@@ -272,59 +272,55 @@ function resolveConfiguredSessionKey(rawValue, fallback) {
   return trimmed;
 }
 
+function resolveRequesterSessionKey(rawValue, { targetSessionKey, mainSessionKey }) {
+  const trimmed = typeof rawValue === 'string' ? rawValue.trim().toLowerCase() : '';
+
+  if (!trimmed || trimmed === 'auto' || trimmed === 'target') {
+    return targetSessionKey;
+  }
+
+  if (trimmed === 'main') {
+    return mainSessionKey;
+  }
+
+  return rawValue.trim();
+}
+
 function resolveDispatchSessionKeys({ dispatchConfig, agentId, defaultDelivery, resolvedTarget, deliveryChannel, agentDeliveryMeta }) {
   const dispatchAgentId = dispatchConfig.agentId || agentId || 'main';
   const { mainKey, dmScope } = loadGatewaySessionSettings(dispatchConfig.gateway);
   const mainSessionKey = buildAgentMainSessionKey(dispatchAgentId, mainKey);
-  const requesterSessionKey = resolveConfiguredSessionKey(dispatchConfig.requesterSessionKey, mainSessionKey);
   const explicitTargetSessionKey = resolveConfiguredSessionKey(dispatchConfig.sessionKey, null);
+  let targetSessionKey = explicitTargetSessionKey;
 
-  if (explicitTargetSessionKey) {
-    return {
-      requesterSessionKey,
-      targetSessionKey: explicitTargetSessionKey,
-    };
-  }
+  if (!targetSessionKey) {
+    const deliveryType = typeof defaultDelivery?.type === 'string'
+      ? defaultDelivery.type.trim().toLowerCase()
+      : 'target';
+    const routeChannel = (deliveryChannel || defaultDelivery?.channel || '').trim().toLowerCase();
+    const shouldUseChannelRoute = Boolean(agentDeliveryMeta?.remoteChannelTarget) || deliveryType === 'channel';
 
-  const deliveryType = typeof defaultDelivery?.type === 'string'
-    ? defaultDelivery.type.trim().toLowerCase()
-    : 'target';
-  const routeChannel = (deliveryChannel || defaultDelivery?.channel || '').trim().toLowerCase();
-  const shouldUseChannelRoute = Boolean(agentDeliveryMeta?.remoteChannelTarget) || deliveryType === 'channel';
-
-  if (routeChannel && typeof resolvedTarget === 'string' && resolvedTarget.trim().length > 0) {
-    if (shouldUseChannelRoute) {
-      return {
-        requesterSessionKey,
-        targetSessionKey: buildAgentPeerSessionKey({
-          agentId: dispatchAgentId,
-          channel: routeChannel,
-          accountId: dispatchConfig.accountId || DEFAULT_OPENCLAW_ACCOUNT_ID,
-          peerKind: 'channel',
-          peerId: resolvedTarget,
-          dmScope,
-          mainKey,
-        }),
-      };
-    }
-
-    return {
-      requesterSessionKey,
-      targetSessionKey: buildAgentPeerSessionKey({
+    if (routeChannel && typeof resolvedTarget === 'string' && resolvedTarget.trim().length > 0) {
+      targetSessionKey = buildAgentPeerSessionKey({
         agentId: dispatchAgentId,
         channel: routeChannel,
         accountId: dispatchConfig.accountId || DEFAULT_OPENCLAW_ACCOUNT_ID,
-        peerKind: 'direct',
+        peerKind: shouldUseChannelRoute ? 'channel' : 'direct',
         peerId: resolvedTarget,
         dmScope,
         mainKey,
-      }),
-    };
+      });
+    } else {
+      targetSessionKey = mainSessionKey;
+    }
   }
 
   return {
-    requesterSessionKey,
-    targetSessionKey: mainSessionKey,
+    requesterSessionKey: resolveRequesterSessionKey(dispatchConfig.requesterSessionKey, {
+      targetSessionKey,
+      mainSessionKey,
+    }),
+    targetSessionKey,
   };
 }
 
