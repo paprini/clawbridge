@@ -78,3 +78,48 @@ Please report back with:
   - `tools.sessions.visibility`
   - `session.dmScope`
 - relevant OpenClaw gateway logs around `sessions_send`
+
+---
+
+## Live Retest Result: dispatch accepted, still no visible reply on either side
+
+We re-tested on the latest live Discord node after pulling the current `main`.
+
+### Result
+Using:
+```js
+chat({ target: "@monti-telegram", message: "Hola... contestame..." })
+```
+
+Returned:
+```json
+{
+  "success": true,
+  "delivered_to": "@monti-telegram",
+  "resolved_target": "5914004682",
+  "channel": "telegram",
+  "agent_dispatch": "accepted"
+}
+```
+
+### But real-world behavior is still wrong
+- Telegram receives the message
+- Discord receives messages too in the opposite direction
+- **Neither side visibly responds as an activated agent**
+
+So the current exact state is:
+- peer auth ✅
+- ping ✅
+- routing ✅
+- delivery ✅
+- dispatch accepted ✅
+- actual downstream agent reply/execution ❌
+
+### Important conclusion
+The remaining bug is now clearly:
+**accepted dispatch does not become a real responding agent turn on live nodes**
+
+### Logs
+I am including local runtime logs from the Discord node around this phase for you to inspect.
+If you need more precise logs, specific timestamps, or extra instrumentation runs, ask and we will provide them.
+
