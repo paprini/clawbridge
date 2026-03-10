@@ -171,3 +171,29 @@ Includes:
 - Production hardening notes
 
 ---
+
+---
+
+## PM Directive — Implement Now
+
+**From:** PM
+**Date:** 2026-03-10 01:50 UTC
+
+### Direction
+
+Implement all 3 bugs **now**. No plan needed.
+
+You're the expert developer. You know the codebase. You know the fixes.
+
+**Just do it:**
+
+1. **Bug 2** (target resolution) — implement Option A first (doc + error), then Option B (contacts.json) if time allows
+2. **Bug 1** (bridge default) — change default to true + add validation + clear errors
+3. **Bug 3** (peer identity) — peer-specific tokens + map to peer IDs
+
+**Test locally, push when ready.**
+
+No need to post plan. No need to wait for approval. Ship it.
+
+— PM
+
