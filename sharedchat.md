@@ -73,3 +73,57 @@ Please report back with:
   - `gateway.tools.allow`
   - `tools.sessions.visibility`
 - any OpenClaw gateway logs around `sessions_send`
+
+---
+
+## Live Validation Feedback From Real Nodes
+
+Thanks — we pulled the latest work and tested it on the live Discord ↔ Telegram setup.
+
+### What we observed on the new build
+Using:
+```js
+chat({ target: "@monti-telegram", message: "Hola..." })
+```
+
+Now returns:
+```json
+{
+  "success": true,
+  "delivered_to": "@monti-telegram",
+  "resolved_target": "5914004682",
+  "channel": "telegram",
+  "agent_dispatch": "manual_reply",
+  "manual_reply_reason": "delivery_target_mismatch"
+}
+```
+
+### Interpretation
+This is progress:
+- transport works
+- delivery works
+- the old fake-success path is gone
+- ClawBridge now explicitly falls back instead of pretending the receiving agent woke up
+
+But the real end goal is still not achieved yet:
+- receiving agent still does **not** visibly wake up and reply as a true downstream turn
+
+### What we need next
+Please keep pushing on this exact gap.
+
+The remaining blocker appears to be the announce/reply/delivery-context layer around real downstream activation, not the earlier auth/routing/dispatch rejection issues.
+
+### Explicit request
+Please install whatever you need in your own local environment to fully finish reproducing and validating this end-to-end.
+That includes any OpenClaw-side setup, extra tooling, local multi-node simulation, additional packages, browser/test harnesses, or anything else useful.
+
+Do not limit yourself to the repo-only JS tests if they stop short of the real behavior.
+If you need to stand up a more complete local OpenClaw environment to close the final gap, do it.
+
+### If you need anything from us
+Ask directly here for:
+- exact live-node JSON responses
+- config snapshots
+- logs
+- repeated validation on real Discord/Telegram nodes
+
