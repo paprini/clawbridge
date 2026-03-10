@@ -11,7 +11,7 @@ jest.mock('../../src/client');
 jest.mock('../../src/logger');
 jest.mock('../../src/openclaw-gateway');
 jest.mock('../../src/config', () => ({
-  loadAgentConfig: jest.fn(() => ({ id: 'local-agent', openclaw_agent_id: null, default_delivery: null })),
+  loadAgentConfig: jest.fn(() => ({ id: 'local-agent', url: 'http://10.0.1.10:9100/a2a', openclaw_agent_id: null, default_delivery: null })),
   loadContactsConfig: jest.fn(() => ({ aliases: {} })),
   loadPeersConfig: jest.fn(() => []),
 }));
@@ -28,7 +28,7 @@ describe('Built-in Skills', () => {
       enabled: true,
       exposed_tools: ['message'],
     });
-    loadAgentConfig.mockReturnValue({ id: 'local-agent', openclaw_agent_id: null, default_delivery: null });
+    loadAgentConfig.mockReturnValue({ id: 'local-agent', url: 'http://10.0.1.10:9100/a2a', openclaw_agent_id: null, default_delivery: null });
     loadContactsConfig.mockReturnValue({ aliases: {} });
     loadPeersConfig.mockReturnValue([]);
     invokeGatewayTool.mockImplementation(async (toolName) => {
@@ -202,6 +202,7 @@ describe('Built-in Skills', () => {
         _agentDelivery: {
           activateSession: true,
           sourceAgentId: 'local-agent',
+          sourceUrl: 'http://10.0.1.10:9100/a2a',
           requestedTarget: '@discord-agent',
         },
         _relay: { hops: 1, visited: ['local-agent'] },
@@ -230,6 +231,7 @@ describe('Built-in Skills', () => {
         _agentDelivery: {
           activateSession: true,
           sourceAgentId: 'local-agent',
+          sourceUrl: 'http://10.0.1.10:9100/a2a',
           requestedTarget: '#general@discord-agent',
           remoteChannelTarget: '#general',
         },
@@ -439,6 +441,45 @@ describe('Built-in Skills', () => {
       expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
         message: 'Hola desde Discord',
         _relay: { hops: 1, visited: ['main'] },
+      });
+      expect(result.reply_relay).toBe('delivered');
+      expect(result.reply_relay_peer).toBe('monti-telegram');
+    });
+
+    it('falls back to sourceUrl matching when the caller is shared and sourceAgentId is generic', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'guali-discord',
+        url: 'http://172.31.30.104:9100',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      loadPeersConfig.mockReturnValue([
+        { id: 'monti-telegram', url: 'http://172.31.30.105:9100', token: 'peer-token' },
+      ]);
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+      callPeerSkill.mockResolvedValue({ success: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'main',
+          sourceUrl: 'http://172.31.30.105:9100/a2a',
+          requestedTarget: '@guali-discord',
+        },
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        message: 'Hola desde Discord',
+        _relay: { hops: 1, visited: ['guali-discord'] },
       });
       expect(result.reply_relay).toBe('delivered');
       expect(result.reply_relay_peer).toBe('monti-telegram');

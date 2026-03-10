@@ -205,3 +205,33 @@ The remaining live discrepancy is therefore more likely to be one of:
 1. node config drift between the real installs
 2. shared-token identity ambiguity on one node
 3. different peer ids / local agent ids than the ones assumed by the relay metadata
+
+## Latest runtime hardening from gipiti
+
+### New likely root cause addressed
+There is one realistic live path where reply relay can still lose identity even though activation succeeds:
+- peer-to-peer requests authenticated as `__shared__` because a node is still using `A2A_SHARED_TOKEN`
+- `_agentDelivery.sourceAgentId` is generic, stale, or not the same id the receiver uses in `peers.json`
+
+That combination makes the receiver unable to identify which peer should receive the reply.
+
+### What changed
+- outbound `@agent` relay metadata now also carries the sender `agent.json.url`
+- inbound reply relay now resolves the return peer in this order:
+  1. authenticated peer id
+  2. peer entry whose configured URL matches the sender URL from `_agentDelivery.sourceUrl`
+  3. legacy `_agentDelivery.sourceAgentId`
+- `npm run verify` now fails if any peer token reuses `A2A_SHARED_TOKEN`
+
+### Why this matters
+This gives the receiver a second reliable identity path even when:
+- auth is shared-token based
+- peer ids differ from local assumptions
+- `sourceAgentId` is too generic to route safely
+
+### Local validation
+- full suite passing: `22` suites / `195` tests
+- `npm run verify` passing locally
+- added regression coverage for:
+  - reply relay by source URL when auth is shared and source agent id is generic
+  - multipart transport preserving nested relay metadata

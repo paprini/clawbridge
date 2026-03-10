@@ -109,12 +109,16 @@ function getLocalAgentContext() {
       openclawAgentId: typeof config?.openclaw_agent_id === 'string' && config.openclaw_agent_id.trim().length > 0
         ? config.openclaw_agent_id.trim()
         : null,
+      agentUrl: typeof config?.url === 'string' && config.url.trim().length > 0
+        ? config.url.trim()
+        : null,
       defaultDelivery: normalizeDefaultDelivery(config?.default_delivery),
     };
   } catch {
     return {
       agentId: null,
       openclawAgentId: null,
+      agentUrl: null,
       defaultDelivery: null,
     };
   }
@@ -192,6 +196,9 @@ function normalizeAgentDeliveryMeta(entry) {
     sourceAgentId: typeof entry.sourceAgentId === 'string' && entry.sourceAgentId.trim().length > 0
       ? entry.sourceAgentId.trim()
       : null,
+    sourceUrl: typeof entry.sourceUrl === 'string' && entry.sourceUrl.trim().length > 0
+      ? entry.sourceUrl.trim()
+      : null,
     requestedTarget: typeof entry.requestedTarget === 'string' && entry.requestedTarget.trim().length > 0
       ? entry.requestedTarget.trim()
       : null,
@@ -201,10 +208,11 @@ function normalizeAgentDeliveryMeta(entry) {
   };
 }
 
-function buildAgentDeliveryMeta({ sourceAgentId, requestedTarget, remoteChannelTarget }) {
+function buildAgentDeliveryMeta({ sourceAgentId, sourceUrl, requestedTarget, remoteChannelTarget }) {
   return {
     activateSession: true,
     ...(sourceAgentId ? { sourceAgentId } : {}),
+    ...(sourceUrl ? { sourceUrl } : {}),
     ...(requestedTarget ? { requestedTarget } : {}),
     ...(remoteChannelTarget ? { remoteChannelTarget } : {}),
   };
@@ -223,10 +231,47 @@ function normalizeRequestPeerId(value, localAgentId) {
   return trimmed;
 }
 
-function resolveReplyRelayPeerId({ requestPeerId, sourceAgentId, localAgentId }) {
+function normalizePeerBaseUrl(value) {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return '';
+  }
+
+  try {
+    const url = new URL(value.trim());
+    const normalizedPath = url.pathname.replace(/\/+$/, '').replace(/\/a2a$/, '');
+    return `${url.origin}${normalizedPath}`;
+  } catch {
+    return '';
+  }
+}
+
+function findPeerIdBySourceUrl(sourceUrl, localAgentId) {
+  const normalizedSourceUrl = normalizePeerBaseUrl(sourceUrl);
+  if (!normalizedSourceUrl) {
+    return null;
+  }
+
+  try {
+    const peer = loadPeersConfig().find((entry) => normalizePeerBaseUrl(entry?.url) === normalizedSourceUrl);
+    if (!peer || typeof peer.id !== 'string' || peer.id.trim().length === 0) {
+      return null;
+    }
+
+    return normalizeRequestPeerId(peer.id, localAgentId);
+  } catch {
+    return null;
+  }
+}
+
+function resolveReplyRelayPeerId({ requestPeerId, sourceAgentId, sourceUrl, localAgentId }) {
   const requestPeer = normalizeRequestPeerId(requestPeerId, localAgentId);
   if (requestPeer) {
     return requestPeer;
+  }
+
+  const sourceUrlPeer = findPeerIdBySourceUrl(sourceUrl, localAgentId);
+  if (sourceUrlPeer) {
+    return sourceUrlPeer;
   }
 
   return normalizeRequestPeerId(sourceAgentId, localAgentId);
@@ -838,7 +883,7 @@ async function chat(params) {
   const requestedChannel = typeof channel === 'string' && channel.trim().length > 0
     ? channel.trim()
     : null;
-  const { agentId, openclawAgentId, defaultDelivery } = getLocalAgentContext();
+  const { agentId, openclawAgentId, agentUrl, defaultDelivery } = getLocalAgentContext();
   const relayMeta = normalizeRelayMeta(params._relay);
   let agentDeliveryMeta = normalizeAgentDeliveryMeta(params._agentDelivery);
   const requestPeerId = normalizeRequestPeerId(params._requestPeerId, agentId);
@@ -914,6 +959,7 @@ async function chat(params) {
     if (agentTarget.peerId === agentId) {
       agentDeliveryMeta = agentDeliveryMeta || buildAgentDeliveryMeta({
         sourceAgentId: agentId,
+        sourceUrl: agentUrl,
         requestedTarget: requestedTarget || effectiveTarget,
         remoteChannelTarget: agentTarget.channelTarget,
       });
@@ -946,6 +992,7 @@ async function chat(params) {
       relayParams._relay = buildRelayMeta(relayMeta, agentId);
       relayParams._agentDelivery = buildAgentDeliveryMeta({
         sourceAgentId: agentId,
+        sourceUrl: agentUrl,
         requestedTarget: requestedTarget || effectiveTarget,
         remoteChannelTarget: agentTarget.channelTarget,
       });
@@ -1123,6 +1170,7 @@ async function chat(params) {
         const replyRelayPeerId = resolveReplyRelayPeerId({
           requestPeerId,
           sourceAgentId: agentDeliveryMeta.sourceAgentId,
+          sourceUrl: agentDeliveryMeta.sourceUrl,
           localAgentId: agentId,
         });
         const replyRelay = await relayActivationReplyToSourcePeer({

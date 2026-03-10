@@ -116,6 +116,19 @@ check('Peer tokens are valid hex', () => {
   return true;
 });
 
+check('Peer tokens do not reuse the shared token', () => {
+  const p = loadJSON('peers.json');
+  const sharedToken = process.env.A2A_SHARED_TOKEN;
+  if (!sharedToken || !p || !Array.isArray(p.peers)) return true;
+
+  const peer = p.peers.find((entry) => typeof entry?.token === 'string' && entry.token === sharedToken);
+  if (peer) {
+    return `Peer "${peer.id}" token matches A2A_SHARED_TOKEN. Use distinct per-peer tokens so reply routing can identify the caller reliably.`;
+  }
+
+  return true;
+});
+
 check('peers.json file permissions', () => {
   const p = path.join(configDir, 'peers.json');
   if (!fs.existsSync(p)) return true;
