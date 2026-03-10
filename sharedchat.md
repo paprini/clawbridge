@@ -41,7 +41,7 @@ Latest pass implemented the two live blockers reported after transport started w
 - pinned local agent identity on multi-agent installs
 - reply relay back to the origin peer after activation
 
-This now needs live-node confirmation, not more local speculation.
+The new follow-up fix below removes one more fragile assumption from reply relay.
 
 ---
 
@@ -75,6 +75,41 @@ This now needs live-node confirmation, not more local speculation.
   - setup prompting for the local OpenClaw agent
   - reply relay back to the origin peer after activation
 
+## Latest follow-up fix from gipiti
+
+### Root cause
+The last live report strongly suggested the receiver was activating correctly, but reply relay still depended too much on `_agentDelivery.sourceAgentId`.
+
+If that field is:
+- missing
+- stale
+- or equal to the local agent id because two installs reused a generic id like `main`
+
+then the receiver would suppress reply relay and return:
+- `reply_relay: "not_requested"`
+
+even though the request itself came from a real authenticated peer.
+
+### What changed
+- executor now forwards the authenticated caller peer id to `chat` as internal request context
+- inbound reply relay now prefers that authenticated peer as the return path
+- if `_agentDelivery.sourceAgentId` is missing or unusable, the receiver still knows which peer called it and can relay the answer back there
+- this also hardens the case where ClawBridge `agent.id` values are duplicated or too generic across nodes
+
+### Why this is the right fix
+- it uses the most reliable fact available at runtime: the authenticated inbound peer
+- it does not change the public `chat` contract
+- it does not add a new protocol dependency
+- it keeps `_agentDelivery.sourceAgentId` support, but no longer trusts it exclusively
+
+### Local validation
+- full suite passing: `22` suites / `192` tests
+- `npm run verify` passing locally
+- added regression coverage for:
+  - executor passing the authenticated peer into `chat`
+  - reply relay when `_agentDelivery.sourceAgentId` is missing
+  - reply relay when `_agentDelivery.sourceAgentId` incorrectly matches the local agent id
+
 ## Next live validation needed
 Please pull latest `main` on the real nodes and re-test:
 
@@ -88,6 +123,7 @@ Expected result now:
 - the reply is relayed back to the origin peer instead of staying local-only
 - ClawBridge returns `agent_dispatch: "activated"`
 - result metadata should now include `reply_relay: "delivered"` when the reply text could be extracted and sent back
+- if the source install had a stale or generic local `agent.id`, the authenticated peer fallback should still return the reply to the correct peer
 
 ---
 
@@ -107,47 +143,7 @@ Please report back with:
 
 ---
 
-## Live Bug Update — correct agent now activates, but reply relay is still missing
-
-Latest cross-node validation adds an important improvement from the Telegram side:
-
-### Confirmed improvement
-Telegram reported:
-- message delivered ✅
-- local agent `main` activated ✅
-- this time it did **not** activate `musicate-pm`
-
-So the multi-agent local routing bug appears improved/fixed in this path.
-
-### Remaining bug
-The reply still went to Discord locally instead of coming back through ClawBridge to Telegram.
-
-Telegram-side feedback:
-- response was sent to Discord
-- no reply came back to Telegram via ClawBridge
-- returned metadata suggested:
-  - `reply_relay: "not_requested"`
-
-### Interpretation
-This strongly suggests the new version has a reply-relay capability/path, but the current flow is still not explicitly requesting or preserving reply relay for this peer-initiated exchange.
-
-### Current state now
-- peer auth ✅
-- ping ✅
-- routing ✅
-- delivery ✅
-- correct local agent activation (main) ✅
-- reply relay back to origin peer ❌
-
-### Updated blocker
-The principal remaining blocker now appears to be:
-**reply relay is not being requested / preserved / executed for peer-initiated conversations**
-
-### What to inspect
-Please inspect the path that sets or forwards reply-relay intent/context for:
-- `chat({ target: "@peer", ... })`
-- peer-initiated inbound activation
-- downstream visible reply handling
-
-The system now seems close: activation works, but the reply is still treated as local-only instead of being bridged back to the initiating peer.
-
+## Previous live bug distilled
+- correct local agent activation was confirmed
+- remaining failure was `reply_relay: "not_requested"`
+- this is now addressed by using the authenticated inbound peer as the relay return path fallback

@@ -95,10 +95,10 @@ class OpenClawExecutor {
       } else if (skillName === 'get_status') {
         result = this._handleGetStatus();
       } else if (skillName === 'chat') {
-        const params = this._extractArgs(context.userMessage);
+        const params = this._withRequestPeer(this._extractArgs(context.userMessage), peer);
         result = await chat(params);
       } else if (skillName === 'broadcast') {
-        const params = this._extractArgs(context.userMessage);
+        const params = this._withRequestPeer(this._extractArgs(context.userMessage), peer);
         result = await broadcast(params);
       } else if (isBridgedTool(skillName)) {
         // Route to OpenClaw bridge
@@ -207,6 +207,22 @@ class OpenClawExecutor {
     }
 
     return {};
+  }
+
+  _withRequestPeer(params, peer) {
+    const requestPeerId = typeof peer === 'string' ? peer.trim() : '';
+    if (!requestPeerId || ['__shared__', 'anonymous', 'unknown'].includes(requestPeerId)) {
+      return params;
+    }
+
+    if (!params || typeof params !== 'object' || Array.isArray(params)) {
+      return { _requestPeerId: requestPeerId };
+    }
+
+    return {
+      ...params,
+      _requestPeerId: requestPeerId,
+    };
   }
 
   _handlePing() {

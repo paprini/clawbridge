@@ -375,6 +375,75 @@ describe('Built-in Skills', () => {
       expect(result.reply_relay_peer).toBe('monti-telegram');
     });
 
+    it('falls back to the authenticated peer when inbound relay metadata is missing', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'discord-agent',
+        openclaw_agent_id: 'discord-agent',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+      callPeerSkill.mockResolvedValue({ success: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _requestPeerId: 'monti-telegram',
+        _agentDelivery: {
+          activateSession: true,
+          requestedTarget: '@discord-agent',
+        },
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        message: 'Hola desde Discord',
+        _relay: { hops: 1, visited: ['discord-agent'] },
+      });
+      expect(result.reply_relay).toBe('delivered');
+      expect(result.reply_relay_peer).toBe('monti-telegram');
+    });
+
+    it('prefers the authenticated peer when sourceAgentId matches the local agent', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'main',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+      callPeerSkill.mockResolvedValue({ success: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _requestPeerId: 'monti-telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'main',
+          requestedTarget: '@guali-discord',
+        },
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        message: 'Hola desde Discord',
+        _relay: { hops: 1, visited: ['main'] },
+      });
+      expect(result.reply_relay).toBe('delivered');
+      expect(result.reply_relay_peer).toBe('monti-telegram');
+    });
+
     it('returns partial failure when inbound dispatch fails after delivery', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',

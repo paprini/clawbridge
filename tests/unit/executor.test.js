@@ -63,6 +63,20 @@ describe('OpenClawExecutor', () => {
     };
   }
 
+  function makePeerContext(parts, userName) {
+    return {
+      userMessage: {
+        kind: 'message',
+        messageId: 'test-msg',
+        role: 'user',
+        parts,
+      },
+      taskId: 'test-task',
+      contextId: 'test-context',
+      context: { user: { userName, isAuthenticated: true } },
+    };
+  }
+
   function makeEventBus() {
     const events = [];
     let finished = false;
@@ -165,6 +179,23 @@ describe('OpenClawExecutor', () => {
     expect(result.error).toBeUndefined();
     expect(result.success).toBe(true);
     expect(result.delivered_to).toBe('#general');
+  });
+
+  test('passes the authenticated peer id to chat for reply routing', async () => {
+    const ctx = makePeerContext([
+      { kind: 'text', text: 'chat' },
+      { kind: 'text', text: '{"message":"hello"}' },
+    ], 'monti-telegram');
+    const bus = makeEventBus();
+
+    await executor.execute(ctx, bus);
+
+    expect(chat).toHaveBeenCalledWith({
+      message: 'hello',
+      _requestPeerId: 'monti-telegram',
+    });
+    const result = JSON.parse(bus.getEvents()[0].parts[0].text);
+    expect(result.success).toBe(true);
   });
 
   test('cancelTask finishes immediately', async () => {

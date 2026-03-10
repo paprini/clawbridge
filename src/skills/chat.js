@@ -210,6 +210,28 @@ function buildAgentDeliveryMeta({ sourceAgentId, requestedTarget, remoteChannelT
   };
 }
 
+function normalizeRequestPeerId(value, localAgentId) {
+  const trimmed = typeof value === 'string' ? value.trim() : '';
+  if (!trimmed || ['__shared__', 'anonymous', 'unknown'].includes(trimmed)) {
+    return null;
+  }
+
+  if (localAgentId && trimmed === localAgentId) {
+    return null;
+  }
+
+  return trimmed;
+}
+
+function resolveReplyRelayPeerId({ requestPeerId, sourceAgentId, localAgentId }) {
+  const requestPeer = normalizeRequestPeerId(requestPeerId, localAgentId);
+  if (requestPeer) {
+    return requestPeer;
+  }
+
+  return normalizeRequestPeerId(sourceAgentId, localAgentId);
+}
+
 function normalizeSessionToken(value, fallback) {
   const trimmed = typeof value === 'string' ? value.trim() : '';
   if (!trimmed) {
@@ -819,6 +841,7 @@ async function chat(params) {
   const { agentId, openclawAgentId, defaultDelivery } = getLocalAgentContext();
   const relayMeta = normalizeRelayMeta(params._relay);
   let agentDeliveryMeta = normalizeAgentDeliveryMeta(params._agentDelivery);
+  const requestPeerId = normalizeRequestPeerId(params._requestPeerId, agentId);
 
   if (target !== undefined && typeof target !== 'string') {
     return {
@@ -1097,8 +1120,13 @@ async function chat(params) {
           message,
           ...activationOptions,
         });
-        const replyRelay = await relayActivationReplyToSourcePeer({
+        const replyRelayPeerId = resolveReplyRelayPeerId({
+          requestPeerId,
           sourceAgentId: agentDeliveryMeta.sourceAgentId,
+          localAgentId: agentId,
+        });
+        const replyRelay = await relayActivationReplyToSourcePeer({
+          sourceAgentId: replyRelayPeerId,
           message: extractOpenClawReplyText(dispatchResult),
           relayMeta,
           agentId,
