@@ -3,6 +3,16 @@
 const crypto = require('crypto');
 const { loadPeersConfig } = require('./config');
 
+function buildMessageParts(skillText, params) {
+  const parts = [{ kind: 'text', text: skillText }];
+
+  if (params && typeof params === 'object' && Object.keys(params).length > 0) {
+    parts.push({ kind: 'text', text: JSON.stringify(params) });
+  }
+
+  return parts;
+}
+
 /**
  * Validate that a URL uses http or https protocol only.
  * @param {string} urlStr
@@ -37,9 +47,10 @@ async function fetchAgentCard(baseUrl) {
  * Call a skill on a remote peer via JSON-RPC message/send.
  * @param {string} peerId - Peer identifier from peers.json
  * @param {string} skillText - Text to send (skill name like "ping" or "get_status")
+ * @param {object} [params] - Optional JSON params sent as a second text part
  * @returns {Promise<object>} Parsed result from the peer
  */
-async function callPeerSkill(peerId, skillText) {
+async function callPeerSkill(peerId, skillText, params) {
   const peers = loadPeersConfig();
   const peer = peers.find((p) => p.id === peerId);
 
@@ -58,7 +69,7 @@ async function callPeerSkill(peerId, skillText) {
         kind: 'message',
         messageId: crypto.randomUUID(),
         role: 'user',
-        parts: [{ kind: 'text', text: skillText }],
+        parts: buildMessageParts(skillText, params),
       },
     },
     id: Date.now(),
@@ -102,13 +113,28 @@ async function callPeerSkill(peerId, skillText) {
 
 /**
  * Call multiple peers in parallel (fan-out).
- * @param {Array<{peerId: string, skill: string}>} calls
+ * @param {Array<{peerId: string, skill: string, params?: object}>|string[]} callsOrPeerIds
+ * @param {string} [skill]
+ * @param {object} [params]
  * @returns {Promise<Array<{peerId: string, result?: object, error?: string}>>}
  */
-async function callPeers(calls) {
-  return Promise.all(calls.map(async ({ peerId, skill }) => {
+async function callPeers(callsOrPeerIds, skill, params) {
+  let calls = callsOrPeerIds;
+
+  if (Array.isArray(callsOrPeerIds) && callsOrPeerIds.length === 0) {
+    return [];
+  }
+
+  if (!Array.isArray(callsOrPeerIds) || typeof callsOrPeerIds[0] === 'string') {
+    const peerIds = Array.isArray(callsOrPeerIds) && callsOrPeerIds.length > 0
+      ? callsOrPeerIds
+      : loadPeersConfig().map((peer) => peer.id);
+    calls = peerIds.map((peerId) => ({ peerId, skill, params }));
+  }
+
+  return Promise.all(calls.map(async ({ peerId, skill: callSkill, params: callParams }) => {
     try {
-      const result = await callPeerSkill(peerId, skill);
+      const result = await callPeerSkill(peerId, callSkill, callParams);
       return { peerId, result };
     } catch (err) {
       return { peerId, error: err.message };
@@ -127,9 +153,9 @@ async function chainCalls(steps) {
     const skill = lastResult
       ? `${step.skill} ${JSON.stringify(lastResult)}`
       : step.skill;
-    lastResult = await callPeerSkill(step.peerId, skill);
+    lastResult = await callPeerSkill(step.peerId, skill, step.params);
   }
   return lastResult;
 }
 
-module.exports = { fetchAgentCard, callPeerSkill, validatePeerUrl, callPeers, chainCalls };
+module.exports = { fetchAgentCard, callPeerSkill, validatePeerUrl, callPeers, chainCalls, buildMessageParts };

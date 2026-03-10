@@ -93,7 +93,7 @@ npm run setup:auto
 **Prompt:** `Agent URL [http://YOUR_IP:9100/a2a]:`  
 **Enter:** `http://10.0.1.10:9100/a2a`
 
-**Prompt:** `Add a peer? (y/n)`  
+**Prompt:** `Add a peer? (y/N)`  
 **Enter:** `y`
 
 **Prompt:** `Peer name:`  
@@ -121,14 +121,16 @@ npm run setup:auto
 Agent name [hostname]: discord-agent
 Agent URL [http://10.0.1.10:9100/a2a]: http://10.0.1.10:9100/a2a
 
-✅ Generated bearer token (4ee91249...)
-
 Add a peer? (y/N): y
   Peer name: whatsapp-agent
   Peer URL (e.g. http://10.0.1.11:9100): http://10.0.1.11:9100
+  Token [G]enerate / [E]nter manually? [G]:
+  ✅ Generated peer token (4ee91249...)
   Add another? (y/N): y
   Peer name: telegram-agent
   Peer URL (e.g. http://10.0.1.12:9100): http://10.0.1.12:9100
+  Token [G]enerate / [E]nter manually? [G]:
+  ✅ Generated peer token (8ab194ef...)
   Add another? (y/N): n
 
 ✅ Config written to config/

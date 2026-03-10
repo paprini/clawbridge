@@ -91,8 +91,8 @@ async function broadcast(params) {
     );
 
     // Analyze results
-    const successful = results.filter(r => r.success && !r.result?.error);
-    const failed = results.filter(r => !r.success || r.result?.error);
+    const successful = results.filter(r => !r.error && !r.result?.error);
+    const failed = results.filter(r => r.error || r.result?.error);
 
     const duration = Date.now() - startTime;
 
@@ -106,9 +106,9 @@ async function broadcast(params) {
       successful_deliveries: successful.length,
       failed_deliveries: failed.length,
       results: results.map(r => ({
-        peer: r.peer,
-        success: r.success && !r.result?.error,
-        error: r.result?.error || (r.success ? null : 'Peer call failed'),
+        peer: r.peerId,
+        success: !r.error && !r.result?.error,
+        error: r.result?.error || r.error || null,
         timestamp: new Date().toISOString()
       })),
       duration_ms: duration,

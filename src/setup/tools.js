@@ -173,6 +173,7 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
   }
 
   const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', '..', 'config');
+  const existing = getCurrentConfig();
 
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
@@ -201,17 +202,19 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
   try { fs.chmodSync(path.join(configDir, 'peers.json'), 0o600); } catch { /* Windows doesn't support chmod */ }
 
   // skills.json (default safe skills)
-  const skills = {
-    exposed_skills: [
-      { name: 'ping', description: 'Health check. Returns pong with timestamp.', tags: ['health', 'status'], public: true },
-      { name: 'get_status', description: 'Returns agent status including uptime and version.', tags: ['status', 'info'], public: true },
-      { name: 'chat', description: 'Send a chat message to this agent.', tags: ['messaging', 'gateway'], public: true },
-      { name: 'broadcast', description: 'Broadcast a message to connected peers.', tags: ['messaging', 'fanout'], public: true },
-    ],
-  };
+  const skills = existing.skills.length > 0
+    ? { exposed_skills: existing.skills }
+    : {
+        exposed_skills: [
+          { name: 'ping', description: 'Health check. Returns pong with timestamp.', tags: ['health', 'status'], public: true },
+          { name: 'get_status', description: 'Returns agent status including uptime and version.', tags: ['status', 'info'], public: true },
+          { name: 'chat', description: 'Send a chat message to this agent.', tags: ['messaging', 'gateway'], public: true },
+          { name: 'broadcast', description: 'Broadcast a message to connected peers.', tags: ['messaging', 'fanout'], public: true },
+        ],
+      };
   fs.writeFileSync(path.join(configDir, 'skills.json'), JSON.stringify(skills, null, 2) + '\n');
 
-  const bridge = {
+  const bridge = existing.bridge || {
     enabled: true,
     gateway: {
       url: 'http://127.0.0.1:18789',
@@ -224,9 +227,7 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
   };
   fs.writeFileSync(path.join(configDir, 'bridge.json'), JSON.stringify(bridge, null, 2) + '\n');
 
-  const contacts = {
-    aliases: {},
-  };
+  const contacts = existing.contacts || { aliases: {} };
   fs.writeFileSync(path.join(configDir, 'contacts.json'), JSON.stringify(contacts, null, 2) + '\n');
 
   return { agent, peers: peersData.peers, token, configDir, bridge, contacts };

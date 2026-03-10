@@ -9,9 +9,13 @@ const { broadcast } = require('../../src/skills/broadcast');
 jest.mock('../../src/bridge');
 jest.mock('../../src/client');
 jest.mock('../../src/logger');
+jest.mock('../../src/config', () => ({
+  loadContactsConfig: jest.fn(() => ({ aliases: {} })),
+}));
 
 const { callOpenClawTool, loadBridgeConfig } = require('../../src/bridge');
-const { callPeers } = require('../../src/client');
+const { callPeerSkill, callPeers } = require('../../src/client');
+const { loadContactsConfig } = require('../../src/config');
 
 describe('Built-in Skills', () => {
   beforeEach(() => {
@@ -20,6 +24,7 @@ describe('Built-in Skills', () => {
       enabled: true,
       exposed_tools: ['message'],
     });
+    loadContactsConfig.mockReturnValue({ aliases: {} });
   });
 
   describe('chat', () => {
@@ -108,6 +113,40 @@ describe('Built-in Skills', () => {
       expect(callOpenClawTool).not.toHaveBeenCalled();
     });
 
+    it('relays cross-platform contacts to the configured peer', async () => {
+      loadBridgeConfig.mockReturnValue({ enabled: false, exposed_tools: ['message'] });
+      loadContactsConfig.mockReturnValue({
+        aliases: {
+          'telegram:Pato': {
+            peerId: 'telegram-agent',
+            target: '5914004682',
+            channel: 'telegram',
+          },
+        },
+      });
+      callPeerSkill.mockResolvedValue({
+        success: true,
+        delivered_to: '5914004682',
+        channel: 'telegram',
+      });
+
+      const result = await chat({
+        target: 'Pato',
+        message: 'Hello',
+        channel: 'telegram',
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('telegram-agent', 'chat', {
+        target: '5914004682',
+        message: 'Hello',
+        channel: 'telegram',
+      });
+      expect(callOpenClawTool).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(result.relayed_via).toBe('telegram-agent');
+      expect(result.resolved_target).toBe('5914004682');
+    });
+
     it('handles gateway errors gracefully', async () => {
       callOpenClawTool.mockRejectedValue(new Error('Gateway unavailable'));
 
@@ -161,8 +200,8 @@ describe('Built-in Skills', () => {
 
     it('broadcasts to all peers by default', async () => {
       callPeers.mockResolvedValue([
-        { peer: 'peer1', success: true, result: { success: true } },
-        { peer: 'peer2', success: true, result: { success: true } }
+        { peerId: 'peer1', result: { success: true } },
+        { peerId: 'peer2', result: { success: true } }
       ]);
 
       const result = await broadcast({ message: 'Test broadcast' });
@@ -181,7 +220,7 @@ describe('Built-in Skills', () => {
 
     it('broadcasts to specific targets', async () => {
       callPeers.mockResolvedValue([
-        { peer: 'peer1', success: true, result: { success: true } }
+        { peerId: 'peer1', result: { success: true } }
       ]);
 
       await broadcast({
@@ -198,7 +237,7 @@ describe('Built-in Skills', () => {
 
     it('adds priority prefix to message', async () => {
       callPeers.mockResolvedValue([
-        { peer: 'peer1', success: true, result: { success: true } }
+        { peerId: 'peer1', result: { success: true } }
       ]);
 
       await broadcast({ message: 'Test', priority: 'urgent' });
@@ -212,7 +251,7 @@ describe('Built-in Skills', () => {
 
     it('uses custom skill if provided', async () => {
       callPeers.mockResolvedValue([
-        { peer: 'peer1', success: true, result: { success: true } }
+        { peerId: 'peer1', result: { success: true } }
       ]);
 
       await broadcast({
@@ -229,9 +268,9 @@ describe('Built-in Skills', () => {
 
     it('reports mixed success/failure results', async () => {
       callPeers.mockResolvedValue([
-        { peer: 'peer1', success: true, result: { success: true } },
-        { peer: 'peer2', success: true, result: { error: 'Peer unavailable' } },
-        { peer: 'peer3', success: false }
+        { peerId: 'peer1', result: { success: true } },
+        { peerId: 'peer2', result: { error: 'Peer unavailable' } },
+        { peerId: 'peer3', error: 'Peer call failed' }
       ]);
 
       const result = await broadcast({ message: 'Test' });

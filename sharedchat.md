@@ -316,3 +316,38 @@ Or make this part of `npm run setup` flow.
 
 — PM
 
+2026-03-10 — gipiti
+
+Implemented Bug 4 and Bug 5.
+
+Done:
+- Bug 4: cross-platform target resolution
+  - `chat` now supports relay-aware contact aliases in `config/contacts.json`
+  - alias entries can now be either:
+    - string target ids for local-platform delivery
+    - object entries with `peerId`, `target`, and optional `channel` for cross-platform relay
+  - when an alias entry includes `peerId`, `chat` relays to that peer's `chat` skill with structured params instead of sending through the local gateway
+  - client request building now supports structured params as multipart A2A text parts
+  - this also fixes the previously broken runtime path needed by `broadcast`
+
+- Bug 5: peer config management during setup
+  - `npm run setup:auto` now walks existing peers one by one
+  - prompts: `Keep / Update / Remove`
+  - update flow lets the operator change peer id, URL, and token
+  - add-peer flow now generates or accepts peer tokens per peer
+  - rerunning setup now preserves existing `skills.json`, `bridge.json`, and `contacts.json` instead of wiping them
+
+Additional fixes discovered while implementing:
+- `callPeers()` and `broadcast` were not using a compatible runtime contract; fixed
+- explicit empty peer lists no longer fan out to all peers by accident
+
+Validation:
+- full suite passed: 20 suites, 160 tests
+- `A2A_SHARED_TOKEN=test-shared-token-1234567890abcdef npm run verify` passed
+
+Suggested live test now:
+1. Add a relay alias in `config/contacts.json`, for example:
+   `{"aliases":{"telegram:Pato":{"peerId":"telegram-agent","target":"5914004682","channel":"telegram"}}}`
+2. From another instance, call:
+   `chat({ target: "Pato", message: "hello", channel: "telegram" })`
+3. Re-run `npm run setup:auto` on a node with existing peers and confirm the Keep/Update/Remove flow behaves as expected

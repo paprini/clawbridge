@@ -152,9 +152,9 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 ```
 
 ### config/contacts.json (optional)
-Alias map for human-friendly names used by `chat`. Channel-specific aliases can be declared as `channel:name`.
+Alias map for human-friendly names used by `chat`. Channel-specific aliases can be declared as `channel:name`. Entries may be simple target strings or relay objects with `peerId`.
 ```json
-{"aliases": {"Pato": "5914004682", "telegram:Pato": "5914004682"}}
+{"aliases": {"Pato": "552287292342009884", "telegram:Pato": {"peerId": "telegram-agent", "target": "5914004682", "channel": "telegram"}}}
 ```
 
 ### config/helper-agent.json (optional)
@@ -182,11 +182,14 @@ Helper-agent bootstrap config. Used only for the local support helper, not for r
 
 ## Client Library
 
-### callPeerSkill(peerId, skillText)
+### callPeerSkill(peerId, skillText, params?)
 Call a skill on a remote peer.
 
-### callPeers([{peerId, skill}])
-Fan-out: call multiple peers in parallel. Returns array of results.
+### callPeers([{peerId, skill, params}])
+Fan-out using explicit call objects.
+
+### callPeers(peerIds, skill, params?)
+Fan-out to a peer list using a shared skill and params. Returns array of results.
 
 ### chainCalls([{peerId, skill}])
 Pipeline: call peers sequentially, passing results forward.

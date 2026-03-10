@@ -54,6 +54,94 @@ function createPrompt() {
   };
 }
 
+function normalizeChoice(value, fallback) {
+  const normalized = (value || '').trim().toLowerCase();
+  return normalized === '' ? fallback : normalized[0];
+}
+
+function tokenPreview(token) {
+  if (!token || typeof token !== 'string') return 'none';
+  return `${token.slice(0, 8)}...`;
+}
+
+async function promptForPeerToken(prompt, mode, existingToken) {
+  const isUpdate = mode === 'update';
+  const defaultChoice = isUpdate ? 'k' : 'g';
+  const question = isUpdate
+    ? `  Token [K]eep ${existingToken ? `(${tokenPreview(existingToken)}) ` : ''}/ [G]enerate / [E]nter manually? [K]: `
+    : '  Token [G]enerate / [E]nter manually? [G]: ';
+
+  const choice = normalizeChoice(await prompt.ask(question), defaultChoice);
+
+  if (isUpdate && choice === 'k') {
+    return existingToken;
+  }
+
+  if (choice === 'e') {
+    const manual = await prompt.ask(`  Peer token${existingToken ? ` [${tokenPreview(existingToken)}]` : ''}: `);
+    if (manual.trim()) return manual.trim();
+    if (existingToken) return existingToken;
+  }
+
+  const generated = generateToken();
+  console.log(`  ✅ Generated peer token (${generated.slice(0, 8)}...)`);
+  return generated;
+}
+
+async function manageExistingPeers(prompt, existingPeers) {
+  const peers = [];
+
+  if (!Array.isArray(existingPeers) || existingPeers.length === 0) {
+    return peers;
+  }
+
+  console.log('\nExisting peers:');
+
+  for (const peer of existingPeers) {
+    console.log(`- ${peer.id} (${peer.url})`);
+    const action = normalizeChoice(await prompt.ask('  [K]eep / [U]pdate / [R]emove? [K]: '), 'k');
+
+    if (action === 'r') {
+      console.log(`  Removed ${peer.id}`);
+      continue;
+    }
+
+    if (action === 'u') {
+      const peerName = (await prompt.ask(`  Peer name [${peer.id}]: `)).trim() || peer.id;
+      const peerUrl = (await prompt.ask(`  Peer URL [${peer.url}]: `)).trim() || peer.url;
+      const peerToken = await promptForPeerToken(prompt, 'update', peer.token);
+      peers.push({ id: peerName, url: peerUrl, token: peerToken });
+      continue;
+    }
+
+    peers.push(peer);
+  }
+
+  return peers;
+}
+
+async function collectAdditionalPeers(prompt, existingCount = 0) {
+  const peers = [];
+  const firstQuestion = existingCount > 0 ? '\nAdd another peer? (y/N): ' : '\nAdd a peer? (y/N): ';
+  let addPeer = normalizeChoice(await prompt.ask(firstQuestion), 'n');
+
+  while (addPeer === 'y') {
+    const peerName = (await prompt.ask('  Peer name: ')).trim();
+    const peerUrl = (await prompt.ask('  Peer URL (e.g. http://10.0.1.11:9100): ')).trim();
+
+    if (!peerName || !peerUrl) {
+      console.log('  Skipping peer with missing name or URL.');
+    } else {
+      const peerToken = await promptForPeerToken(prompt, 'new');
+      peers.push({ id: peerName, url: peerUrl, token: peerToken });
+    }
+
+    addPeer = normalizeChoice(await prompt.ask('  Add another? (y/N): '), 'n');
+  }
+
+  return peers;
+}
+
 // --- Non-interactive mode (power user fallback) ---
 async function runNonInteractive() {
   console.log('\n🔧 ClawBridge setup (non-interactive)\n');
@@ -63,41 +151,22 @@ async function runNonInteractive() {
   const existing = getCurrentConfig();
   if (existing.exists) {
     console.log(`Existing config found: ${existing.agent.name}`);
-    const overwrite = await prompt.ask('Overwrite? (y/N): ');
-    if (overwrite.toLowerCase() !== 'y') {
-      console.log('Keeping existing config.');
-      prompt.close();
-      return;
-    }
   }
 
   const hostname = os.hostname().split('.')[0];
-  const name = await prompt.ask(`Agent name [${hostname}]: `) || hostname;
+  const nameDefault = existing.agent?.name || hostname;
+  const name = (await prompt.ask(`Agent name [${nameDefault}]: `)).trim() || nameDefault;
 
   const net = getLocalSubnet();
   const localIp = net ? net.localIp : 'localhost';
-  const url = await prompt.ask(`Agent URL [http://${localIp}:9100/a2a]: `) || `http://${localIp}:9100/a2a`;
+  const urlDefault = existing.agent?.url || `http://${localIp}:9100/a2a`;
+  const url = (await prompt.ask(`Agent URL [${urlDefault}]: `)).trim() || urlDefault;
 
-  const token = generateToken();
-  console.log(`\n✅ Generated bearer token (${token.slice(0, 8)}...)`);
+  const managedPeers = await manageExistingPeers(prompt, existing.peers);
+  const newPeers = await collectAdditionalPeers(prompt, managedPeers.length);
+  const peers = [...managedPeers, ...newPeers];
 
-  const addPeer = await prompt.ask('\nAdd a peer? (y/N): ');
-  const peers = [];
-
-  if (addPeer.toLowerCase() === 'y') {
-    let more = true;
-    while (more) {
-      const peerName = await prompt.ask('  Peer name: ');
-      const peerUrl = await prompt.ask('  Peer URL (e.g. http://10.0.1.11:9100): ');
-      if (peerName && peerUrl) {
-        peers.push({ id: peerName, url: peerUrl, token });
-      }
-      const another = await prompt.ask('  Add another? (y/N): ');
-      more = another.toLowerCase() === 'y';
-    }
-  }
-
-  writeConfig({ agentName: name, agentUrl: url, peers, token });
+  writeConfig({ agentName: name, agentUrl: url, peers, token: generateToken() });
   console.log('\n✅ Config written to config/');
 
   // Test connections
@@ -164,7 +233,19 @@ async function main() {
   }
 }
 
-main().catch((err) => {
-  console.error('Fatal:', err.message);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error('Fatal:', err.message);
+    process.exit(1);
+  });
+}
+
+module.exports = {
+  createPrompt,
+  promptForPeerToken,
+  manageExistingPeers,
+  collectAdditionalPeers,
+  runNonInteractive,
+  runConversational,
+  main,
+};

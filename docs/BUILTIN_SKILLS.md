@@ -69,25 +69,26 @@ callPeerSkill('discord-agent', 'get_status')
 
 **How it works:**
 1. Peer agent receives `chat` skill call via ClawBridge
-2. Peer agent uses its own OpenClaw gateway `message` tool
-3. Message is delivered to the target channel/user on peer's platform
+2. ClawBridge resolves the target locally, or relays the request to another peer if the contact alias specifies a relay peer
+3. The final peer uses its own OpenClaw gateway `message` tool
+4. Message is delivered to the target channel/user on the correct platform
 
 **Usage:**
 ```javascript
-// Discord agent → WhatsApp agent (direct platform ID)
-callPeerSkill('whatsapp-agent', 'chat', {
-  target: '5914004682',
+// Direct local-platform target ID
+callPeerSkill('discord-agent', 'chat', {
+  target: '552287292342009884',
   message: 'Hello from Discord!'
 })
 
-// With a contacts alias configured in config/contacts.json
-callPeerSkill('telegram-agent', 'chat', {
+// Cross-platform relay via config/contacts.json
+callPeerSkill('discord-agent', 'chat', {
   target: 'Pato',
-  message: 'Direct message from another agent',
+  message: 'Relay this to Telegram',
   channel: 'telegram'
 })
 
-// With optional channel parameter and explicit platform
+// Explicit target on a known peer
 callPeerSkill('telegram-agent', 'chat', {
   target: '5914004682',
   message: 'Direct message from another agent',
@@ -106,7 +107,8 @@ callPeerSkill('telegram-agent', 'chat', {
   "success": true,
   "delivered_to": "Pato",
   "resolved_target": "5914004682",
-  "channel": "auto",
+  "relayed_via": "telegram-agent",
+  "channel": "telegram",
   "message_length": 20,
   "timestamp": "2026-03-09T23:12:05Z"
 }
@@ -115,9 +117,10 @@ callPeerSkill('telegram-agent', 'chat', {
 **Response (error):**
 ```json
 {
-  "error": "Target could not be resolved to a platform-specific ID.",
+  "error": "Failed to relay message to the correct peer",
   "target": "Pato",
-  "suggestion": "Use the platform-specific numeric ID directly, or add an alias in config/contacts.json."
+  "relay_peer": "telegram-agent",
+  "suggestion": "Check the relay peer in config/contacts.json and confirm that peer is reachable."
 }
 ```
 
@@ -130,7 +133,8 @@ callPeerSkill('telegram-agent', 'chat', {
 - Peer agent must have OpenClaw gateway configured
 - Bridge must be enabled
 - `message` tool must be allowed in bridge config
-- Use a platform-specific target ID directly, or define an alias in `config/contacts.json`
+- Use a platform-specific target ID directly for the local platform
+- For cross-platform delivery, define an alias in `config/contacts.json` with `peerId`, `target`, and `channel`
 
 ---
 

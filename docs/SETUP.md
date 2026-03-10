@@ -28,6 +28,8 @@ Skips the LLM and asks direct questions.
 - `config/agent.json`
 - `config/peers.json`
 - `config/skills.json`
+- `config/bridge.json`
+- `config/contacts.json`
 
 The tracked repo copy of `config/peers.json` is a bootstrap placeholder.  
 For production, prefer external runtime config through `A2A_CONFIG_DIR`.
@@ -46,6 +48,13 @@ Relevant environment variables:
 ### Prompt mode
 
 Useful when you want a predictable setup flow without an LLM dependency.
+
+Behavior:
+- reuses the current agent name and URL as prompt defaults
+- walks existing peers one by one with `Keep / Update / Remove`
+- lets you generate or replace peer tokens during updates
+- lets you add more peers afterwards
+- preserves existing bridge, contacts, and custom skills config when rewriting files
 
 ## Environment Variables
 

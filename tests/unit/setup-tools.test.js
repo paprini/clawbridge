@@ -103,6 +103,33 @@ describe('Setup Tools', () => {
       expect(result.bridge.enabled).toBe(true);
       expect(result.contacts.aliases).toEqual({});
     });
+
+    test('preserves existing bridge, contacts, and skills on re-run', () => {
+      fs.writeFileSync(path.join(tmpDir, 'skills.json'), JSON.stringify({
+        exposed_skills: [{ name: 'custom_skill', public: true }],
+      }));
+      fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({
+        enabled: true,
+        exposed_tools: ['message'],
+        gateway: { url: 'http://127.0.0.1:18789', tokenPath: '~/.openclaw/openclaw.json' },
+      }));
+      fs.writeFileSync(path.join(tmpDir, 'contacts.json'), JSON.stringify({
+        aliases: { 'telegram:Pato': { peerId: 'telegram-agent', target: '5914004682', channel: 'telegram' } },
+      }));
+
+      writeConfig({
+        agentName: 'test-agent',
+        agentDescription: 'Test agent',
+        agentUrl: 'http://localhost:9100/a2a',
+        peers: [{ id: 'peer2', url: 'http://10.0.1.12:9100', token: 'tok456' }],
+        token: 'shared_tok',
+      });
+
+      const result = getCurrentConfig();
+      expect(result.skills).toEqual([{ name: 'custom_skill', public: true }]);
+      expect(result.bridge.exposed_tools).toEqual(['message']);
+      expect(result.contacts.aliases['telegram:Pato']).toBeDefined();
+    });
   });
 
   describe('executeTool', () => {

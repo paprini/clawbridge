@@ -4,6 +4,7 @@
 
 const { callOpenClawTool, loadBridgeConfig } = require('../bridge');
 const { loadContactsConfig } = require('../config');
+const { callPeerSkill } = require('../client');
 const logger = require('../logger');
 
 function getChatBridgeError() {
@@ -34,6 +35,34 @@ function getChatBridgeError() {
   return null;
 }
 
+function normalizeAliasEntry(entry, fallbackChannel) {
+  if (typeof entry === 'string' && entry.trim().length > 0) {
+    return {
+      resolvedTarget: entry.trim(),
+      relayPeerId: null,
+      resolvedChannel: fallbackChannel || null,
+    };
+  }
+
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return null;
+  }
+
+  if (typeof entry.target !== 'string' || entry.target.trim().length === 0) {
+    return null;
+  }
+
+  return {
+    resolvedTarget: entry.target.trim(),
+    relayPeerId: typeof entry.peerId === 'string' && entry.peerId.trim().length > 0
+      ? entry.peerId.trim()
+      : null,
+    resolvedChannel: typeof entry.channel === 'string' && entry.channel.trim().length > 0
+      ? entry.channel.trim()
+      : (fallbackChannel || null),
+  };
+}
+
 function resolveTarget(target, channel) {
   const contacts = loadContactsConfig();
   const aliases = contacts?.aliases && typeof contacts.aliases === 'object'
@@ -47,12 +76,12 @@ function resolveTarget(target, channel) {
   lookupKeys.push(target);
 
   for (const key of lookupKeys) {
-    const resolved = aliases[key];
-    if (typeof resolved === 'string' && resolved.trim().length > 0) {
+    const resolved = normalizeAliasEntry(aliases[key], channel);
+    if (resolved) {
       return {
         requestedTarget: target,
-        resolvedTarget: resolved.trim(),
         alias: key,
+        ...resolved,
       };
     }
   }
@@ -60,6 +89,8 @@ function resolveTarget(target, channel) {
   return {
     requestedTarget: target,
     resolvedTarget: target,
+    relayPeerId: null,
+    resolvedChannel: channel || null,
     alias: null,
   };
 }
@@ -116,20 +147,63 @@ async function chat(params) {
     };
   }
 
+  const requestedTarget = target.trim();
+  const resolved = resolveTarget(requestedTarget, channel);
+  const resolvedTarget = resolved.resolvedTarget;
+
+  if (resolved.relayPeerId) {
+    try {
+      logger.info('Relaying chat message to peer', {
+        target: requestedTarget,
+        resolvedTarget,
+        relayPeerId: resolved.relayPeerId,
+        targetAlias: resolved.alias,
+        channel: resolved.resolvedChannel || channel || 'auto',
+      });
+
+      const relayResult = await callPeerSkill(resolved.relayPeerId, 'chat', {
+        target: resolvedTarget,
+        message,
+        channel: resolved.resolvedChannel || channel,
+      });
+
+      return {
+        ...relayResult,
+        delivered_to: requestedTarget,
+        resolved_target: resolvedTarget,
+        relayed_via: resolved.relayPeerId,
+        channel: resolved.resolvedChannel || channel || relayResult.channel || 'auto',
+      };
+    } catch (err) {
+      logger.error('Chat relay failed', {
+        error: err.message,
+        target: requestedTarget,
+        resolvedTarget,
+        relayPeerId: resolved.relayPeerId,
+        channel: resolved.resolvedChannel || channel,
+      });
+
+      return {
+        error: 'Failed to relay message to the correct peer',
+        details: err.message,
+        target: requestedTarget,
+        resolved_target: resolvedTarget,
+        relay_peer: resolved.relayPeerId,
+        suggestion: 'Check the relay peer in config/contacts.json and confirm that peer is reachable.',
+      };
+    }
+  }
+
   const bridgeError = getChatBridgeError();
   if (bridgeError) {
     return bridgeError;
   }
 
-  const requestedTarget = target.trim();
-  const resolved = resolveTarget(requestedTarget, channel);
-  const resolvedTarget = resolved.resolvedTarget;
-
   if (!looksLikeDirectTargetId(resolvedTarget)) {
     return {
       error: 'Target could not be resolved to a platform-specific ID.',
       target: requestedTarget,
-      suggestion: 'Use the platform-specific numeric ID directly, or add an alias in config/contacts.json.',
+      suggestion: 'Use the local platform target ID directly, or add an alias in config/contacts.json. For cross-platform delivery, include a relay peer in the alias entry.',
       usage: 'chat({ target: "5914004682", message: "Hello" })'
     };
   }
@@ -143,8 +217,8 @@ async function chat(params) {
     };
 
     // Add optional channel if provided
-    if (channel) {
-      messageArgs.channel = channel;
+    if (resolved.resolvedChannel || channel) {
+      messageArgs.channel = resolved.resolvedChannel || channel;
     }
 
     logger.info('Sending chat message via gateway', {
@@ -152,7 +226,7 @@ async function chat(params) {
       resolvedTarget,
       targetAlias: resolved.alias,
       messageLength: message.length,
-      channel: channel || 'auto'
+      channel: resolved.resolvedChannel || channel || 'auto'
     });
 
     await callOpenClawTool('message', messageArgs);
@@ -161,7 +235,7 @@ async function chat(params) {
       success: true,
       delivered_to: requestedTarget,
       resolved_target: resolvedTarget,
-      channel: channel || 'auto',
+      channel: resolved.resolvedChannel || channel || 'auto',
       message_length: message.length,
       timestamp: new Date().toISOString()
     };
@@ -170,7 +244,7 @@ async function chat(params) {
       error: err.message,
       target: requestedTarget,
       resolvedTarget,
-      channel
+      channel: resolved.resolvedChannel || channel
     });
 
     return {

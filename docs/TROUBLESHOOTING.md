@@ -106,7 +106,7 @@ Causes:
 Fixes:
 - Use the platform-specific numeric ID directly
 - Or define an alias in `config/contacts.json`, for example:
-  `{"aliases":{"Pato":"5914004682","telegram:Pato":"5914004682"}}`
+  `{"aliases":{"Pato":"552287292342009884","telegram:Pato":{"peerId":"telegram-agent","target":"5914004682","channel":"telegram"}}}`
 - Run `npm run verify` after editing config
 
 ## Config Not Found

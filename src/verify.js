@@ -124,6 +124,21 @@ check('contacts.json', () => {
   if (c.aliases !== undefined && (typeof c.aliases !== 'object' || Array.isArray(c.aliases) || c.aliases === null)) {
     return 'contacts.json "aliases" must be an object';
   }
+  for (const [alias, entry] of Object.entries(c.aliases || {})) {
+    if (typeof entry === 'string') continue;
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+      return `contacts.json alias "${alias}" must be a string or object`;
+    }
+    if (typeof entry.target !== 'string' || entry.target.trim().length === 0) {
+      return `contacts.json alias "${alias}" is missing a string "target"`;
+    }
+    if (entry.peerId !== undefined && (typeof entry.peerId !== 'string' || entry.peerId.trim().length === 0)) {
+      return `contacts.json alias "${alias}" has an invalid "peerId"`;
+    }
+    if (entry.channel !== undefined && (typeof entry.channel !== 'string' || entry.channel.trim().length === 0)) {
+      return `contacts.json alias "${alias}" has an invalid "channel"`;
+    }
+  }
   return true;
 });
 
