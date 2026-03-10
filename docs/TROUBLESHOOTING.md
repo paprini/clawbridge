@@ -129,6 +129,31 @@ Fixes:
 - if you use `#channel` names, map them in `config/contacts.json`
 - run `npm run verify`
 
+## Chat Times Out But The Remote Side Probably Finished
+
+Symptoms:
+- `Peer call to chat on X timed out after ...`
+- the receiving side still logs activation, relay, or visible delivery
+- humans may still see the message or reply after the caller has already given up
+
+Causes:
+- relay-backed `chat` legitimately takes longer than lightweight peer calls
+- peer timeout policy is too aggressive for the current OpenClaw/provider latency
+
+Fixes:
+- keep short peer timeouts for `ping` / `get_status`
+- give conversational flows a longer timeout with:
+  - `A2A_PEER_TIMEOUT_CHAT_MS`
+  - `A2A_PEER_TIMEOUT_DEFAULT_MS`
+  - `A2A_PEER_TIMEOUT_SHORT_MS`
+- example:
+  ```bash
+  export A2A_PEER_TIMEOUT_CHAT_MS=60000
+  export A2A_PEER_TIMEOUT_SHORT_MS=5000
+  npm run verify
+  ```
+- if the timeout error already says the remote side may still have completed successfully, inspect the receiving node before retrying blindly
+
 ## Message Arrives But Receiving Agent Does Not Act
 
 Symptoms: the message appears in Telegram / Discord / WhatsApp, but the receiving OpenClaw agent does not reply or continue the conversation

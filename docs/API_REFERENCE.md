@@ -209,6 +209,9 @@ Helper-agent bootstrap config. Used only for the local support helper, not for r
 | `A2A_SHARED_TOKEN` | Shared bearer token | (none) |
 | `A2A_CONFIG_DIR` | Config directory | `./config` |
 | `ALLOW_REPO_MANAGED_PEERS` | Allow real peers in tracked `config/peers.json` | (unset) |
+| `A2A_PEER_TIMEOUT_SHORT_MS` | Timeout for lightweight peer calls such as `ping` and `get_status` | `5000` |
+| `A2A_PEER_TIMEOUT_DEFAULT_MS` | Timeout for other peer skill calls | `10000` |
+| `A2A_PEER_TIMEOUT_CHAT_MS` | Timeout for conversational/relay-backed peer calls such as `chat` and `broadcast` | `60000` |
 | `OPENCLAW_BIN` | Override path to the OpenClaw CLI used for inbound `@agent` activation when PATH, `npm prefix -g`, `~/.openclaw/bin/openclaw`, and `~/.local/bin/openclaw` are not enough | auto-discover |
 | `OPENAI_API_KEY` | LLM API key (setup agent) | (none) |
 | `OPENAI_BASE_URL` | LLM API URL (setup agent) | `https://api.openai.com/v1` |
@@ -218,7 +221,7 @@ Helper-agent bootstrap config. Used only for the local support helper, not for r
 
 ## Client Library
 
-### callPeerSkill(peerId, skillText, params?)
+### callPeerSkill(peerId, skillText, params?, opts?)
 Call a skill on a remote peer.
 
 For `chat`, the supported target forms are:
@@ -228,13 +231,23 @@ For `chat`, the supported target forms are:
 - direct local platform IDs
 - aliases from `config/contacts.json`
 
-### callPeers([{peerId, skill, params}])
+Timeout policy:
+- `ping`, `get_status` → short timeout (`A2A_PEER_TIMEOUT_SHORT_MS`, default `5000`)
+- `chat`, `broadcast` → long timeout (`A2A_PEER_TIMEOUT_CHAT_MS`, default `60000`)
+- everything else → default timeout (`A2A_PEER_TIMEOUT_DEFAULT_MS`, default `10000`)
+- pass `opts.timeoutMs` to override per call
+
+When a relay-backed `chat` or `broadcast` times out locally, the thrown error says the remote side may still have completed successfully.
+
+### callPeers([{peerId, skill, params, timeoutMs}])
 Fan-out using explicit call objects.
 
-### callPeers(peerIds, skill, params?)
+### callPeers(peerIds, skill, params?, opts?)
 Fan-out to a peer list using a shared skill and params. Returns array of results.
 
-### chainCalls([{peerId, skill}])
+`opts.timeoutMs` applies a shared override to all peers in that call.
+
+### chainCalls([{peerId, skill, params, timeoutMs}])
 Pipeline: call peers sequentially, passing results forward.
 
 ### fetchAgentCard(baseUrl)
