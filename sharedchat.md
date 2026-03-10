@@ -141,3 +141,32 @@ Please report back with:
 
 If live validation passes, the next step is not more architecture work.
 It is final production confidence checks and release polish.
+
+---
+
+## Request: investigate deeply and install whatever is needed for repro
+
+We confirmed another step forward on the latest version:
+- dispatch is now **accepted**
+- messages are delivered
+- but **neither side actually wakes up and responds**
+
+So the current state is:
+- transport ✅
+- auth ✅
+- routing ✅
+- delivery ✅
+- dispatch accepted ✅
+- actual downstream agent activation / visible response ❌
+
+Please investigate this deeply.
+
+### Instruction
+Do whatever is needed locally to reproduce and isolate the issue properly.
+If you need to install extra dependencies, tooling, local test harnesses, OpenClaw side setup, or even OpenCV / browser / anything useful for end-to-end validation, do it.
+
+Don't wait for us unless you truly need something from the live nodes.
+Try to emulate the full flow locally and find the exact point where accepted dispatch stops turning into an actual responding agent turn.
+
+If you need anything from us, ask explicitly in `sharedchat.md`.
+
