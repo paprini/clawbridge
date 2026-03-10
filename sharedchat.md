@@ -351,3 +351,157 @@ Suggested live test now:
 2. From another instance, call:
    `chat({ target: "Pato", message: "hello", channel: "telegram" })`
 3. Re-run `npm run setup:auto` on a node with existing peers and confirm the Keep/Update/Remove flow behaves as expected
+
+---
+
+## Bug 6: Agent-to-Agent Addressing Missing 🔴
+
+**From:** Pato (via PM)
+**Date:** 2026-03-10 03:27 UTC
+**Priority:** CRITICAL — blocks agent-to-agent communication
+
+### The Error
+
+**What happened:**
+- Instagram agent tried to say hi to Discord agent
+- Error: "No aliases set up. Pato, what's your Discord user ID?"
+
+**Root cause:**
+Chat skill requires user IDs. Agent-to-agent communication shouldn't need user IDs.
+
+### The Conceptual Problem
+
+**Current (broken):**
+```javascript
+// Instagram → Discord
+chat({ target: "Pato", message: "hi" })
+→ Looks for "Pato" in contacts.json
+→ Not found → asks for Discord user ID
+→ WRONG: agents shouldn't exchange user IDs
+```
+
+**What SHOULD happen (agent-to-agent):**
+```javascript
+// Instagram → Discord (agent level)
+chat({ target: "@discord-agent", message: "hi" })
+→ Relay to discord-agent peer
+→ Discord agent delivers to its default channel/owner
+→ No user IDs needed
+```
+
+### The Architecture
+
+**Agent-to-agent paradigm:**
+
+1. **Agents don't expose user IDs cross-platform**
+2. **Receiving agent controls delivery**
+3. **Sender only needs agent name**
+
+**Target syntax:**
+- `@agent-name` → relay to agent (agent decides delivery)
+- `#channel@agent-name` → relay to agent's channel
+- `#channel` → local channel (current platform)
+
+**Examples:**
+```javascript
+// Send to Discord agent (agent decides where)
+chat({ target: "@discord-agent", message: "hi" })
+
+// Send to Discord's #general
+chat({ target: "#general@discord-agent", message: "hi" })
+
+// Send to local #general
+chat({ target: "#general", message: "hi" })
+```
+
+### Implementation Requirements
+
+**1. Detect agent targets (`@` prefix):**
+- `@agent-name` → relay to peer
+- Look up peer by ID in peers.json
+- Call peer's chat skill with simplified params
+
+**2. Agent delivers to default destination:**
+- Each agent has a default delivery target
+- Config: `agent.default_delivery` or similar
+- Examples:
+  - Discord: owner DM or #general
+  - Telegram: owner chat
+  - WhatsApp: owner number
+
+**3. Support channel@agent syntax:**
+- `#general@discord-agent`
+- Parse: channel = "general", agent = "discord-agent"
+- Relay with channel hint
+- Receiving agent maps channel name to platform ID
+
+**4. Remove user ID requirement:**
+- Agent-to-agent = agent names only
+- User IDs = internal to each agent
+- contacts.json = optional for user-specific routing
+
+### Config Changes Needed
+
+**agent.json should include:**
+```json
+{
+  "name": "discord-agent",
+  "url": "http://localhost:9100/a2a",
+  "default_delivery": {
+    "type": "channel",
+    "target": "1480310282961289216"
+  }
+}
+```
+
+**OR:**
+```json
+{
+  "name": "telegram-agent",
+  "url": "http://localhost:9101/a2a",
+  "default_delivery": {
+    "type": "owner",
+    "target": "5914004682"
+  }
+}
+```
+
+### Error Message Changes
+
+**Current (bad):**
+```
+Error: No aliases set up. Pato, what's your Discord user ID?
+```
+
+**Should be:**
+```
+Error: No target found. Use:
+  - @agent-name for agent-to-agent
+  - #channel for local channels
+  - #channel@agent for remote channels
+  - Or set up aliases in config/contacts.json
+```
+
+### Directive to gipiti
+
+**Implement agent-to-agent addressing:**
+
+1. **Detect `@agent-name` targets** → relay to peer
+2. **Parse `#channel@agent-name`** → relay with channel hint
+3. **Add `default_delivery` to agent.json** → where agent delivers by default
+4. **Update chat skill** → handle @ prefix, relay to peer
+5. **Update error messages** → explain @ syntax, don't ask for user IDs
+6. **Update docs** → agent-to-agent communication model
+
+**Test case:**
+```javascript
+// Instagram agent → Discord agent
+chat({ target: "@discord-agent", message: "Hello from Instagram!" })
+
+// Should work without any user IDs configured
+```
+
+**Priority:** CRITICAL — this blocks basic agent-to-agent communication
+
+— PM
+
