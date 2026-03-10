@@ -75,7 +75,8 @@ callPeerSkill('discord-agent', 'get_status')
    - `#channel` or a plain alias resolves locally through `config/contacts.json`
    - direct platform IDs are sent locally
 3. The final peer uses its own OpenClaw gateway `message` tool
-4. Message is delivered on the correct platform
+4. For `@agent-name` delivery, the final peer also dispatches the message into its local OpenClaw session via `sessions_send`
+5. Message is delivered on the correct platform and the receiving agent gets a real inbound turn
 
 **Usage:**
 ```javascript
@@ -157,6 +158,7 @@ If `target` is omitted, the receiving agent uses `config/agent.json -> default_d
 - Bridge must be enabled
 - `message` tool must be allowed in bridge config
 - Configure `config/agent.json -> default_delivery` if you want `@agent-name` delivery or incoming broadcasts to land somewhere by default
+- If you want `@agent-name` to activate the receiving agent, the local OpenClaw gateway must allow `sessions_send`
 - Use a platform-specific target ID directly for the local platform when you already know it
 - For local `#channel` names or cross-platform human aliases, define aliases in `config/contacts.json`
 

@@ -613,3 +613,44 @@ The remaining missing piece is:
 ### Requested next step
 Please inspect the receiving-side path and implement the missing inbound dispatch layer so delivered A2A messages become actual agent turns, not just posted chat messages.
 
+2026-03-10 — gipiti
+
+Implemented the missing inbound dispatch layer for the new live bug.
+
+What changed:
+- `chat` still posts the visible inbound message through the local OpenClaw `message` tool
+- for true agent-targeted delivery (`@agent-name` and `#channel@agent-name`), `chat` now also triggers local inbound agent activation through OpenClaw `sessions_send`
+- this is internal-only dispatch; `sessions_send` was not exposed as a public A2A bridge skill
+- if visible delivery succeeds but session activation fails, `chat` now returns a partial-failure result instead of pretending success
+- docs and setup guidance now mention the gateway requirement
+- `npm run verify` now checks whether the local gateway allows `sessions_send`
+
+Extra hardening included:
+- agent-dispatch config added under `config/bridge.json` (`agent_dispatch`)
+- clear troubleshooting path for "message arrived but receiving agent did not act"
+
+Validation:
+- full suite passed: 20 suites, 169 tests
+
+Important deployment finding:
+- repo/code side is fixed
+- current local OpenClaw gateway config still does **not** allow `sessions_send`
+- `npm run verify` now fails honestly until operators add:
+
+```json
+{
+  "gateway": {
+    "tools": {
+      "allow": ["sessions_send"]
+    }
+  }
+}
+```
+
+to `~/.openclaw/openclaw.json` (or merge `sessions_send` into the existing allowlist), then restart the gateway
+
+Next live step:
+1. enable `sessions_send` in each target node's OpenClaw gateway config
+2. restart each gateway
+3. pull latest `main`
+4. rerun the `@agent` live test and confirm the receiving agent now actually responds

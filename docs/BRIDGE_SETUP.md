@@ -31,6 +31,11 @@ Example `config/bridge.json`:
     "tokenPath": "~/.openclaw/openclaw.json",
     "sessionKey": "main"
   },
+  "agent_dispatch": {
+    "enabled": true,
+    "sessionKey": "main",
+    "timeoutSeconds": 0
+  },
   "exposed_tools": [
     "message",
     "web_search",
@@ -63,6 +68,8 @@ Start with low-risk tools:
 | `browser` | No | dangerous |
 
 High-risk tools are blocked by default unless you explicitly opt in.
+
+For inbound `@agent-name` delivery, ClawBridge also needs the local gateway to allow `sessions_send` in `~/.openclaw/openclaw.json -> gateway.tools.allow`. This is an internal dispatch dependency, not a public A2A-exposed skill.
 
 ## Restart And Validate
 

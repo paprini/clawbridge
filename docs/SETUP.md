@@ -56,6 +56,7 @@ Behavior:
 - lets you generate or replace peer tokens during updates
 - lets you add more peers afterwards
 - preserves existing bridge, contacts, and custom skills config when rewriting files
+- if you want inbound `@agent` messages to activate the receiving OpenClaw agent, also allow `sessions_send` in `~/.openclaw/openclaw.json -> gateway.tools.allow`
 
 ## Environment Variables
 

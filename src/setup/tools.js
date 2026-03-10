@@ -249,6 +249,11 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
       tokenPath: '~/.openclaw/openclaw.json',
       sessionKey: 'main',
     },
+    agent_dispatch: {
+      enabled: true,
+      sessionKey: 'main',
+      timeoutSeconds: 0,
+    },
     exposed_tools: ['message', 'web_search', 'web_fetch', 'memory_search', 'session_status'],
     timeout_ms: 300000,
     max_concurrent: 5,

@@ -91,6 +91,11 @@ describe('Setup Tools', () => {
       const bridge = JSON.parse(fs.readFileSync(path.join(tmpDir, 'bridge.json'), 'utf8'));
       expect(bridge.enabled).toBe(true);
       expect(bridge.exposed_tools).toContain('message');
+      expect(bridge.agent_dispatch).toEqual({
+        enabled: true,
+        sessionKey: 'main',
+        timeoutSeconds: 0,
+      });
 
       const contacts = JSON.parse(fs.readFileSync(path.join(tmpDir, 'contacts.json'), 'utf8'));
       expect(contacts.aliases).toEqual({});

@@ -126,6 +126,21 @@ Fixes:
 - if you use `#channel` names, map them in `config/contacts.json`
 - run `npm run verify`
 
+## Message Arrives But Receiving Agent Does Not Act
+
+Symptoms: the message appears in Telegram / Discord / WhatsApp, but the receiving OpenClaw agent does not reply or continue the conversation
+
+Causes:
+- visible delivery succeeded, but inbound agent dispatch did not happen
+- local OpenClaw gateway does not allow `sessions_send`
+- `bridge.agent_dispatch.sessionKey` points to the wrong local session
+
+Fixes:
+- ensure `config/bridge.json -> agent_dispatch.enabled` is `true`
+- ensure `config/bridge.json -> agent_dispatch.sessionKey` targets the real receiving agent session
+- allow `sessions_send` in `~/.openclaw/openclaw.json` under `gateway.tools.allow`
+- run `npm run verify`
+
 ## Config Not Found
 
 Symptoms: `Config file not found: agent.json`

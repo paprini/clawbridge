@@ -32,6 +32,10 @@ function loadJSON(file) {
   return JSON.parse(fs.readFileSync(p, 'utf8'));
 }
 
+function expandHome(filePath) {
+  return typeof filePath === 'string' ? filePath.replace(/^~/, os.homedir()) : filePath;
+}
+
 console.log('\n🔍 ClawBridge setup verification\n');
 console.log(`Config dir: ${configDir}\n`);
 
@@ -233,6 +237,35 @@ check('broadcast default delivery readiness', () => {
   const agent = loadJSON('agent.json');
   if (!agent?.default_delivery || typeof agent.default_delivery.target !== 'string' || agent.default_delivery.target.trim().length === 0) {
     return 'broadcast is exposed, but agent.json has no default_delivery.target. Incoming broadcasts and @agent delivery to this instance will fail.';
+  }
+
+  return true;
+});
+
+check('agent-to-agent dispatch readiness', () => {
+  const bridge = loadJSON('bridge.json');
+  if (!bridge || bridge.enabled !== true) {
+    return true;
+  }
+
+  const dispatch = bridge.agent_dispatch || {};
+  if (dispatch.enabled === false) {
+    console.log('    ℹ️  Inbound agent dispatch disabled — @agent delivery will only post visible messages');
+    return true;
+  }
+
+  const tokenPath = expandHome(bridge.gateway?.tokenPath || '~/.openclaw/openclaw.json');
+  if (!fs.existsSync(tokenPath)) {
+    return `OpenClaw config not found at ${tokenPath}`;
+  }
+
+  const gatewayConfig = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
+  const allow = Array.isArray(gatewayConfig?.gateway?.tools?.allow)
+    ? gatewayConfig.gateway.tools.allow
+    : [];
+
+  if (!allow.includes('sessions_send')) {
+    return 'bridge agent_dispatch is enabled, but OpenClaw gateway.tools.allow does not include "sessions_send"';
   }
 
   return true;

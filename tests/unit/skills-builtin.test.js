@@ -9,6 +9,7 @@ const { broadcast } = require('../../src/skills/broadcast');
 jest.mock('../../src/bridge');
 jest.mock('../../src/client');
 jest.mock('../../src/logger');
+jest.mock('../../src/openclaw-gateway');
 jest.mock('../../src/config', () => ({
   loadAgentConfig: jest.fn(() => ({ id: 'local-agent', default_delivery: null })),
   loadContactsConfig: jest.fn(() => ({ aliases: {} })),
@@ -17,6 +18,7 @@ jest.mock('../../src/config', () => ({
 
 const { callOpenClawTool, loadBridgeConfig } = require('../../src/bridge');
 const { callPeerSkill, callPeers } = require('../../src/client');
+const { invokeGatewayTool } = require('../../src/openclaw-gateway');
 const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../../src/config');
 
 describe('Built-in Skills', () => {
@@ -29,6 +31,7 @@ describe('Built-in Skills', () => {
     loadAgentConfig.mockReturnValue({ id: 'local-agent', default_delivery: null });
     loadContactsConfig.mockReturnValue({ aliases: {} });
     loadPeersConfig.mockReturnValue([]);
+    invokeGatewayTool.mockResolvedValue({ status: 'accepted' });
   });
 
   describe('chat', () => {
@@ -189,6 +192,11 @@ describe('Built-in Skills', () => {
 
       expect(callPeerSkill).toHaveBeenCalledWith('discord-agent', 'chat', {
         message: 'Hello from Instagram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'local-agent',
+          requestedTarget: '@discord-agent',
+        },
         _relay: { hops: 1, visited: ['local-agent'] },
       });
       expect(callOpenClawTool).not.toHaveBeenCalled();
@@ -212,6 +220,12 @@ describe('Built-in Skills', () => {
       expect(callPeerSkill).toHaveBeenCalledWith('discord-agent', 'chat', {
         target: '#general',
         message: 'Hello to general',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'local-agent',
+          requestedTarget: '#general@discord-agent',
+          remoteChannelTarget: '#general',
+        },
         _relay: { hops: 1, visited: ['local-agent'] },
       });
       expect(result.success).toBe(true);
@@ -237,7 +251,15 @@ describe('Built-in Skills', () => {
         message: 'Loop prevention',
         channel: 'discord'
       });
+      expect(invokeGatewayTool).toHaveBeenCalledWith('sessions_send', expect.objectContaining({
+        sessionKey: 'main',
+        timeoutSeconds: 0,
+        message: expect.stringContaining('Loop prevention'),
+      }), expect.objectContaining({
+        sessionKey: 'main',
+      }));
       expect(result.success).toBe(true);
+      expect(result.agent_dispatch).toBe('accepted');
     });
 
     it('returns a clear error for unknown @agent targets', async () => {
@@ -267,6 +289,57 @@ describe('Built-in Skills', () => {
       expect(result.relay_path).toEqual(['instagram-agent', 'discord-agent']);
       expect(callPeerSkill).not.toHaveBeenCalled();
       expect(callOpenClawTool).not.toHaveBeenCalled();
+    });
+
+    it('activates the receiving session for inbound @agent deliveries', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'discord-agent',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'monti-telegram',
+          requestedTarget: '@discord-agent',
+        },
+      });
+
+      expect(callOpenClawTool).toHaveBeenCalled();
+      expect(invokeGatewayTool).toHaveBeenCalledWith('sessions_send', expect.objectContaining({
+        sessionKey: 'main',
+        timeoutSeconds: 0,
+        message: expect.stringContaining('Source agent: monti-telegram'),
+      }), expect.objectContaining({
+        sessionKey: 'main',
+      }));
+      expect(result.success).toBe(true);
+      expect(result.agent_dispatch).toBe('accepted');
+    });
+
+    it('returns partial failure when inbound dispatch fails after delivery', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'discord-agent',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      invokeGatewayTool.mockRejectedValue(new Error('Tool "sessions_send" not found or not allowed on gateway.'));
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'monti-telegram',
+          requestedTarget: '@discord-agent',
+        },
+      });
+
+      expect(callOpenClawTool).toHaveBeenCalled();
+      expect(result.error).toContain('receiving agent activation failed');
+      expect(result.transport_delivered).toBe(true);
+      expect(result.details).toContain('sessions_send');
     });
 
     it('handles gateway errors gracefully', async () => {

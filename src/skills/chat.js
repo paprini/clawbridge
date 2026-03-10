@@ -5,6 +5,7 @@
 const { callOpenClawTool, loadBridgeConfig } = require('../bridge');
 const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../config');
 const { callPeerSkill } = require('../client');
+const { invokeGatewayTool } = require('../openclaw-gateway');
 const logger = require('../logger');
 
 const MAX_RELAY_HOPS = 4;
@@ -168,6 +169,105 @@ function buildRelayMeta(currentMeta, agentId) {
   };
 }
 
+function normalizeAgentDeliveryMeta(entry) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry) || entry.activateSession !== true) {
+    return null;
+  }
+
+  return {
+    activateSession: true,
+    sourceAgentId: typeof entry.sourceAgentId === 'string' && entry.sourceAgentId.trim().length > 0
+      ? entry.sourceAgentId.trim()
+      : null,
+    requestedTarget: typeof entry.requestedTarget === 'string' && entry.requestedTarget.trim().length > 0
+      ? entry.requestedTarget.trim()
+      : null,
+    remoteChannelTarget: typeof entry.remoteChannelTarget === 'string' && entry.remoteChannelTarget.trim().length > 0
+      ? entry.remoteChannelTarget.trim()
+      : null,
+  };
+}
+
+function buildAgentDeliveryMeta({ sourceAgentId, requestedTarget, remoteChannelTarget }) {
+  return {
+    activateSession: true,
+    ...(sourceAgentId ? { sourceAgentId } : {}),
+    ...(requestedTarget ? { requestedTarget } : {}),
+    ...(remoteChannelTarget ? { remoteChannelTarget } : {}),
+  };
+}
+
+function getAgentDispatchConfig() {
+  const bridgeConfig = loadBridgeConfig();
+  const dispatchConfig = bridgeConfig?.agent_dispatch || {};
+
+  if (!bridgeConfig || !bridgeConfig.enabled || dispatchConfig.enabled === false) {
+    return null;
+  }
+
+  return {
+    sessionKey: dispatchConfig.sessionKey || bridgeConfig.gateway?.sessionKey || 'main',
+    timeoutSeconds: typeof dispatchConfig.timeoutSeconds === 'number' && Number.isFinite(dispatchConfig.timeoutSeconds)
+      ? Math.max(0, Math.floor(dispatchConfig.timeoutSeconds))
+      : 0,
+    timeoutMs: bridgeConfig.timeout_ms || 300000,
+    gateway: bridgeConfig.gateway,
+  };
+}
+
+function buildInboundDispatchMessage({ message, requestedTarget, resolvedTarget, agentDeliveryMeta }) {
+  const lines = [
+    'ClawBridge inbound agent message.',
+    'Treat this as a trusted new inter-agent turn.',
+  ];
+
+  if (agentDeliveryMeta?.sourceAgentId) {
+    lines.push(`Source agent: ${agentDeliveryMeta.sourceAgentId}`);
+  }
+
+  if (agentDeliveryMeta?.requestedTarget || requestedTarget) {
+    lines.push(`Requested target: ${agentDeliveryMeta?.requestedTarget || requestedTarget}`);
+  }
+
+  if (resolvedTarget) {
+    lines.push(`Resolved local delivery target: ${resolvedTarget}`);
+  }
+
+  if (agentDeliveryMeta?.remoteChannelTarget) {
+    lines.push(`Remote channel target: ${agentDeliveryMeta.remoteChannelTarget}`);
+  }
+
+  lines.push('');
+  lines.push(message);
+  return lines.join('\n');
+}
+
+async function dispatchInboundAgentTurn({ message, requestedTarget, resolvedTarget, agentDeliveryMeta }) {
+  const dispatchConfig = getAgentDispatchConfig();
+
+  if (!dispatchConfig) {
+    return {
+      status: 'skipped',
+      error: 'Inbound agent dispatch is disabled in config/bridge.json.',
+    };
+  }
+
+  return invokeGatewayTool('sessions_send', {
+    sessionKey: dispatchConfig.sessionKey,
+    message: buildInboundDispatchMessage({
+      message,
+      requestedTarget,
+      resolvedTarget,
+      agentDeliveryMeta,
+    }),
+    timeoutSeconds: dispatchConfig.timeoutSeconds,
+  }, {
+    gateway: dispatchConfig.gateway,
+    sessionKey: dispatchConfig.sessionKey,
+    timeoutMs: dispatchConfig.timeoutMs,
+  });
+}
+
 function resolveTarget(target, channel) {
   const contacts = loadContactsConfig();
   const aliases = contacts?.aliases && typeof contacts.aliases === 'object'
@@ -227,6 +327,7 @@ async function chat(params) {
     : null;
   const { agentId, defaultDelivery } = getLocalAgentContext();
   const relayMeta = normalizeRelayMeta(params._relay);
+  let agentDeliveryMeta = normalizeAgentDeliveryMeta(params._agentDelivery);
 
   if (target !== undefined && typeof target !== 'string') {
     return {
@@ -297,6 +398,12 @@ async function chat(params) {
   const agentTarget = parseAgentTarget(effectiveTarget);
   if (agentTarget) {
     if (agentTarget.peerId === agentId) {
+      agentDeliveryMeta = agentDeliveryMeta || buildAgentDeliveryMeta({
+        sourceAgentId: agentId,
+        requestedTarget: requestedTarget || effectiveTarget,
+        remoteChannelTarget: agentTarget.channelTarget,
+      });
+
       if (agentTarget.channelTarget) {
         effectiveTarget = agentTarget.channelTarget;
       } else if (defaultDelivery) {
@@ -323,6 +430,11 @@ async function chat(params) {
         relayParams.target = agentTarget.channelTarget;
       }
       relayParams._relay = buildRelayMeta(relayMeta, agentId);
+      relayParams._agentDelivery = buildAgentDeliveryMeta({
+        sourceAgentId: agentId,
+        requestedTarget: requestedTarget || effectiveTarget,
+        remoteChannelTarget: agentTarget.channelTarget,
+      });
 
       try {
         logger.info('Relaying chat message to peer agent', {
@@ -441,6 +553,56 @@ async function chat(params) {
     });
 
     await callOpenClawTool('message', messageArgs);
+
+    if (agentDeliveryMeta?.activateSession) {
+      try {
+        const dispatchResult = await dispatchInboundAgentTurn({
+          message,
+          requestedTarget: requestedTarget || effectiveTarget,
+          resolvedTarget,
+          agentDeliveryMeta,
+        });
+
+        if (!['accepted', 'ok'].includes(dispatchResult?.status)) {
+          return {
+            error: 'Message was delivered, but receiving agent activation failed.',
+            delivered_to: requestedTarget || effectiveTarget,
+            resolved_target: resolvedTarget,
+            transport_delivered: true,
+            agent_dispatch: dispatchResult?.status || 'error',
+            details: dispatchResult?.error || 'Unknown dispatch error',
+            suggestion: 'Allow the sessions_send gateway tool and confirm bridge.agent_dispatch.sessionKey points to the receiving OpenClaw agent session.',
+          };
+        }
+
+        return {
+          success: true,
+          delivered_to: requestedTarget || effectiveTarget,
+          resolved_target: resolvedTarget,
+          channel: resolved.resolvedChannel || effectiveChannel || 'auto',
+          message_length: message.length,
+          agent_dispatch: dispatchResult.status,
+          timestamp: new Date().toISOString()
+        };
+      } catch (err) {
+        logger.error('Inbound agent dispatch failed', {
+          error: err.message,
+          target: requestedTarget || effectiveTarget,
+          resolvedTarget,
+          sourceAgentId: agentDeliveryMeta.sourceAgentId || null,
+        });
+
+        return {
+          error: 'Message was delivered, but receiving agent activation failed.',
+          delivered_to: requestedTarget || effectiveTarget,
+          resolved_target: resolvedTarget,
+          transport_delivered: true,
+          agent_dispatch: 'error',
+          details: err.message,
+          suggestion: 'Allow the sessions_send gateway tool and confirm bridge.agent_dispatch.sessionKey points to the receiving OpenClaw agent session.',
+        };
+      }
+    }
 
     return {
       success: true,
