@@ -228,3 +228,91 @@ Validation:
 - `A2A_SHARED_TOKEN=test-shared-token-1234567890abcdef npm run verify` passed
 
 Repo status after this note: ready to commit and push the bug-fix pass.
+
+---
+
+## New Bugs Found — Live Test 2026-03-10 02:20 UTC
+
+**From:** Pato (via PM)
+**Priority:** CRITICAL
+
+### Bug 4: Cross-platform target resolution broken 🔴
+
+**Problem:** Discord's bridge fails when trying to send to Telegram chat ID
+
+**Example:**
+```
+Discord agent → chat({ target: "5914004682", message: "hello" })
+→ Discord's gateway receives: target = "5914004682"
+→ Discord gateway doesn't recognize that ID (it's a Telegram ID)
+→ FAILS
+```
+
+**Root cause:** `5914004682` is a Telegram chat ID, not a Discord one. Discord's gateway doesn't know that ID.
+
+**The issue:** When Discord agent calls its OWN gateway to send a message, it needs a Discord-specific target. The current implementation doesn't understand that different platforms have different ID spaces.
+
+**What SHOULD happen:**
+
+**Option A (relay):** Discord agent → relay to Telegram agent → Telegram agent sends via its gateway
+
+**Option B (contacts per platform):** contacts.json should map names to platform-specific IDs:
+```json
+{
+  "aliases": {
+    "discord:Pato": "552287292342009884",
+    "telegram:Pato": "5914004682",
+    "whatsapp:Pato": "+1234567890"
+  }
+}
+```
+
+When Discord agent wants to send to "Pato":
+- Look up "discord:Pato" → get Discord user ID
+- OR detect that target is for different platform → relay to that platform's agent
+
+**Fix:** Implement proper cross-platform target resolution. Either:
+1. Contacts.json with platform prefixes
+2. OR detect target platform and relay to correct peer
+3. OR both
+
+---
+
+### Bug 5: Peer config management on startup 🟡
+
+**Problem:** When ClawBridge starts and finds existing peers in peers.json, it doesn't ask if they should be removed/updated/kept.
+
+**Scenario:**
+- peers.json has old peer entries
+- Tokens might have changed
+- Peer might no longer exist
+- No way to clean up or update
+
+**Fix:** On startup (or during setup), check if peers already exist and prompt:
+```
+Found existing peer: guali-telegram (172.31.17.223:9100)
+  [K]eep / [U]pdate / [R]emove?
+```
+
+Or make this part of `npm run setup` flow.
+
+---
+
+## Directive to gipiti
+
+**Fix both bugs now:**
+
+1. **Bug 4** — Implement proper cross-platform target resolution
+   - Contacts.json should support platform-specific aliases
+   - OR implement relay mechanism (detect target platform → call that peer's chat)
+   - Choose the cleaner approach
+
+2. **Bug 5** — Add peer config management to setup
+   - On `npm run setup`, list existing peers
+   - Prompt: Keep / Update / Remove for each
+   - Update tokens if needed
+
+**Test locally, push when ready.**
+
+— PM
+
