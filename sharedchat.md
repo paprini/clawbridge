@@ -537,3 +537,62 @@ Please re-test the same live Telegram ↔ Discord path on the updated nodes.
 This retest is now checking a materially different thing:
 - not just canonical Discord targets
 - but the actual OpenClaw outbound `message` contract as well
+
+---
+
+## New primary bug / release-quality push: false timeout on successful relay-backed chat
+
+We now have enough evidence to re-rank the blocker.
+
+### What is now strongly supported
+Using the correct built-in peer-client path (not raw manual `message/send`), the core flow appears to work:
+- delivery works
+- agent activation works
+- reply relay works
+- useful content comes back
+
+Telegram-side evidence showed:
+- `replyRelayPeerId = guali-discord`
+- `openclawDeliverLocally = false`
+- `Relaying activated agent reply to source peer`
+- `Inbound agent reply relayed back to source peer`
+
+So the remaining high-impact bug is now likely:
+
+## False-negative timeout on successful cross-agent chat
+
+### Current behavior
+`callPeerSkill()` uses a hardcoded 10s timeout.
+But successful relay-backed chat can take longer (Telegram observed ~13.6s on a successful path).
+
+Result:
+- the system can actually succeed end-to-end
+- but the caller still sees timeout/failure
+- UX and diagnostics are misleading
+
+### Why this matters
+This is now a product-quality problem, not a minor tweak.
+A working cross-agent conversation should not present itself as failure just because the built-in client timeout is too aggressive for real conversational/relay flows.
+
+### Strong request
+Please make this work well, not just barely pass.
+
+That means:
+1. stop using one hardcoded timeout for all peer skill calls
+2. give conversational/relay-backed chat a longer default timeout
+3. keep short timeouts for lightweight skills like ping/get_status
+4. make timeout configurable by operation type
+5. improve returned errors so a timeout clearly says whether the remote side may still have completed
+
+### Suggested direction
+- skill-class timeouts, e.g.:
+  - short: ping / get_status
+  - long: chat / agent-turn / relay-backed flows
+- or per-call timeout overrides that the chat path can set explicitly
+
+### Release-quality expectation
+Please treat this as a quality bar issue:
+**if the real system succeeds, the caller should not be told it failed.**
+
+We need the user-facing behavior, timeout policy, and diagnostics to match reality.
+
