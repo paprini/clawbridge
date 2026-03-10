@@ -25,6 +25,7 @@ process.env.A2A_CONFIG_DIR = tmpDir;
 const { OpenClawExecutor } = require('../../src/executor');
 const { chat } = require('../../src/skills/chat');
 const { version: packageVersion } = require('../../package.json');
+const { buildMessageParts } = require('../../src/client');
 
 describe('OpenClawExecutor', () => {
   let executor;
@@ -179,6 +180,32 @@ describe('OpenClawExecutor', () => {
     expect(result.error).toBeUndefined();
     expect(result.success).toBe(true);
     expect(result.delivered_to).toBe('#general');
+  });
+
+  test('preserves nested agent-delivery params through multipart transport', async () => {
+    const ctx = makePeerContext(buildMessageParts('chat', {
+      message: 'hello',
+      _agentDelivery: {
+        activateSession: true,
+        sourceAgentId: 'monti-telegram',
+        requestedTarget: '@guali-discord',
+      },
+    }), 'monti-telegram');
+    const bus = makeEventBus();
+
+    await executor.execute(ctx, bus);
+
+    expect(chat).toHaveBeenCalledWith({
+      message: 'hello',
+      _agentDelivery: {
+        activateSession: true,
+        sourceAgentId: 'monti-telegram',
+        requestedTarget: '@guali-discord',
+      },
+      _requestPeerId: 'monti-telegram',
+    });
+    const result = JSON.parse(bus.getEvents()[0].parts[0].text);
+    expect(result.success).toBe(true);
   });
 
   test('passes the authenticated peer id to chat for reply routing', async () => {

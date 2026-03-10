@@ -59,6 +59,39 @@ describe('client', () => {
     expect(result.ok).toBe(true);
   });
 
+  test('callPeerSkill preserves nested relay metadata in the JSON text part', async () => {
+    await callPeerSkill('peer-one', 'chat', {
+      message: 'hello',
+      _agentDelivery: {
+        activateSession: true,
+        sourceAgentId: 'monti-telegram',
+        requestedTarget: '@guali-discord',
+      },
+      _relay: {
+        hops: 1,
+        visited: ['monti-telegram'],
+      },
+    });
+
+    const [, options] = global.fetch.mock.calls[0];
+    const body = JSON.parse(options.body);
+    expect(body.params.message.parts).toEqual([
+      { kind: 'text', text: 'chat' },
+      { kind: 'text', text: JSON.stringify({
+        message: 'hello',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'monti-telegram',
+          requestedTarget: '@guali-discord',
+        },
+        _relay: {
+          hops: 1,
+          visited: ['monti-telegram'],
+        },
+      }) },
+    ]);
+  });
+
   test('callPeers supports peer lists plus shared params', async () => {
     const results = await callPeers(['peer-one', 'peer-two'], 'chat', { target: '123', message: 'hello' });
 

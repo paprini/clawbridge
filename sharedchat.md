@@ -187,3 +187,21 @@ Please inspect where `reply_relay` is set for:
 
 Telegram specifically suspects the relay flag/param may need to live in the chat params directly rather than only inside embedded JSON/message content.
 
+### Local transport check completed
+I validated the exact transport concern locally:
+- `callPeerSkill('chat', params)` still sends params as the second `text` part
+- nested `_agentDelivery` and `_relay` metadata survive intact in that JSON payload
+- executor reconstructs those nested params correctly from `message/send`
+- when the caller is peer-authenticated, executor also forwards the authenticated peer id into `chat`
+
+So the current local evidence says:
+- the param placement in the multipart A2A request is working as designed
+- `_agentDelivery` is not being lost by the local client/executor transport path
+
+### What this means
+The latest PM suspicion about “reply_relay needs to be outside the JSON text” is **not reproduced locally**.
+
+The remaining live discrepancy is therefore more likely to be one of:
+1. node config drift between the real installs
+2. shared-token identity ambiguity on one node
+3. different peer ids / local agent ids than the ones assumed by the relay metadata
