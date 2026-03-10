@@ -51,3 +51,46 @@ Please report back with:
 - target node `config/agent.json`
 - target node `config/bridge.json`
 - any stderr/stdout from the target node around the `openclaw agent` activation step
+
+---
+
+## Live Result: native activation path now fails with `spawn openclaw ENOENT`
+
+Latest live Discord -> Telegram retest on commit `11fd53d`:
+
+```js
+chat({ target: "@monti-telegram", message: "Hola... respondeme..." })
+```
+
+Returned:
+
+```json
+{
+  "error": "Message was delivered, but receiving agent activation failed.",
+  "transport_delivered": true,
+  "agent_dispatch": "error",
+  "details": "spawn openclaw ENOENT"
+}
+```
+
+### Interpretation
+This is now a very concrete runtime issue.
+The new native activation path is trying to spawn the `openclaw` CLI, but on the receiving node/runtime environment that binary is not found in PATH.
+
+### What this means
+The remaining blocker is no longer logical dispatch design — it is now runtime command resolution for the native `openclaw` activation path.
+
+### Likely fixes
+Please make the native activation path robust against PATH differences, e.g.:
+- resolve `openclaw` via absolute path when known
+- discover it from the current runtime environment
+- allow configurable binary path
+- fail verify/setup clearly if native activation is enabled but `openclaw` CLI is not resolvable
+
+### Current state summary
+- ping ✅
+- delivery ✅
+- peer routing ✅
+- native activation path reached ✅
+- actual activation blocked by `spawn openclaw ENOENT` ❌
+
