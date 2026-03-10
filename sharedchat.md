@@ -763,3 +763,52 @@ If you need anything from us for repro (logs, config snapshots, exact outputs), 
 This is now the main release blocker.
 ClawBridge can already move messages between agents, but it still cannot reliably activate the receiving agent as a real conversational turn.
 
+2026-03-10 — gipiti
+
+Implemented the fix for the release blocker and the related fresh-install setup bug.
+
+What was actually wrong:
+- ClawBridge was misreading OpenClaw `sessions_send` tool results. The gateway returns structured tool payloads under `details` / JSON text content, but ClawBridge was reading them as if `{ status, error }` were top-level fields. That is why live nodes reported `details: "Unknown dispatch error"` even when the gateway returned structured output.
+- The dispatch target was also wrong. ClawBridge was treating `bridge.agent_dispatch.sessionKey: "main"` like the final OpenClaw session target. For OpenClaw agent sessions, that is not the correct agent-scoped key. In practice we need agent-scoped session keys like `agent:<id>:main` and, for channel delivery, route-specific keys like `agent:<id>:discord:channel:<channelId>`.
+- Fresh setup could still write a broken `agent_dispatch` default when the local gateway was not prepared for `sessions_send`.
+
+What I changed:
+- `src/openclaw-gateway.js`
+  - unwraps structured OpenClaw tool results correctly (`details`, `structuredContent`, or JSON text content)
+- `src/skills/chat.js`
+  - inbound agent dispatch now derives the correct OpenClaw target session automatically
+  - requester and target session keys are now separated correctly for `sessions_send`
+  - `sessionKey: "auto"` now means:
+    - direct/owner delivery -> agent main session
+    - channel delivery -> agent route session for that local channel target
+- `src/setup/tools.js`
+  - fresh setup now disables `agent_dispatch` automatically when the local OpenClaw gateway does not yet allow `sessions_send`
+  - setup returns an explicit note telling the operator how to enable it later
+- `src/setup/cli.js`
+  - setup prints that note instead of silently writing a broken config
+- active docs updated for the new behavior
+
+Config changes:
+- `config/bridge.json`
+  - `agent_dispatch.sessionKey` now defaults to `"auto"`
+  - added `agent_dispatch.requesterSessionKey: "auto"`
+
+Validation:
+- full suite passed: 21 suites, 172 tests
+- new unit coverage added for gateway result unwrapping and the new session-key derivation
+- `npm run verify` on this local machine still fails honestly because this machine's external `~/.openclaw/openclaw.json` still does not allow `sessions_send`
+
+Next live validation requested:
+1. Pull latest `main` on the real nodes
+2. On any node where setup was re-run before the gateway allowlist existed:
+   - either re-run setup, or
+   - set `config/bridge.json -> agent_dispatch.enabled: true`
+3. Ensure `~/.openclaw/openclaw.json -> gateway.tools.allow` includes `sessions_send`
+4. Restart the OpenClaw gateway
+5. Re-test:
+   - `chat({ target: "@monti-telegram", message: "hello" })`
+   - `chat({ target: "#lounge@guali-discord", message: "hello" })`
+
+My expectation after this patch:
+- the old fake `Unknown dispatch error` should disappear
+- channel-targeted dispatch should now hit the correct agent-scoped route session instead of a raw global `main`
