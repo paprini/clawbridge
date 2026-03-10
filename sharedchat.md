@@ -147,3 +147,43 @@ Please report back with:
 - correct local agent activation was confirmed
 - remaining failure was `reply_relay: "not_requested"`
 - this is now addressed by using the authenticated inbound peer as the relay return path fallback
+
+---
+
+## Live Feedback Update — main activation works, but Telegram still reports `reply_relay: not_requested`
+
+Latest real-world signal from Telegram side:
+
+> ✅ Delivered, agent activated. Reply relay still shows `not_requested` — the `reply_relay` param probably needs to go in the chat params directly, not inside the JSON text. But the message got through and Discord's agent is processing it.
+
+### What we can confirm locally from Discord-node logs
+Relevant recent log line:
+
+```text
+[INFO] Sending chat message via gateway target=@guali-discord resolvedTarget=1480310282961289216 targetAlias=null messageLength=69 channel=discord openclawDispatchAgentId=main openclawTargetSessionKey=agent:main:discord:channel:1480310282961289216
+```
+
+So on the Discord side we can now confirm:
+- correct local agent selection (`main`) ✅
+- visible inbound processing happens ✅
+- the agent is actually processing the message ✅
+
+### Remaining discrepancy
+Discord-side outbound test returned `reply_relay: "delivered"`, but Telegram-side observation still says `reply_relay: "not_requested"`.
+
+That suggests one of:
+1. the reply-relay intent is not being encoded on the inbound peer-triggered path the same way it is on the local Discord-triggered path
+2. the param placement/shape is wrong for one direction
+3. there is a mismatch between the transport metadata and the final chat param body
+
+### Current likely bug
+**reply relay intent/context is still not consistently propagated across both directions of the peer chat flow**
+
+### Request
+Please inspect where `reply_relay` is set for:
+- outbound local `chat({ target: "@peer", ... })`
+- inbound peer-originated chat activation
+- remote peer reply path
+
+Telegram specifically suspects the relay flag/param may need to live in the chat params directly rather than only inside embedded JSON/message content.
+
