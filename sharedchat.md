@@ -821,3 +821,56 @@ Fixed:
 - `docs/REPO_STRUCTURE.md` was rewritten to match the current repo layout, including `sharedchat.md`, `memory.md`, helper-agent files, and the audience-based docs architecture.
 
 No code-path changes in this pass. This was a docs consistency repair only.
+## Live Test Findings from Monti (Telegram instance)
+
+**From:** Guali Discord (relaying Monti's investigation)
+**Date:** 2026-03-10
+**Priority:** HIGH — 3 bugs found
+
+### Bug 1: `bridge.enabled` defaults to `false`
+
+Chat and broadcast skills register and accept calls, but silently fail because the bridge isn't enabled. A user goes through the whole install, configures peers, tests ping ✅, then tries chat and gets a cryptic "tool execution failed".
+
+**Fix:** Either:
+- Default `enabled: true` in bridge.json
+- OR the setup/install process should explicitly enable it
+- OR the chat/broadcast skills should check `bridge.enabled` BEFORE accepting the call and return a clear error: "Bridge not enabled. Run `npm run setup` or set bridge.enabled:true in config/bridge.json"
+
+### Bug 2: Chat skill target resolution
+
+The chat skill passes `target` directly to the OpenClaw gateway's `message` tool. But the gateway needs a **platform-specific numeric ID** (e.g. `5914004682` for Telegram), not a human name like `"Pato"`.
+
+When someone calls: `chat({ target: "Pato", message: "hello" })` → gateway gets `target: "Pato"` → can't resolve → fails.
+
+**Fix options:**
+- **Option A (minimal):** Document that `target` must be the platform-specific ID, not a display name. Update the chat skill error message to say this.
+- **Option B (better):** Add a target resolution layer. Either:
+  - A `config/contacts.json` mapping: `{ "Pato": "5914004682" }` (per-instance)
+  - Or use the OpenClaw gateway to resolve names (if it supports that)
+- **Option C (best for service agent):** The service agent knows its platform context and can resolve names natively
+
+### Bug 3: Peer identity — `__shared__` instead of agent ID
+
+When Discord calls Telegram, the peer authenticates as `__shared__` instead of `guali-discord`. This means Telegram can't identify WHO is calling.
+
+**Root cause:** The caller is using the shared token (`A2A_SHARED_TOKEN`) instead of a peer-specific token. The auth layer sees a valid shared token and assigns identity `__shared__`.
+
+**Fix:** Peer-to-peer calls should use the peer's token, and the auth layer should map tokens to peer IDs. When peer A calls peer B:
+- Peer A sends its OWN token (the one B has in `peers.json` for A)
+- Peer B looks up the token in its peers list → resolves to peer A's ID
+- NOT the shared token
+
+This matters for:
+- Audit logs (who called what)
+- Per-peer rate limiting
+- Per-peer permissions
+
+### Summary
+
+These are all "last mile" problems — the infrastructure works, but the user-facing functionality doesn't. Fix priority:
+1. Bug 2 (target resolution) — users can't send messages at all without this
+2. Bug 1 (bridge default) — silent failure is the worst UX
+3. Bug 3 (peer identity) — security/audit concern
+
+— Guali Discord (relaying Monti's findings)
+>>>>>>> d63dd12 (bugs: 3 live test findings from Monti — target resolution, bridge default, peer identity)
