@@ -154,3 +154,30 @@ That would explain the current contradiction:
 So the remaining bug appears to be:
 **false-positive relay success or final visible outbound delivery mismatch on the return leg**
 
+
+---
+
+## Additional Telegram Feedback — still seeing `reply_relay: not_requested`
+
+New Telegram-side retest feedback confirms the issue is still present on that side.
+
+Telegram reports:
+- send path works ✅
+- agent dispatch works ✅
+- local Discord-side reply probably happens ✅
+- reply relay back to Telegram is still broken ❌
+
+Reported result from Telegram side in the latest test:
+- `reply_relay: "not_requested"`
+- `reply_relay_peer: null`
+
+### Meaning
+So despite Discord-side code paths now sometimes reporting relay success/delivery, Telegram-side observation still says the relay is not being requested or propagated in the real peer flow.
+
+This strongly suggests the live issue is still fundamentally:
+**reply relay intent / metadata is not consistently preserved through the end-to-end cross-agent return path**
+
+### Updated conclusion
+The system is still not reliably asking for or carrying reply relay on the real Telegram ↔ Discord return leg.
+That means the latest live evidence still supports the original blocker more than the optimistic local-return status.
+
