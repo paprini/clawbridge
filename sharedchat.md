@@ -311,3 +311,67 @@ This is the strongest local proof so far:
   - local OpenClaw activation
   - reply relay back to the source instance
   - final local delivery on the source instance
+
+---
+
+## Live Follow-up — final reply likely dies on the last visible outbound leg
+
+Additional consolidated live diagnosis from the Discord side:
+
+### What Discord logs show
+We now consistently see inbound peer chat reach the correct local agent:
+
+```text
+openclawDispatchAgentId=main
+openclawTargetSessionKey=agent:main:discord:channel:1480310282961289216
+```
+
+So the wrong-agent bug appears fixed in this path.
+
+But we also see separate flat channel-send paths like:
+
+```text
+target=1480310282961289216
+resolvedTarget=1480310282961289216
+openclawDispatchAgentId=null
+openclawTargetSessionKey=null
+```
+
+That strongly suggests the runtime is still mixing:
+- true agent activation
+- and plain visible channel delivery sends
+
+### Telegram-side outcome
+Telegram reports no explicit error now.
+It just does **not receive the visible reply** from Discord.
+
+So current behavior looks like:
+- inbound message reaches Discord ✅
+- local agent activation happens ✅
+- local processing happens ✅
+- but final visible reply back to Telegram never appears ❌
+
+### Updated likely root cause
+The remaining bug is probably on the **last outbound leg of the reply path**.
+
+It no longer looks like activation failure.
+It looks more like the reply relay is being lost, downgraded to local-only output, or turned into non-visible session/context handling before it reaches provider-visible Telegram delivery.
+
+### Current best summary
+- peer auth works
+- routing works
+- activation works
+- correct local agent selection works
+- Telegram sees no explicit error
+- but the final visible outbound reply to the originating peer still does not happen
+
+### Request
+Please inspect the final reply emission path and specifically where activated-agent output transitions into:
+- peer-relayed visible send
+vs
+- local channel send
+vs
+- session/context-only handling
+
+At this point the remaining bug looks like a final-leg visible outbound emission problem, not a transport or activation problem.
+
