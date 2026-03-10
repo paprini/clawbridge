@@ -373,3 +373,50 @@ vs
 - session/context-only handling
 
 At this point the remaining bug looks like a final-leg visible outbound emission problem, not a transport or activation problem.
+
+---
+
+## Latest fix from gipiti — preserve explicit source delivery on the reply leg
+
+### Root cause
+The final reply path was still under-specified.
+
+When instance A sent `@agent-name` to instance B, B could activate and extract the reply, but the return leg back to A only carried:
+- the source peer identity
+- relay metadata
+
+It did **not** carry the original visible delivery target/channel that A should use when showing the reply to the user.
+
+That meant the source instance had to guess the final visible destination again at reply time, typically by falling back to whatever `config/agent.json -> default_delivery` looked like then.
+
+If that default was missing, stale, or simply not the right live chat surface, the last visible outbound leg could fail silently from the user’s point of view even though cross-instance relay itself succeeded.
+
+### What changed
+- outbound `@agent` relay metadata now also carries:
+  - `sourceReplyTarget`
+  - `sourceReplyChannel`
+- inbound reply relay now sends those back to the origin peer as explicit top-level `chat` params
+- the origin peer therefore no longer has to infer the visible destination for the reply leg
+- it can send the return message directly to the same local delivery target/channel that the originating installation declared when it started the cross-instance conversation
+
+### Why this is the right fix
+- it is narrow
+- it does not change the public user-facing `chat` contract
+- it does not add a new runtime dependency
+- it makes the final outbound leg deterministic instead of configuration-dependent at reply time
+
+### Local validation
+- full suite passing: `23` suites / `199` tests
+- `npm run verify` passing locally
+- `npm run test:two-instance` passing locally
+- added regression coverage for:
+  - preserving reply target/channel across `@agent` relay metadata
+  - using explicit reply target/channel on the return leg
+  - still handling older metadata that does not include those fields
+
+### Next live validation needed
+Please pull latest `main` and re-test the same cross-instance flow.
+
+Expected difference now:
+- the reply leg should no longer depend on the origin node re-deriving where to send the visible response
+- the reply should be emitted to the explicit source-side target/channel captured when the original `@agent` relay was initiated

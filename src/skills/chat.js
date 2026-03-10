@@ -205,16 +205,31 @@ function normalizeAgentDeliveryMeta(entry) {
     remoteChannelTarget: typeof entry.remoteChannelTarget === 'string' && entry.remoteChannelTarget.trim().length > 0
       ? entry.remoteChannelTarget.trim()
       : null,
+    sourceReplyTarget: typeof entry.sourceReplyTarget === 'string' && entry.sourceReplyTarget.trim().length > 0
+      ? entry.sourceReplyTarget.trim()
+      : null,
+    sourceReplyChannel: typeof entry.sourceReplyChannel === 'string' && entry.sourceReplyChannel.trim().length > 0
+      ? entry.sourceReplyChannel.trim()
+      : null,
   };
 }
 
-function buildAgentDeliveryMeta({ sourceAgentId, sourceUrl, requestedTarget, remoteChannelTarget }) {
+function buildAgentDeliveryMeta({
+  sourceAgentId,
+  sourceUrl,
+  requestedTarget,
+  remoteChannelTarget,
+  sourceReplyTarget,
+  sourceReplyChannel,
+}) {
   return {
     activateSession: true,
     ...(sourceAgentId ? { sourceAgentId } : {}),
     ...(sourceUrl ? { sourceUrl } : {}),
     ...(requestedTarget ? { requestedTarget } : {}),
     ...(remoteChannelTarget ? { remoteChannelTarget } : {}),
+    ...(sourceReplyTarget ? { sourceReplyTarget } : {}),
+    ...(sourceReplyChannel ? { sourceReplyChannel } : {}),
   };
 }
 
@@ -814,7 +829,14 @@ function extractOpenClawReplyText(dispatchResult) {
   return fragments.join('\n').trim() || null;
 }
 
-async function relayActivationReplyToSourcePeer({ sourceAgentId, message, relayMeta, agentId }) {
+async function relayActivationReplyToSourcePeer({
+  sourceAgentId,
+  sourceReplyTarget,
+  sourceReplyChannel,
+  message,
+  relayMeta,
+  agentId,
+}) {
   if (typeof sourceAgentId !== 'string' || sourceAgentId.trim().length === 0) {
     return { status: 'not_requested' };
   }
@@ -830,10 +852,20 @@ async function relayActivationReplyToSourcePeer({ sourceAgentId, message, relayM
   }
 
   try {
-    const result = await callPeerSkill(normalizedSourceAgentId, 'chat', {
+    const relayParams = {
       message: relayMessage,
       _relay: buildRelayMeta(relayMeta, agentId),
-    });
+    };
+
+    if (typeof sourceReplyTarget === 'string' && sourceReplyTarget.trim().length > 0) {
+      relayParams.target = sourceReplyTarget.trim();
+    }
+
+    if (typeof sourceReplyChannel === 'string' && sourceReplyChannel.trim().length > 0) {
+      relayParams.channel = sourceReplyChannel.trim();
+    }
+
+    const result = await callPeerSkill(normalizedSourceAgentId, 'chat', relayParams);
 
     if (result && typeof result === 'object' && !Array.isArray(result) && typeof result.error === 'string' && result.error.trim().length > 0) {
       return {
@@ -952,6 +984,8 @@ async function chat(params) {
   const requestedTarget = typeof target === 'string' ? target.trim() : '';
   let effectiveTarget = requestedTarget;
   let effectiveChannel = requestedChannel;
+  const sourceReplyTarget = defaultDelivery?.target || null;
+  const sourceReplyChannel = defaultDelivery?.channel || null;
 
   if (!effectiveTarget) {
     if (!defaultDelivery) {
@@ -974,6 +1008,8 @@ async function chat(params) {
         sourceUrl: agentUrl,
         requestedTarget: requestedTarget || effectiveTarget,
         remoteChannelTarget: agentTarget.channelTarget,
+        sourceReplyTarget,
+        sourceReplyChannel,
       });
 
       if (agentTarget.channelTarget) {
@@ -1012,6 +1048,8 @@ async function chat(params) {
         sourceUrl: agentUrl,
         requestedTarget: requestedTarget || effectiveTarget,
         remoteChannelTarget: agentTarget.channelTarget,
+        sourceReplyTarget,
+        sourceReplyChannel,
       });
 
       try {
@@ -1197,6 +1235,8 @@ async function chat(params) {
         });
         const replyRelay = await relayActivationReplyToSourcePeer({
           sourceAgentId: replyRelayPeerId,
+          sourceReplyTarget: agentDeliveryMeta.sourceReplyTarget,
+          sourceReplyChannel: agentDeliveryMeta.sourceReplyChannel,
           message: extractOpenClawReplyText(dispatchResult),
           relayMeta,
           agentId,

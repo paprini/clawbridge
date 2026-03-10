@@ -341,6 +341,8 @@ describe('Built-in Skills', () => {
         _agentDelivery: {
           activateSession: true,
           sourceAgentId: 'monti-telegram',
+          sourceReplyTarget: '5914004682',
+          sourceReplyChannel: 'telegram',
           requestedTarget: '@discord-agent',
         },
       });
@@ -388,11 +390,15 @@ describe('Built-in Skills', () => {
         _agentDelivery: {
           activateSession: true,
           sourceAgentId: 'monti-telegram',
+          sourceReplyTarget: '5914004682',
+          sourceReplyChannel: 'telegram',
           requestedTarget: '@discord-agent',
         },
       });
 
       expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        target: '5914004682',
+        channel: 'telegram',
         message: 'Hola desde Discord',
         _relay: { hops: 2, visited: ['monti-telegram', 'discord-agent'] },
       });
@@ -453,11 +459,15 @@ describe('Built-in Skills', () => {
         _requestPeerId: 'monti-telegram',
         _agentDelivery: {
           activateSession: true,
+          sourceReplyTarget: '5914004682',
+          sourceReplyChannel: 'telegram',
           requestedTarget: '@discord-agent',
         },
       });
 
       expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        target: '5914004682',
+        channel: 'telegram',
         message: 'Hola desde Discord',
         _relay: { hops: 1, visited: ['discord-agent'] },
       });
@@ -488,11 +498,15 @@ describe('Built-in Skills', () => {
         _agentDelivery: {
           activateSession: true,
           sourceAgentId: 'main',
+          sourceReplyTarget: '1480310282961289216',
+          sourceReplyChannel: 'discord',
           requestedTarget: '@guali-discord',
         },
       });
 
       expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        target: '1480310282961289216',
+        channel: 'discord',
         message: 'Hola desde Discord',
         _relay: { hops: 1, visited: ['main'] },
       });
@@ -527,11 +541,53 @@ describe('Built-in Skills', () => {
           activateSession: true,
           sourceAgentId: 'main',
           sourceUrl: 'http://172.31.30.105:9100/a2a',
+          sourceReplyTarget: '1480310282961289216',
+          sourceReplyChannel: 'discord',
           requestedTarget: '@guali-discord',
         },
       });
 
       expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        target: '1480310282961289216',
+        channel: 'discord',
+        message: 'Hola desde Discord',
+        _relay: { hops: 1, visited: ['guali-discord'] },
+      });
+      expect(result.reply_relay).toBe('delivered');
+      expect(result.reply_relay_peer).toBe('monti-telegram');
+    });
+
+    it('reuses the source delivery target for reply relay even when the receiver has no opinion about the origin default', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'guali-discord',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+      callPeerSkill.mockResolvedValue({ success: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'monti-telegram',
+          sourceReplyTarget: '5914004682',
+          sourceReplyChannel: 'telegram',
+          requestedTarget: '@guali-discord',
+        },
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        target: '5914004682',
+        channel: 'telegram',
         message: 'Hola desde Discord',
         _relay: { hops: 1, visited: ['guali-discord'] },
       });
