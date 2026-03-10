@@ -75,8 +75,11 @@ ClawBridge peer IDs are not OpenClaw agent IDs. If the receiving OpenClaw instan
 
 - `config/agent.json -> openclaw_agent_id`
 - `config/bridge.json -> agent_dispatch.agentId`
+- On multi-agent OpenClaw installs, one of those should be set explicitly so ClawBridge keeps one local answering agent instead of inferring it from the delivery channel binding.
 
-If neither is set, ClawBridge auto-resolves from OpenClaw bindings or the default OpenClaw agent.
+If neither is set:
+- single-agent installs fall back to the OpenClaw default agent
+- multi-agent installs should be considered misconfigured until one local communications agent is pinned explicitly
 
 When OpenClaw already has a matching session row for the target destination, ClawBridge reuses that row's `sessionId` and delivery metadata so the activated agent replies into the correct local chat destination explicitly.
 

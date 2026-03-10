@@ -4,7 +4,15 @@
 const readline = require('readline');
 const os = require('os');
 const { runAgent } = require('./agent');
-const { generateToken, getLocalSubnet, getCurrentConfig, writeConfig, checkAgent, testConnection } = require('./tools');
+const {
+  generateToken,
+  getAvailableOpenClawAgents,
+  getLocalSubnet,
+  getCurrentConfig,
+  writeConfig,
+  checkAgent,
+  testConnection,
+} = require('./tools');
 
 // --- Parse args ---
 const args = process.argv.slice(2);
@@ -78,6 +86,40 @@ function inferDefaultDeliveryType(target, existingType) {
   }
 
   return 'owner';
+}
+
+async function promptForOpenClawAgent(prompt, existingAgent, availableAgents) {
+  const existingChoice = typeof existingAgent?.openclaw_agent_id === 'string'
+    ? existingAgent.openclaw_agent_id.trim()
+    : '';
+  const defaultChoice = existingChoice || availableAgents?.defaultAgentId || '';
+
+  console.log('\nOpenClaw agent');
+  console.log('ClawBridge should stay pinned to one local OpenClaw agent for inbound @agent communication.');
+
+  if (availableAgents?.detected && Array.isArray(availableAgents.agents) && availableAgents.agents.length > 0) {
+    console.log(`Detected local OpenClaw agents: ${availableAgents.agents.join(', ')}`);
+  } else {
+    console.log('Could not detect local OpenClaw agents automatically. Using the existing value or the OpenClaw default if available.');
+  }
+
+  while (true) {
+    const label = defaultChoice || 'auto';
+    const answer = await prompt.ask(`OpenClaw agent id [${label}]: `);
+    const selected = answer.trim() || defaultChoice;
+
+    if (!selected) {
+      console.log('  No explicit OpenClaw agent selected. ClawBridge will use the OpenClaw default agent.');
+      return null;
+    }
+
+    if (!availableAgents?.detected || !Array.isArray(availableAgents.agents) || availableAgents.agents.length === 0
+      || availableAgents.agents.includes(selected)) {
+      return selected;
+    }
+
+    console.log(`  Invalid choice. Pick one of: ${availableAgents.agents.join(', ')}`);
+  }
 }
 
 async function promptForPeerToken(prompt, mode, existingToken) {
@@ -215,13 +257,22 @@ async function runNonInteractive() {
   const localIp = net ? net.localIp : 'localhost';
   const urlDefault = existing.agent?.url || `http://${localIp}:9100/a2a`;
   const url = (await prompt.ask(`Agent URL [${urlDefault}]: `)).trim() || urlDefault;
+  const availableOpenClawAgents = getAvailableOpenClawAgents(existing.bridge);
+  const openclawAgentId = await promptForOpenClawAgent(prompt, existing.agent, availableOpenClawAgents);
   const defaultDelivery = await promptForDefaultDelivery(prompt, existing.agent);
 
   const managedPeers = await manageExistingPeers(prompt, existing.peers);
   const newPeers = await collectAdditionalPeers(prompt, managedPeers.length);
   const peers = [...managedPeers, ...newPeers];
 
-  const result = writeConfig({ agentName: name, agentUrl: url, peers, token: generateToken(), defaultDelivery });
+  const result = writeConfig({
+    agentName: name,
+    agentUrl: url,
+    peers,
+    token: generateToken(),
+    defaultDelivery,
+    openclawAgentId,
+  });
   console.log('\n✅ Config written to config/');
 
   if (Array.isArray(result.notes) && result.notes.length > 0) {
@@ -304,6 +355,7 @@ if (require.main === module) {
 
 module.exports = {
   createPrompt,
+  promptForOpenClawAgent,
   promptForPeerToken,
   promptForDefaultDelivery,
   manageExistingPeers,

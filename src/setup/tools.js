@@ -5,7 +5,11 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { fetchAgentCard, validatePeerUrl } = require('../client');
-const { isOpenClawCliAvailable, resolveGatewayDefaultAgentId } = require('../openclaw-gateway');
+const {
+  isOpenClawCliAvailable,
+  listGatewayAgentIds,
+  resolveGatewayDefaultAgentId,
+} = require('../openclaw-gateway');
 const { getClawBridgeVersion } = require('../version');
 
 /**
@@ -180,25 +184,69 @@ function normalizeDefaultDelivery(defaultDelivery) {
   };
 }
 
-function resolveOpenClawAgentId(existingAgent) {
-  const configured = typeof existingAgent?.openclaw_agent_id === 'string'
+function resolveGatewayTokenPath(existingBridge) {
+  const configured = typeof existingBridge?.gateway?.tokenPath === 'string'
+    ? existingBridge.gateway.tokenPath.trim()
+    : '';
+  return configured || '~/.openclaw/openclaw.json';
+}
+
+function getAvailableOpenClawAgents(existingBridge) {
+  const tokenPath = resolveGatewayTokenPath(existingBridge);
+  try {
+    const agents = listGatewayAgentIds(tokenPath);
+    return {
+      tokenPath,
+      agents,
+      defaultAgentId: resolveGatewayDefaultAgentId(tokenPath),
+      detected: true,
+      multiple: agents.length > 1,
+    };
+  } catch (err) {
+    return {
+      tokenPath,
+      agents: [],
+      defaultAgentId: null,
+      detected: false,
+      multiple: false,
+      error: err.message,
+    };
+  }
+}
+
+function resolveOpenClawAgentSelection({ existingAgent, existingBridge, requestedOpenClawAgentId }) {
+  const available = getAvailableOpenClawAgents(existingBridge);
+  const requested = typeof requestedOpenClawAgentId === 'string'
+    ? requestedOpenClawAgentId.trim()
+    : '';
+  const existing = typeof existingAgent?.openclaw_agent_id === 'string'
     ? existingAgent.openclaw_agent_id.trim()
     : '';
-  if (configured) {
-    return configured;
+  const resolved = requested || existing || available.defaultAgentId || null;
+
+  if (resolved && available.detected && available.agents.length > 0 && !available.agents.includes(resolved)) {
+    return {
+      error: `OpenClaw agent "${resolved}" is not in the detected agent list (${available.agents.join(', ')})`,
+      available,
+    };
   }
 
-  try {
-    return resolveGatewayDefaultAgentId('~/.openclaw/openclaw.json');
-  } catch {
-    return null;
+  const notes = [];
+  if (!requested && !existing && available.multiple && resolved) {
+    notes.push(`Multiple OpenClaw agents were detected. ClawBridge auto-selected "${resolved}". Re-run setup if this instance should be bound to a different local OpenClaw agent.`);
   }
+
+  return {
+    agentId: resolved,
+    available,
+    notes,
+  };
 }
 
 /**
  * Write config files with validation.
  */
-function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defaultDelivery }) {
+function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defaultDelivery, openclawAgentId }) {
   // Validate inputs
   if (!agentName || typeof agentName !== 'string' || agentName.trim().length === 0) {
     return { error: 'Agent name is required' };
@@ -222,7 +270,15 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
   const normalizedDefaultDelivery = normalizeDefaultDelivery(defaultDelivery)
     || normalizeDefaultDelivery(existing.agent?.default_delivery)
     || null;
-  const openclawAgentId = resolveOpenClawAgentId(existing.agent);
+  const openclawAgentSelection = resolveOpenClawAgentSelection({
+    existingAgent: existing.agent,
+    existingBridge: existing.bridge,
+    requestedOpenClawAgentId: openclawAgentId,
+  });
+  if (openclawAgentSelection.error) {
+    return { error: openclawAgentSelection.error };
+  }
+  const resolvedOpenClawAgentId = openclawAgentSelection.agentId;
 
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
@@ -235,8 +291,8 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
     description: agentDescription || `A2A agent: ${agentName}`,
     url: agentUrl || 'http://localhost:9100/a2a',
     version: getClawBridgeVersion(),
-    ...(openclawAgentId
-      ? { openclaw_agent_id: openclawAgentId }
+    ...(resolvedOpenClawAgentId
+      ? { openclaw_agent_id: resolvedOpenClawAgentId }
       : {}),
     default_delivery: normalizedDefaultDelivery,
   };
@@ -289,6 +345,9 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
   fs.writeFileSync(path.join(configDir, 'contacts.json'), JSON.stringify(contacts, null, 2) + '\n');
 
   const notes = [];
+  if (Array.isArray(openclawAgentSelection.notes)) {
+    notes.push(...openclawAgentSelection.notes);
+  }
   if (!existing.bridge && bridge.agent_dispatch?.enabled === false) {
     notes.push('OpenClaw CLI was not found during setup, so inbound @agent activation was disabled. Install OpenClaw so the binary is on PATH (for example via npm prefix -g, ~/.openclaw/bin/openclaw, or ~/.local/bin/openclaw), or set OPENCLAW_BIN, then enable bridge.agent_dispatch when you want receiving agents to auto-activate.');
   }
@@ -378,6 +437,14 @@ const TOOL_DEFINITIONS = [
   {
     type: 'function',
     function: {
+      name: 'list_openclaw_agents',
+      description: 'List the local OpenClaw agent ids detected on this machine. Use this before write_config on multi-agent installs so ClawBridge can be pinned to the right local agent.',
+      parameters: { type: 'object', properties: {} },
+    },
+  },
+  {
+    type: 'function',
+    function: {
       name: 'write_config',
       description: 'Write A2A configuration files (agent.json, peers.json, skills.json, bridge.json, contacts.json)',
       parameters: {
@@ -402,6 +469,10 @@ const TOOL_DEFINITIONS = [
               channel: { type: 'string', description: 'Optional local platform/channel namespace' },
             },
             description: 'Default local delivery target used for @agent delivery and broadcasts',
+          },
+          openclawAgentId: {
+            type: 'string',
+            description: 'Pinned local OpenClaw agent id that ClawBridge should activate for inbound @agent communication on this installation',
           },
           token: { type: 'string', description: 'Shared bearer token (from generate_token)' },
         },
@@ -456,6 +527,8 @@ async function executeTool(name, args) {
       return { token: generateToken() };
     case 'get_current_config':
       return getCurrentConfig();
+    case 'list_openclaw_agents':
+      return getAvailableOpenClawAgents(getCurrentConfig().bridge);
     case 'write_config':
       return writeConfig(args);
     case 'test_connection':
@@ -467,4 +540,16 @@ async function executeTool(name, args) {
   }
 }
 
-module.exports = { TOOL_DEFINITIONS, executeTool, getLocalSubnet, scanNetwork, checkAgent, generateToken, rotatePeerToken, getCurrentConfig, writeConfig, testConnection };
+module.exports = {
+  TOOL_DEFINITIONS,
+  executeTool,
+  getAvailableOpenClawAgents,
+  getLocalSubnet,
+  scanNetwork,
+  checkAgent,
+  generateToken,
+  rotatePeerToken,
+  getCurrentConfig,
+  writeConfig,
+  testConnection,
+};

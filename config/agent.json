@@ -3,7 +3,8 @@
   "name": "Guali Discord",
   "description": "OpenClaw Discord instance — manages Discord messaging, channels, reactions, and Musicate software factory",
   "url": "http://172.31.30.104:9100",
-  "version": "0.1.0",
+  "version": "0.2.0",
+  "openclaw_agent_id": "main",
   "default_delivery": {
     "type": "channel",
     "target": "1480310282961289216",

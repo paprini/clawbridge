@@ -51,6 +51,7 @@ Useful when you want a predictable setup flow without an LLM dependency.
 
 Behavior:
 - reuses the current agent name and URL as prompt defaults
+- detects local OpenClaw agents and asks which one ClawBridge should bind to for inbound `@agent` communication
 - prompts for this instance's `default_delivery` target used by `@agent` delivery and broadcasts
 - walks existing peers one by one with `Keep / Update / Remove`
 - lets you generate or replace peer tokens during updates

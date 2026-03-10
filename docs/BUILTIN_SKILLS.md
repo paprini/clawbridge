@@ -76,7 +76,8 @@ callPeerSkill('discord-agent', 'get_status')
    - direct platform IDs are sent locally
 3. The final peer uses its own OpenClaw gateway `message` tool
 4. For `@agent-name` delivery, the final peer also activates its local OpenClaw agent through the native `openclaw agent` path with an explicit reply target
-5. Message is delivered on the correct platform and the receiving agent gets a real inbound turn
+5. When the activation returns reply text, ClawBridge relays that reply back to the origin peer through normal `chat`
+6. Message is delivered on the correct platform and the receiving agent gets a real inbound turn
 
 **Usage:**
 ```javascript

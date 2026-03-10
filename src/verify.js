@@ -294,7 +294,7 @@ check('agent-to-agent dispatch readiness', () => {
   }
 
   if (!configuredDispatchAgentId && knownAgentIds.length > 1) {
-    console.log(`    ℹ️  Multiple OpenClaw agents detected (${knownAgentIds.join(', ')}). ClawBridge will auto-resolve @agent delivery from bindings/default agent; set agent.json.openclaw_agent_id to pin a specific one.`);
+    return `Multiple OpenClaw agents detected (${knownAgentIds.join(', ')}), but no explicit local communications agent is pinned. Set agent.json.openclaw_agent_id or bridge.agent_dispatch.agentId so @agent delivery always wakes the correct local agent.`;
   }
 
   const defaultDelivery = agent?.default_delivery;
@@ -314,8 +314,8 @@ check('agent-to-agent dispatch readiness', () => {
         && String(binding?.match?.peer?.id || '').trim().toLowerCase() === defaultDeliveryTarget)
     : false;
 
-  if (knownAgentIds.length > 1 && defaultDeliveryChannel && defaultDeliveryTarget && !hasMatchingBinding && !configuredDispatchAgentId) {
-    console.log('    ℹ️  No explicit OpenClaw binding matches agent.json default_delivery. ClawBridge will rely on delivery metadata/default agent; set openclaw_agent_id or add a binding for stronger inbound agent routing.');
+  if (knownAgentIds.length > 1 && defaultDeliveryChannel && defaultDeliveryTarget && !hasMatchingBinding && configuredDispatchAgentId) {
+    console.log('    ℹ️  No explicit OpenClaw binding matches agent.json default_delivery. ClawBridge will keep the pinned local agent identity and use delivery metadata/default delivery for the reply destination.');
   }
 
   return true;

@@ -6,6 +6,7 @@ const os = require('os');
 
 jest.mock('../../src/openclaw-gateway', () => ({
   isOpenClawCliAvailable: jest.fn(() => true),
+  listGatewayAgentIds: jest.fn(() => ['main']),
   resolveGatewayDefaultAgentId: jest.fn(() => 'main'),
 }));
 
@@ -13,7 +14,8 @@ jest.mock('../../src/openclaw-gateway', () => ({
 const tmpDir = path.join(os.tmpdir(), `a2a-test-${Date.now()}`);
 process.env.A2A_CONFIG_DIR = tmpDir;
 
-const { generateToken, getCurrentConfig, writeConfig, getLocalSubnet, executeTool } = require('../../src/setup/tools');
+const { listGatewayAgentIds } = require('../../src/openclaw-gateway');
+const { generateToken, getAvailableOpenClawAgents, getCurrentConfig, writeConfig, getLocalSubnet, executeTool } = require('../../src/setup/tools');
 const { version: packageVersion } = require('../../package.json');
 
 beforeAll(() => {
@@ -61,6 +63,10 @@ describe('Setup Tools', () => {
   });
 
   describe('writeConfig', () => {
+    beforeEach(() => {
+      listGatewayAgentIds.mockReturnValue(['main']);
+    });
+
     test('writes agent.json, peers.json, skills.json, bridge.json, contacts.json', () => {
       const result = writeConfig({
         agentName: 'test-agent',
@@ -113,7 +119,35 @@ describe('Setup Tools', () => {
       expect(contacts.aliases).toEqual({});
     });
 
+    test('writes an explicitly selected local OpenClaw agent id', () => {
+      listGatewayAgentIds.mockReturnValue(['main', 'guali-discord', 'musicate-pm']);
+
+      const result = writeConfig({
+        agentName: 'test-agent',
+        agentUrl: 'http://localhost:9100/a2a',
+        openclawAgentId: 'guali-discord',
+        peers: [],
+        token: 'shared_tok',
+      });
+
+      expect(result.error).toBeUndefined();
+
+      const agent = JSON.parse(fs.readFileSync(path.join(tmpDir, 'agent.json'), 'utf8'));
+      expect(agent.openclaw_agent_id).toBe('guali-discord');
+    });
+
     test('getCurrentConfig reads written config', () => {
+      listGatewayAgentIds.mockReturnValue(['main', 'guali-discord']);
+      writeConfig({
+        agentName: 'test-agent',
+        agentDescription: 'Test agent',
+        agentUrl: 'http://localhost:9100/a2a',
+        openclawAgentId: 'main',
+        peers: [{ id: 'peer1', url: 'http://10.0.1.11:9100', token: 'tok123' }],
+        defaultDelivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
+        token: 'shared_tok',
+      });
+
       const result = getCurrentConfig();
       expect(result.exists).toBe(true);
       expect(result.agent.name).toBe('test-agent');
@@ -165,6 +199,14 @@ describe('Setup Tools', () => {
   });
 
   describe('executeTool', () => {
+    test('get_available_openclaw_agents returns detected agent ids', () => {
+      listGatewayAgentIds.mockReturnValue(['main', 'guali-discord']);
+      const result = getAvailableOpenClawAgents();
+      expect(result.agents).toEqual(['main', 'guali-discord']);
+      expect(result.defaultAgentId).toBe('main');
+      expect(result.multiple).toBe(true);
+    });
+
     test('get_local_network returns subnet info', async () => {
       const result = await executeTool('get_local_network', {});
       // May return error in containers, that's ok
@@ -181,6 +223,13 @@ describe('Setup Tools', () => {
       expect(result.exists).toBe(true);
     });
 
+    test('list_openclaw_agents returns agent choices', async () => {
+      listGatewayAgentIds.mockReturnValue(['main', 'guali-discord']);
+      const result = await executeTool('list_openclaw_agents', {});
+      expect(result.agents).toEqual(['main', 'guali-discord']);
+      expect(result.defaultAgentId).toBe('main');
+    });
+
     test('unknown tool returns error', async () => {
       const result = await executeTool('hack_the_planet', {});
       expect(result.error).toContain('Unknown tool');
@@ -194,7 +243,13 @@ describe('Setup Tools', () => {
     test('rotate_peer_token rotates token', async () => {
       // First write a config with a peer
       const { writeConfig } = require('../../src/setup/tools');
-      writeConfig({ agentName: 'rotate-test', peers: [{ id: 'peer-rotate', url: 'http://10.0.0.1:9100', token: 'old_token' }], token: 'shared' });
+      listGatewayAgentIds.mockReturnValue(['main', 'guali-discord']);
+      writeConfig({
+        agentName: 'rotate-test',
+        openclawAgentId: 'main',
+        peers: [{ id: 'peer-rotate', url: 'http://10.0.0.1:9100', token: 'old_token' }],
+        token: 'shared',
+      });
 
       const result = await executeTool('rotate_peer_token', { peerId: 'peer-rotate' });
       expect(result.peerId).toBe('peer-rotate');
@@ -203,6 +258,13 @@ describe('Setup Tools', () => {
     });
 
     test('rotate_peer_token fails for unknown peer', async () => {
+      listGatewayAgentIds.mockReturnValue(['main', 'guali-discord']);
+      writeConfig({
+        agentName: 'rotate-test',
+        openclawAgentId: 'main',
+        peers: [{ id: 'peer-rotate', url: 'http://10.0.0.1:9100', token: 'old_token' }],
+        token: 'shared',
+      });
       const result = await executeTool('rotate_peer_token', { peerId: 'nonexistent' });
       expect(result.error).toContain('not found');
     });

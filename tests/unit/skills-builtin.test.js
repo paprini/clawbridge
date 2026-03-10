@@ -18,7 +18,7 @@ jest.mock('../../src/config', () => ({
 
 const { callOpenClawTool, loadBridgeConfig } = require('../../src/bridge');
 const { callPeerSkill, callPeers } = require('../../src/client');
-const { invokeGatewayTool, resolveGatewayAgentId, runOpenClawAgentTurn } = require('../../src/openclaw-gateway');
+const { invokeGatewayTool, resolveGatewayDefaultAgentId, runOpenClawAgentTurn } = require('../../src/openclaw-gateway');
 const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../../src/config');
 
 describe('Built-in Skills', () => {
@@ -37,7 +37,7 @@ describe('Built-in Skills', () => {
       }
       return {};
     });
-    resolveGatewayAgentId.mockImplementation(({ preferredAgentId }) => preferredAgentId || 'main');
+    resolveGatewayDefaultAgentId.mockReturnValue('main');
     runOpenClawAgentTurn.mockResolvedValue({ result: { status: 'ok', payloads: [] } });
   });
 
@@ -340,6 +340,41 @@ describe('Built-in Skills', () => {
       expect(result.agent_dispatch).toBe('activated');
     });
 
+    it('relays the activated agent reply back to the origin peer', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'discord-agent',
+        openclaw_agent_id: 'discord-agent',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+      callPeerSkill.mockResolvedValue({ success: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _relay: { hops: 1, visited: ['monti-telegram'] },
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'monti-telegram',
+          requestedTarget: '@discord-agent',
+        },
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        message: 'Hola desde Discord',
+        _relay: { hops: 2, visited: ['monti-telegram', 'discord-agent'] },
+      });
+      expect(result.reply_relay).toBe('delivered');
+      expect(result.reply_relay_peer).toBe('monti-telegram');
+    });
+
     it('returns partial failure when inbound dispatch fails after delivery', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',
@@ -451,6 +486,55 @@ describe('Built-in Skills', () => {
         timeoutSeconds: 30,
       }));
       expect(result.success).toBe(true);
+      expect(result.agent_dispatch).toBe('activated');
+    });
+
+    it('does not switch to a different local OpenClaw agent just because another binding owns the delivery channel', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'guali-discord',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      invokeGatewayTool.mockImplementation(async (toolName) => {
+        if (toolName === 'sessions_list') {
+          return {
+            sessions: [
+              {
+                key: 'agent:musicate-pm:discord:channel:1480310282961289216',
+                sessionId: 'pm-discord-session',
+                deliveryContext: { channel: 'discord', to: '1480310282961289216' },
+                lastChannel: 'discord',
+                lastTo: '1480310282961289216',
+              },
+            ],
+          };
+        }
+
+        return {};
+      });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'monti-telegram',
+          requestedTarget: '@guali-discord',
+        },
+      });
+
+      expect(callOpenClawTool).toHaveBeenCalledWith('message', expect.objectContaining({
+        target: '1480310282961289216',
+        channel: 'discord',
+      }), {
+        sessionKey: 'agent:main:discord:channel:1480310282961289216',
+      });
+      expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
+        agentId: 'main',
+        sessionId: null,
+        replyTo: '1480310282961289216',
+        replyChannel: 'discord',
+      }));
       expect(result.agent_dispatch).toBe('activated');
     });
 

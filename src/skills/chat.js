@@ -8,7 +8,7 @@ const { callPeerSkill } = require('../client');
 const {
   invokeGatewayTool,
   loadGatewayConfig,
-  resolveGatewayAgentId,
+  resolveGatewayDefaultAgentId,
   runOpenClawAgentTurn,
 } = require('../openclaw-gateway');
 const logger = require('../logger');
@@ -311,21 +311,38 @@ function resolveRequesterSessionKey(rawValue, { targetSessionKey, mainSessionKey
   return rawValue.trim();
 }
 
+function resolveDispatchAgentId({ tokenPath, configuredAgentId, fallbackAgentId }) {
+  const configured = typeof configuredAgentId === 'string' && configuredAgentId.trim().length > 0
+    ? configuredAgentId.trim()
+    : '';
+  if (configured) {
+    return configured;
+  }
+
+  const fallback = typeof fallbackAgentId === 'string' && fallbackAgentId.trim().length > 0
+    ? fallbackAgentId.trim()
+    : '';
+  if (fallback) {
+    return fallback;
+  }
+
+  return resolveGatewayDefaultAgentId(tokenPath);
+}
+
 function resolveDispatchSessionKeys({ dispatchConfig, openclawAgentId, defaultDelivery, resolvedTarget, deliveryChannel, agentDeliveryMeta }) {
   const { mainKey, dmScope } = loadGatewaySessionSettings(dispatchConfig.gateway);
   const explicitTargetSessionKey = resolveConfiguredSessionKey(dispatchConfig.sessionKey, null);
+  const tokenPath = dispatchConfig.gateway?.tokenPath || '~/.openclaw/openclaw.json';
   const deliveryType = typeof defaultDelivery?.type === 'string'
     ? defaultDelivery.type.trim().toLowerCase()
     : 'target';
   const routeChannel = (deliveryChannel || defaultDelivery?.channel || '').trim().toLowerCase();
   const shouldUseChannelRoute = Boolean(agentDeliveryMeta?.remoteChannelTarget) || deliveryType === 'channel';
   const peerKind = shouldUseChannelRoute ? 'channel' : 'direct';
-  const dispatchAgentId = resolveGatewayAgentId({
-    tokenPath: dispatchConfig.gateway?.tokenPath || '~/.openclaw/openclaw.json',
-    preferredAgentId: dispatchConfig.agentId || openclawAgentId,
-    channel: routeChannel,
-    peerKind,
-    peerId: resolvedTarget,
+  const dispatchAgentId = resolveDispatchAgentId({
+    tokenPath,
+    configuredAgentId: dispatchConfig.agentId,
+    fallbackAgentId: openclawAgentId,
   });
   const mainSessionKey = buildAgentMainSessionKey(dispatchAgentId, mainKey);
   const targetSessionKey = explicitTargetSessionKey || (
@@ -571,7 +588,7 @@ function maybeRetargetDispatchSession({ dispatchConfig, inspection, resolvedTarg
   const sameAgentRows = currentAgentId
     ? matchingRows.filter((row) => extractAgentIdFromSessionKey(row?.key) === currentAgentId)
     : [];
-  const preferredRows = sameAgentRows.length > 0 ? sameAgentRows : matchingRows;
+  const preferredRows = currentAgentId ? sameAgentRows : matchingRows;
 
   if (preferredRows.length !== 1) {
     return {
@@ -641,6 +658,105 @@ function resolveAgentActivationOptions({ dispatchConfig, sessionRow, resolvedTar
     replyAccountId: delivery.accountId || null,
     timeoutSeconds: resolveAgentDispatchTimeoutSeconds(dispatchConfig),
   };
+}
+
+function extractTextFragments(value) {
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    return trimmed ? [trimmed] : [];
+  }
+
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => extractTextFragments(entry));
+  }
+
+  if (!value || typeof value !== 'object') {
+    return [];
+  }
+
+  if (Array.isArray(value.parts)) {
+    return value.parts.flatMap((part) => {
+      if (typeof part?.text === 'string') {
+        return extractTextFragments(part.text);
+      }
+      if (typeof part?.content === 'string') {
+        return extractTextFragments(part.content);
+      }
+      return [];
+    });
+  }
+
+  if (Array.isArray(value.content)) {
+    return value.content.flatMap((part) => {
+      if (typeof part?.text === 'string') {
+        return extractTextFragments(part.text);
+      }
+      if (typeof part?.content === 'string') {
+        return extractTextFragments(part.content);
+      }
+      return [];
+    });
+  }
+
+  return [
+    ...extractTextFragments(value.text),
+    ...extractTextFragments(value.message),
+    ...extractTextFragments(value.output_text),
+    ...extractTextFragments(value.content),
+  ];
+}
+
+function extractOpenClawReplyText(dispatchResult) {
+  const candidates = [
+    dispatchResult?.result?.payloads,
+    dispatchResult?.payloads,
+    dispatchResult?.result?.messages,
+    dispatchResult?.messages,
+    dispatchResult?.result,
+    dispatchResult,
+  ];
+
+  const fragments = candidates.flatMap((candidate) => extractTextFragments(candidate));
+  if (fragments.length === 0) {
+    return null;
+  }
+
+  return fragments.join('\n').trim() || null;
+}
+
+async function relayActivationReplyToSourcePeer({ sourceAgentId, message, relayMeta, agentId }) {
+  if (typeof sourceAgentId !== 'string' || sourceAgentId.trim().length === 0) {
+    return { status: 'not_requested' };
+  }
+
+  const normalizedSourceAgentId = sourceAgentId.trim();
+  if (normalizedSourceAgentId === agentId) {
+    return { status: 'not_requested' };
+  }
+
+  const relayMessage = typeof message === 'string' ? message.trim() : '';
+  if (!relayMessage) {
+    return { status: 'skipped_no_text' };
+  }
+
+  try {
+    const result = await callPeerSkill(normalizedSourceAgentId, 'chat', {
+      message: relayMessage,
+      _relay: buildRelayMeta(relayMeta, agentId),
+    });
+
+    return {
+      status: 'delivered',
+      peerId: normalizedSourceAgentId,
+      result,
+    };
+  } catch (err) {
+    return {
+      status: 'error',
+      peerId: normalizedSourceAgentId,
+      error: err.message,
+    };
+  }
 }
 
 function resolveTarget(target, channel) {
@@ -981,6 +1097,27 @@ async function chat(params) {
           message,
           ...activationOptions,
         });
+        const replyRelay = await relayActivationReplyToSourcePeer({
+          sourceAgentId: agentDeliveryMeta.sourceAgentId,
+          message: extractOpenClawReplyText(dispatchResult),
+          relayMeta,
+          agentId,
+        });
+
+        if (replyRelay.status === 'error') {
+          logger.error('Inbound agent reply relay failed', {
+            error: replyRelay.error,
+            sourceAgentId: replyRelay.peerId,
+            target: requestedTarget || effectiveTarget,
+            resolvedTarget,
+          });
+        } else if (replyRelay.status === 'delivered') {
+          logger.info('Inbound agent reply relayed back to source peer', {
+            sourceAgentId: replyRelay.peerId,
+            target: requestedTarget || effectiveTarget,
+            resolvedTarget,
+          });
+        }
 
         return {
           success: true,
@@ -994,6 +1131,11 @@ async function chat(params) {
           openclaw_reply_channel: activationOptions.replyChannel,
           openclaw_reply_to: activationOptions.replyTo,
           openclaw_result: dispatchResult?.result?.status || dispatchResult?.status || null,
+          reply_relay: replyRelay.status,
+          reply_relay_peer: replyRelay.peerId || null,
+          ...(replyRelay.status === 'error'
+            ? { reply_relay_error: replyRelay.error }
+            : {}),
           timestamp: new Date().toISOString()
         };
       } catch (err) {

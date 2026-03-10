@@ -1,6 +1,7 @@
 'use strict';
 
 const {
+  promptForOpenClawAgent,
   promptForPeerToken,
   promptForDefaultDelivery,
   manageExistingPeers,
@@ -19,6 +20,18 @@ function makePrompt(answers) {
 }
 
 describe('Setup CLI helpers', () => {
+  test('promptForOpenClawAgent selects one detected local agent', async () => {
+    const prompt = makePrompt(['guali-discord']);
+
+    const selected = await promptForOpenClawAgent(prompt, {}, {
+      detected: true,
+      agents: ['main', 'guali-discord', 'musicate-pm'],
+      defaultAgentId: 'main',
+    });
+
+    expect(selected).toBe('guali-discord');
+  });
+
   test('keeps, updates, and removes existing peers', async () => {
     const prompt = makePrompt([
       'k',
