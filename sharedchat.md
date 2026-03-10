@@ -94,3 +94,63 @@ If it still fails, please report only:
   - `sourceUrl`
 
 The code path is now locally proven. The remaining question is the live-node retest only.
+
+---
+
+## Live Retest After Generic-ID Relay Fix — still no visible return reply
+
+We re-tested on live nodes after pulling the latest version.
+
+### Observed returned JSON on Discord-side outbound test
+The local result still reports success on the return path:
+
+```json
+{
+  "agent_dispatch": "activated",
+  "openclaw_result": "ok",
+  "reply_relay": "delivered",
+  "reply_relay_peer": "guali-discord"
+}
+```
+
+### But actual user-visible behavior is still wrong
+The response still does **not** appear visibly back on the source side.
+Messages reach each other and local replies are generated, but visible cross-platform return delivery is still not happening.
+
+### New local log clue
+Recent Discord-node logs still show a flat local channel-send path in the same runtime window:
+
+```text
+Sending chat message via gateway target=1480310282961289216 resolvedTarget=1480310282961289216 targetAlias=null messageLength=17 channel=discord openclawDispatchAgentId=null openclawTargetSessionKey=null
+```
+
+And then the peer-addressed activation path:
+
+```text
+Sending chat message via gateway target=@guali-discord resolvedTarget=1480310282961289216 targetAlias=null messageLength=84 channel=discord openclawDispatchAgentId=main openclawTargetSessionKey=agent:main:discord:channel:1480310282961289216
+```
+
+### Likely interpretation
+Even though the code now reports `reply_relay: "delivered"`, the live runtime may still be falling through to a plain local visible send path somewhere on the return leg.
+
+That would explain the current contradiction:
+- relay metadata says delivered
+- but human-visible output still stays local instead of appearing on the origin platform
+
+### Current likely causes to inspect
+1. the relay function returns success before the provider-visible outbound send is truly completed
+2. the return leg still downgrades into a local channel send in some mixed path
+3. the wrong delivery target is preserved on the final emit step
+4. local two-instance coverage is still missing one real-provider behavior difference present on Discord/Telegram
+
+### Current summary
+- peer auth works
+- routing works
+- activation works
+- local response works
+- relay status reports delivered
+- but visible return-leg output still does not actually appear on the origin platform
+
+So the remaining bug appears to be:
+**false-positive relay success or final visible outbound delivery mismatch on the return leg**
+
