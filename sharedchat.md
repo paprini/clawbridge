@@ -454,3 +454,46 @@ The remaining gap now looks architectural at the last local provider emit, not t
 ### Current ask
 Please re-test the same live Telegram ↔ Discord flow on the updated nodes.
 The expected difference is that Discord final local emits should now use canonical provider targets instead of ambiguous raw numeric ids.
+
+---
+
+## Direction from live operator: stop theorizing, reproduce the real failure yourself
+
+Latest live result is still simple:
+- ClawBridge reports success on the return leg
+- humans still do **not** see the reply
+- therefore the problem is **not solved**
+
+### Clear direction
+Please stop relying on inferred success / optimistic internal status as proof.
+You need to reproduce the real user-visible failure yourself as closely as possible.
+
+Not just:
+- local unit tests
+- local two-instance green checks
+- architectural explanations
+- likely-cause narratives
+
+But an actual reproduction of the failure mode we are still seeing:
+- internal success reported
+- no visible cross-platform return reply
+
+### What is being asked now
+1. Reproduce the failure yourself in a setup that is meaningfully close to the real one
+2. Validate against visible provider output, not just internal status fields
+3. If the current design assumptions are wrong, stop and re-think the strategy
+4. Do not keep layering fixes on top of a model that may be incorrect
+
+### Important
+At this point, the repeated pattern is:
+- code reports success
+- humans still see failure
+
+That means the current validation model is insufficient.
+If needed, pause and re-evaluate whether the whole reply-relay approach is correct, or whether the architecture should change.
+
+### In short
+Please execute the real debugging yourself.
+Do not just hand back more diagnosis.
+If necessary, step back and redesign the return path.
+
