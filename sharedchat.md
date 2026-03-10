@@ -2,7 +2,8 @@
 
 Hello developer, I am `gipiti`, the expert developer instance working directly in this local clone of `clawbridge`.
 
-Use this file for current implementation status, active blockers, and exact live validation feedback only.
+Use this file for **current implementation status, active blockers, and exact live validation feedback only**.
+Do not keep stale debugging history here once it has been distilled.
 
 Archive:
 - `docs/archive/sharedchat-history-2026-03-09.md`
@@ -13,7 +14,8 @@ Archive:
 - latest follow-up fix for OpenClaw CLI discovery is implemented
 - full local test suite passing: `22` suites / `183` tests
 - local `npm run verify` passes
-- release workflow is now tag-driven and the repo has a real tagged release: `v0.2.0`
+- release workflow is now tag-driven
+- repo has a real tagged release: `v0.2.0`
 
 ### Release status
 - `package.json` is now `0.2.0`
@@ -25,115 +27,130 @@ Archive:
   - `npm run release:major`
 - release process docs are in `docs/RELEASING.md`
 
-### Latest fix from gipiti
-Native `@agent` activation now resolves the OpenClaw CLI using the documented OpenClaw install paths before spawning it.
+### Confirmed working on live nodes
+- peer auth ✅
+- peer ping ✅
+- `@agent-name` routing ✅
+- visible message delivery ✅
+- native activation path runs ✅
+- real inbound activation now happens at least sometimes ✅
 
-What changed:
-- ClawBridge still supports explicit `OPENCLAW_BIN`
-- when `OPENCLAW_BIN` is not set, ClawBridge now searches:
-  - the current runtime `PATH`
-  - `npm prefix -g`
-  - `~/.openclaw/bin/openclaw`
-  - `~/.local/bin/openclaw`
-  - standard service-safe locations such as `/opt/homebrew/bin/openclaw` and `/usr/local/bin/openclaw`
-- the resolver now caches proven command paths only; it does not cache a missing bare command
-- setup and verify now tell operators these exact locations instead of only saying "check PATH"
-- docs now expose `OPENCLAW_BIN` as the explicit override when those documented locations are not enough
+### Current blocker summary
+ClawBridge has crossed the transport barrier, but it still does **not** deliver correct two-way cross-agent conversation semantics on multi-agent installs.
 
-Why this matters:
-- the live node failure is no longer treated as a vague dispatch bug
-- it is now handled as a documented install/runtime path issue
-- the fix follows the real OpenClaw install docs instead of adding broad guesswork
-
-### Next live validation needed
-Please pull latest `main` on the live nodes and re-test:
-
-```js
-chat({ target: "@monti-telegram", message: "Hola... respondeme..." })
-```
-
-Expected result now:
-- visible inbound delivery still works
-- native local agent activation no longer fails with `spawn openclaw ENOENT`
-- target agent visibly replies in the same destination
-- ClawBridge returns `agent_dispatch: "activated"`
-
-### If it still fails
-Please report back with:
-- exact returned JSON
-- output of `which openclaw`
-- output of `openclaw --version`
-- output of `npm prefix -g`
-- whether `OPENCLAW_BIN` is set in the ClawBridge service environment
-- receiving node `config/agent.json`
-- receiving node `config/bridge.json`
-- any stderr/stdout around the activation step
+It is now effectively **one-way per message**.
 
 ---
 
-## New Live Bug: activation works, but local agent identity routing is wrong
+## Live Validation Bug Report
 
-We finally got a real visible round-trip on live nodes, but the result exposed a new bug.
+### Environment
+Real-node validation between:
+- `guali-discord`
+- `monti-telegram`
 
-### What happened
-Telegram -> Discord produced a visible inbound message in Discord lounge and a visible reply.
-So this confirms:
-- inbound activation can now work
-- visible reply can now happen
+### What now works
+- Telegram -> Discord can trigger a real visible inbound message
+- Discord can visibly respond
+- the native activation path is no longer failing on auth / sessions visibility / `sessions_send` / `ENOENT`
 
-### But the reply came from the wrong local agent
-Relevant Discord-node log lines:
+### Bug 1 — wrong local agent gets activated
 
-```text
-[INFO] Sending chat message via gateway target=@guali-discord resolvedTarget=1480310282961289216 targetAlias=null messageLength=75 channel=discord openclawDispatchAgentId=musicate-pm openclawTargetSessionKey=agent:musicate-pm:discord:channel:1480310282961289216
-```
-
-And then again:
-
-```text
-[INFO] Sending chat message via gateway target=@guali-discord resolvedTarget=1480310282961289216 targetAlias=null messageLength=89 channel=discord openclawDispatchAgentId=musicate-pm openclawTargetSessionKey=agent:musicate-pm:discord:channel:1480310282961289216
-```
-
-### Why this is wrong
-The peer target was:
+#### Symptom
+When the peer target is:
 - `@guali-discord`
 
-But ClawBridge activated:
+The Discord node activates:
 - `musicate-pm`
 
-because the visible target resolved into Discord `#lounge`, and `#lounge` is bound in OpenClaw to `musicate-pm`.
+instead of:
+- the actual Guali Discord agent (`main`, or explicitly pinned local agent identity)
 
-### Meaning
-This is no longer a dispatch-failure bug.
-This is now an **agent identity / local target-agent selection bug**.
+#### Evidence from Discord-node logs
+```text
+openclawDispatchAgentId=musicate-pm
+openclawTargetSessionKey=agent:musicate-pm:discord:channel:1480310282961289216
+```
 
-ClawBridge is currently overfitting to the destination channel/session binding and losing the intended agent identity.
+#### Interpretation
+ClawBridge is conflating:
+1. **which local agent should answer**
+2. **where the answer should be delivered**
 
-### What should happen instead
-If the peer target is `@guali-discord`, the activated local OpenClaw agent should be the one representing Guali Discord (main / explicitly pinned local agent), not whichever agent happens to own the destination channel session.
+Because the visible delivery lands in `#lounge`, and `#lounge` is bound in OpenClaw to `musicate-pm`, ClawBridge ends up waking PM instead of Guali Discord.
 
-### Current incorrect behavior
-- peer identity says: `@guali-discord`
-- delivery target says: `#lounge`
-- session lookup picks: `musicate-pm`
-- visible response therefore comes from the wrong persona/agent
+#### Expected behavior
+If the peer target is:
+- `@guali-discord`
 
-### Likely fix direction
-You probably need to separate:
-1. **who should answer** (local OpenClaw agent identity)
-2. **where the answer should be delivered** (channel / reply target)
+then the local agent that gets activated must be the one representing `guali-discord`, not whichever OpenClaw agent happens to own the destination channel binding.
 
-Those are not always the same thing on multi-agent OpenClaw installs.
+#### Fix direction
+Separate:
+- **local responding agent identity**
+- **delivery destination / reply surface**
 
-### Important extra signal
-Discord lounge also showed:
-- visible inbound message from Monti
-- visible reply from PM persona
-- then `⚠️ ✉️ Message: \`📌\` failed`
+On multi-agent OpenClaw installs, those are not the same concept.
 
-So there may also be a follow-up message formatting / delivery artifact after the wrong-agent activation.
+---
 
-### Request
-Please fix the local agent-selection logic for peer-addressed targets like `@guali-discord`.
-On multi-agent OpenClaw installs, ClawBridge must preserve the intended local agent identity rather than blindly selecting whichever session binding matches the delivery channel.
+### Bug 2 — reply stays local instead of relaying back to origin peer
+
+#### Symptom
+Telegram -> Discord flow:
+- inbound message reaches Discord
+- Discord activates and responds visibly
+- but the response is posted only in Discord’s own channel
+- it is **not relayed back to Telegram automatically**
+
+Feedback from Telegram side:
+> No incoming chat from Discord. The response went to Discord's own channel, not back to me. For now the bridge is one-way per message.
+
+#### Interpretation
+Current behavior is:
+- inbound delivery ✅
+- local activation ✅
+- local visible response ✅
+- reply relay back to origin peer ❌
+
+So the bridge behaves like:
+- **one-way per message**
+
+not like:
+- **true two-way cross-agent conversation**
+
+#### Expected behavior
+If Telegram initiates a conversation toward Discord, then Discord’s reply should route back to Telegram automatically, preserving the conversation origin.
+
+#### Fix direction
+Preserve and use the **origin peer / origin route context** during and after activation, so the resulting reply is sent back through ClawBridge to the initiating peer instead of staying local-only.
+
+---
+
+## Current high-level conclusion
+ClawBridge is no longer blocked on transport.
+
+The remaining issues are now conversation-semantics issues:
+1. wrong local agent identity selected on multi-agent installs
+2. reply does not relay back to the origin peer
+
+### Short version
+Current state:
+- transport works
+- delivery works
+- activation works
+- but true bidirectional agent conversation still fails because:
+  - `@guali-discord` may wake the wrong local agent
+  - replies stay local instead of returning to the initiating peer
+
+---
+
+## Request to gipiti
+Please treat this as the current live blocker and continue from here.
+
+If you need anything from live nodes, ask explicitly here for:
+- exact JSON responses
+- config snapshots
+- log excerpts
+- repeated Discord ↔ Telegram validation
 
