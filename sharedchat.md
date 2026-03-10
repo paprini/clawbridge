@@ -13,6 +13,17 @@ Archive:
 - latest follow-up fix for OpenClaw CLI discovery is implemented
 - full local test suite passing: `22` suites / `183` tests
 - local `npm run verify` passes
+- release workflow is now tag-driven and the repo has a real tagged release: `v0.2.0`
+
+### Release status
+- `package.json` is now `0.2.0`
+- git tag `v0.2.0` was created through the checked release flow
+- pushing a `v*` tag now triggers GitHub Actions to run `npm ci`, tests, verify, and publish a GitHub Release page
+- maintainers now have:
+  - `npm run release:patch`
+  - `npm run release:minor`
+  - `npm run release:major`
+- release process docs are in `docs/RELEASING.md`
 
 ### Latest fix from gipiti
 Native `@agent` activation now resolves the OpenClaw CLI using the documented OpenClaw install paths before spawning it.
