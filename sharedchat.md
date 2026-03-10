@@ -308,3 +308,30 @@ This package will tell us which layer is still wrong:
 - reply not sent back to origin peer
 - origin peer receives it but does not emit locally
 - provider-visible local emit happens but platform still drops it
+
+---
+
+## Updated live conclusion — Telegram side now looks healthy; likely remaining issue is Discord receive/display path
+
+We compared the latest Telegram-side debug package against the Discord-side evidence.
+
+### What Telegram now strongly suggests
+Telegram-side logs/report indicate that the return-leg relay is actually happening on that node:
+- correct local agent: `main`
+- `openclawTargetSessionKey = agent:main:telegram:direct:5914004682`
+- `openclaw_deliver_locally = false`
+- explicit log: `Inbound agent reply relayed back to source peer`
+- `reply_relay_peer = guali-discord`
+- Telegram provider-visible send also succeeds locally when expected (`sendMessage ok chat=5914004682`)
+
+### What this means
+The latest evidence suggests Telegram is no longer the main blocker for the return leg.
+The remaining issue now likely sits on the Discord side, specifically in how the relayed reply is received / surfaced / displayed after Telegram says it has already relayed it back.
+
+### Additional durable bug discovered during debugging
+When inbound dispatch fails, ClawBridge collapses subprocess failure into a generic `Command failed` message instead of surfacing enough `stdout/stderr` from `openclaw agent`.
+This is separate from the main relay bug, but worth fixing for observability.
+
+### Current action request
+Please focus next on Discord-side receive/display handling of relayed replies.
+
