@@ -233,13 +233,9 @@ function buildAgentDeliveryMeta({
   };
 }
 
-function normalizeRequestPeerId(value, localAgentId) {
+function sanitizePeerId(value) {
   const trimmed = typeof value === 'string' ? value.trim() : '';
   if (!trimmed || ['__shared__', 'anonymous', 'unknown'].includes(trimmed)) {
-    return null;
-  }
-
-  if (localAgentId && trimmed === localAgentId) {
     return null;
   }
 
@@ -260,7 +256,7 @@ function normalizePeerBaseUrl(value) {
   }
 }
 
-function findPeerIdBySourceUrl(sourceUrl, localAgentId) {
+function findPeerIdBySourceUrl(sourceUrl) {
   const normalizedSourceUrl = normalizePeerBaseUrl(sourceUrl);
   if (!normalizedSourceUrl) {
     return null;
@@ -272,24 +268,50 @@ function findPeerIdBySourceUrl(sourceUrl, localAgentId) {
       return null;
     }
 
-    return normalizeRequestPeerId(peer.id, localAgentId);
+    return sanitizePeerId(peer.id);
   } catch {
     return null;
   }
 }
 
-function resolveReplyRelayPeerId({ requestPeerId, sourceAgentId, sourceUrl, localAgentId }) {
-  const requestPeer = normalizeRequestPeerId(requestPeerId, localAgentId);
+function resolveReplyRelayPeerId({
+  requestPeerId,
+  sourceAgentId,
+  sourceUrl,
+  localAgentId,
+  localAgentUrl,
+}) {
+  const normalizedLocalAgentId = typeof localAgentId === 'string' ? localAgentId.trim() : '';
+  const normalizedLocalAgentUrl = normalizePeerBaseUrl(localAgentUrl);
+  const normalizedSourceUrl = normalizePeerBaseUrl(sourceUrl);
+  const isExplicitRemoteSourceUrl = Boolean(
+    normalizedSourceUrl
+    && normalizedLocalAgentUrl
+    && normalizedSourceUrl !== normalizedLocalAgentUrl
+  );
+
+  const requestPeer = sanitizePeerId(requestPeerId);
   if (requestPeer) {
-    return requestPeer;
+    if (requestPeer !== normalizedLocalAgentId || peerExists(requestPeer)) {
+      return requestPeer;
+    }
   }
 
-  const sourceUrlPeer = findPeerIdBySourceUrl(sourceUrl, localAgentId);
+  const sourceUrlPeer = findPeerIdBySourceUrl(sourceUrl);
   if (sourceUrlPeer) {
-    return sourceUrlPeer;
+    if (sourceUrlPeer !== normalizedLocalAgentId || isExplicitRemoteSourceUrl) {
+      return sourceUrlPeer;
+    }
   }
 
-  return normalizeRequestPeerId(sourceAgentId, localAgentId);
+  const fallbackSourcePeer = sanitizePeerId(sourceAgentId);
+  if (fallbackSourcePeer) {
+    if (fallbackSourcePeer !== normalizedLocalAgentId || isExplicitRemoteSourceUrl || peerExists(fallbackSourcePeer)) {
+      return fallbackSourcePeer;
+    }
+  }
+
+  return null;
 }
 
 function getRelayGuardFailure(relayMeta, agentId) {
@@ -842,10 +864,6 @@ async function relayActivationReplyToSourcePeer({
   }
 
   const normalizedSourceAgentId = sourceAgentId.trim();
-  if (normalizedSourceAgentId === agentId) {
-    return { status: 'not_requested' };
-  }
-
   const relayMessage = typeof message === 'string' ? message.trim() : '';
   if (!relayMessage) {
     return { status: 'skipped_no_text' };
@@ -949,7 +967,7 @@ async function chat(params) {
   const { agentId, openclawAgentId, agentUrl, defaultDelivery } = getLocalAgentContext();
   const relayMeta = normalizeRelayMeta(params._relay);
   let agentDeliveryMeta = normalizeAgentDeliveryMeta(params._agentDelivery);
-  const requestPeerId = normalizeRequestPeerId(params._requestPeerId, agentId);
+  const requestPeerId = sanitizePeerId(params._requestPeerId);
 
   if (target !== undefined && typeof target !== 'string') {
     return {
@@ -1232,6 +1250,7 @@ async function chat(params) {
           sourceAgentId: agentDeliveryMeta.sourceAgentId,
           sourceUrl: agentDeliveryMeta.sourceUrl,
           localAgentId: agentId,
+          localAgentUrl: agentUrl,
         });
         const replyRelay = await relayActivationReplyToSourcePeer({
           sourceAgentId: replyRelayPeerId,

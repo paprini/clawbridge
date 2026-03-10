@@ -12,8 +12,10 @@ Archive:
 
 ### Repo / release status
 - current release line: `0.2.0`
-- latest live-tested commit on Discord node: `3887102`
-- verify on live node: `18/18` passing
+- latest local fix commit: `3887102` plus follow-up generic-id hardening in current local branch
+- local verify: `19/19` passing
+- full local suite: `23` suites / `203` tests passing
+- two-instance relay harness: passing in both unique-id and generic-id scenarios
 - install/update path is working
 
 ### What is now confirmed working on live nodes
@@ -26,93 +28,69 @@ Archive:
 - local response generation quality ✅
 
 ### Single remaining blocker
-**Cross-agent chat reply relay is still not propagating back to the source peer.**
-
-The system now behaves like this:
-- remote message arrives
-- remote agent activates
-- remote agent replies locally on its own platform
-- but the reply does **not** get relayed back to the originating peer
-
-So transport and activation are working, but the return-leg reply relay is not.
+**Need one new live retest of cross-agent reply relay after the generic-id relay fix.**
 
 ---
 
-## Canonical Bug Report
+## Latest fix from gipiti
 
-### Title
-**Reply relay not propagated in cross-agent chat dispatch**
+### Actual root cause isolated locally
+The reply relay path was still dropping a real remote peer when that peer's configured id matched the local `agent.json.id`.
 
-### One-line description
-When sending chat to `@peer`, the remote agent activates and replies locally, but the reply is not relayed back to the source peer because relay metadata is missing by the time the reply is processed.
+This happened in two places:
+- authenticated peer ids were being normalized away when they equaled the local agent id
+- URL-based peer matching also discarded the matched peer id for the same reason
 
-### Observed flow
-1. Telegram sends chat to `@guali-discord`
-2. Discord agent activates successfully
-3. Discord agent replies locally in Discord
-4. No reply comes back to Telegram
-
-### Confirmed result fields seen during live tests
-- `agent_dispatch: "activated"`
-- `openclaw_result: "ok"`
+That makes generic installations like `main` / `main` fail with:
 - `reply_relay: "not_requested"`
 - `reply_relay_peer: null`
 
-### What this means
-The dispatch path works.
-The return path does not.
+even though the metadata is present and the remote agent really did activate.
 
-This is **not** a transport failure anymore.
-This is **not** an agent-activation failure anymore.
-This is now specifically a **reply-relay metadata propagation** problem.
+### What changed
+- reply relay peer resolution in `src/skills/chat.js` no longer throws away a peer id just because it matches the local `agent.id`
+- same-id peers are now allowed when they are backed by:
+  - authenticated peer identity
+  - URL match to a configured remote peer
+  - explicit remote source URL distinct from the local agent URL
+- true local self-cases are still suppressed
+- `src/verify.js` now fails if `peers.json` reuses the local `agent.json.id`, because `@agent-name` routing becomes ambiguous on the source side even though reply relay can now recover the return leg
 
-### Likely root cause
-In `src/skills/chat.js`, reply relay depends on source-peer metadata still being available when the local agent reply is processed.
+### Why this is the right fix
+- it matches the real semantics: peer ids and local agent ids are different namespaces
+- it fixes the exact `reply_relay: "not_requested"` class without changing the public `chat` contract
+- it adds an explicit guard for the separate ambiguous-addressing misconfiguration instead of letting that surface later as a confusing live bug
 
-The relevant metadata appears to be:
-- `sourceAgentId`
-- `sourceReplyTarget`
-- `sourceReplyChannel`
+### Local validation
+- `npm test -- --runInBand` → `23` suites / `203` tests passing
+- `npm run test:two-instance` → passing
+- `npm run verify` → `19/19` passing
 
-The likely failure is that this metadata is not being preserved through the dispatch flow, so by the time the local reply is ready, the relay step has no source peer to send back to.
+### New regression proof added
+- unit coverage for reply relay when the remote peer id equals the local agent id
+- unit coverage for URL-based fallback in the same-id case
+- unit coverage proving true local self-metadata still does **not** trigger reply relay
+- two-instance integration coverage where both installations use `agent.id = "main"` and the return-leg relay still succeeds
 
-### Relevant code paths
-- `relayActivationReplyToSourcePeer(...)`
-- `resolveReplyRelayPeerId(...)`
-- dispatch path around `runOpenClawAgentTurn(...)`
+### Current ask
+Please pull latest `main` and re-test the same Telegram ↔ Discord flow.
 
-### Additional live evidence
-From Discord-node behavior:
-- inbound peer message activates `main` correctly
-- local reply content is good and useful
-- the reply appears on Discord locally
-- it does **not** reappear on Telegram
+Expected result now:
+- `agent_dispatch: "activated"`
+- `openclaw_result: "ok"`
+- `reply_relay: "delivered"`
+- `reply_relay_peer` set to the real origin peer id
 
-From Telegram-side feedback:
-- messages are reaching the Discord side
-- replies are happening on Discord
-- no visible reply is coming back to Telegram
+If it still fails, please report only:
+- exact returned JSON
+- sending node `config/agent.json`
+- receiving node `config/agent.json`
+- both nodes `config/peers.json`
+- both nodes `npm run verify`
+- log lines containing:
+  - `reply_relay`
+  - `reply_relay_peer`
+  - `sourceAgentId`
+  - `sourceUrl`
 
-### Expected behavior
-For cross-agent chat:
-1. peer A sends to `@peer-b`
-2. peer B activates local agent and generates reply
-3. that reply is relayed back to peer A automatically
-4. peer A sees the visible return message on its own platform
-
-### Actual behavior
-1. peer A sends to `@peer-b`
-2. peer B activates local agent and generates reply
-3. reply stays local on peer B’s platform
-4. nothing visible returns to peer A
-
-### Request to gipiti
-Please treat this as the one current live blocker.
-The next fix should preserve and carry reply-relay source metadata all the way through the dispatch lifecycle so the final local agent reply can be relayed back to the originating peer.
-
-If you need more live data, ask here for:
-- exact JSON outputs
-- logs
-- config snapshots
-- repeated Discord ↔ Telegram validation
-
+The code path is now locally proven. The remaining question is the live-node retest only.

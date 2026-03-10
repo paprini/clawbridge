@@ -557,6 +557,127 @@ describe('Built-in Skills', () => {
       expect(result.reply_relay_peer).toBe('monti-telegram');
     });
 
+    it('still relays when the authenticated peer id equals the local agent id but is a configured remote peer', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'main',
+        url: 'http://172.31.30.104:9100',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      loadPeersConfig.mockReturnValue([
+        { id: 'main', url: 'http://172.31.30.105:9100', token: 'peer-token' },
+      ]);
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+      callPeerSkill.mockResolvedValue({ success: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _requestPeerId: 'main',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'main',
+          sourceUrl: 'http://172.31.30.105:9100/a2a',
+          sourceReplyTarget: '5914004682',
+          sourceReplyChannel: 'telegram',
+          requestedTarget: '@guali-discord',
+        },
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('main', 'chat', {
+        target: '5914004682',
+        channel: 'telegram',
+        message: 'Hola desde Discord',
+        _relay: { hops: 1, visited: ['main'] },
+      });
+      expect(result.reply_relay).toBe('delivered');
+      expect(result.reply_relay_peer).toBe('main');
+    });
+
+    it('still relays when sourceUrl maps to a remote peer whose id equals the local agent id', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'main',
+        url: 'http://172.31.30.104:9100',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      loadPeersConfig.mockReturnValue([
+        { id: 'main', url: 'http://172.31.30.105:9100', token: 'peer-token' },
+      ]);
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+      callPeerSkill.mockResolvedValue({ success: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'main',
+          sourceUrl: 'http://172.31.30.105:9100/a2a',
+          sourceReplyTarget: '5914004682',
+          sourceReplyChannel: 'telegram',
+          requestedTarget: '@guali-discord',
+        },
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('main', 'chat', {
+        target: '5914004682',
+        channel: 'telegram',
+        message: 'Hola desde Discord',
+        _relay: { hops: 1, visited: ['main'] },
+      });
+      expect(result.reply_relay).toBe('delivered');
+      expect(result.reply_relay_peer).toBe('main');
+    });
+
+    it('does not treat the local instance as a reply relay peer when source metadata points back to the same installation', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'main',
+        url: 'http://172.31.30.104:9100',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'main',
+          sourceUrl: 'http://172.31.30.104:9100/a2a',
+          sourceReplyTarget: '5914004682',
+          sourceReplyChannel: 'telegram',
+          requestedTarget: '@main',
+        },
+      });
+
+      expect(callPeerSkill).not.toHaveBeenCalled();
+      expect(result.reply_relay).toBe('not_requested');
+      expect(result.reply_relay_peer).toBeNull();
+    });
+
     it('reuses the source delivery target for reply relay even when the receiver has no opinion about the origin default', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'guali-discord',

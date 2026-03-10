@@ -340,7 +340,7 @@ describe('two-instance cross-node chat', () => {
   let instanceA;
   let instanceB;
 
-  afterAll(async () => {
+  async function cleanup() {
     await stopInstance(instanceA);
     await stopInstance(instanceB);
     if (gateway) {
@@ -349,6 +349,15 @@ describe('two-instance cross-node chat', () => {
     if (rootDir) {
       fs.rmSync(rootDir, { recursive: true, force: true });
     }
+    rootDir = null;
+    gateway = null;
+    gatewayPort = null;
+    instanceA = null;
+    instanceB = null;
+  }
+
+  afterEach(async () => {
+    await cleanup();
   });
 
   test('relays @agent across two local instances and returns the reply to the origin instance', async () => {
@@ -432,6 +441,119 @@ describe('two-instance cross-node chat', () => {
     expect(result.agent_dispatch).toBe('activated');
     expect(result.reply_relay).toBe('delivered');
     expect(result.reply_relay_peer).toBe('monti-telegram');
+
+    const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
+    expect(messageCalls).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        args: expect.objectContaining({
+          target: '1480310282961289216',
+          channel: 'discord',
+          message: 'Hola desde Telegram',
+        }),
+      }),
+      expect.objectContaining({
+        args: expect.objectContaining({
+          target: '5914004682',
+          channel: 'telegram',
+          message: expect.stringContaining('reply:main:discord:1480310282961289216:Hola desde Telegram'),
+        }),
+      }),
+    ]));
+  });
+
+  test('still relays replies correctly when both installs use the same generic agent id', async () => {
+    rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-two-instance-generic-'));
+    const { cliPath } = writeFakeOpenClawCli(rootDir);
+    const gatewayToken = 'gateway-token-test';
+    gateway = createFakeGatewayServer({ token: gatewayToken });
+    gatewayPort = await getFreePort();
+    await gateway.listen(gatewayPort);
+
+    const portA = await getFreePort();
+    const portB = await getFreePort();
+    const sharedToken = 'local-shared-test-token';
+    const pairToken = 'pair-peer-token-abcdef1234567890';
+
+    const configDirA = path.join(rootDir, 'instance-a');
+    const configDirB = path.join(rootDir, 'instance-b');
+    const gatewayConfigA = path.join(rootDir, 'openclaw-a.json');
+    const gatewayConfigB = path.join(rootDir, 'openclaw-b.json');
+    writeGatewayConfig(gatewayConfigA, gatewayToken);
+    writeGatewayConfig(gatewayConfigB, gatewayToken);
+
+    writeInstanceConfig({
+      configDir: configDirA,
+      agentId: 'main',
+      name: 'Monti Telegram',
+      url: `http://127.0.0.1:${portA}/a2a`,
+      defaultDelivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
+      peer: { id: 'main', url: `http://127.0.0.1:${portB}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigA,
+    });
+
+    writeInstanceConfig({
+      configDir: configDirB,
+      agentId: 'main',
+      name: 'Guali Discord',
+      url: `http://127.0.0.1:${portB}/a2a`,
+      defaultDelivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      peer: { id: 'main', url: `http://127.0.0.1:${portA}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigB,
+    });
+
+    instanceA = startInstance({ configDir: configDirA, port: portA, openclawBin: cliPath, sharedToken });
+    instanceB = startInstance({ configDir: configDirB, port: portB, openclawBin: cliPath, sharedToken });
+
+    await waitForHealth(instanceA.url, instanceA.child);
+    await waitForHealth(instanceB.url, instanceB.child);
+
+    const res = await fetch(`${instanceB.url}/a2a`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${pairToken}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 2,
+        method: 'message/send',
+        params: {
+          message: {
+            kind: 'message',
+            messageId: 'two-instance-2',
+            role: 'user',
+            parts: [
+              { kind: 'text', text: 'chat' },
+              {
+                kind: 'text',
+                text: JSON.stringify({
+                  message: 'Hola desde Telegram',
+                  _agentDelivery: {
+                    activateSession: true,
+                    sourceAgentId: 'main',
+                    sourceUrl: `http://127.0.0.1:${portA}/a2a`,
+                    sourceReplyTarget: '5914004682',
+                    sourceReplyChannel: 'telegram',
+                    requestedTarget: '@main',
+                  },
+                }),
+              },
+            ],
+          },
+        },
+      }),
+    });
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    const result = JSON.parse(body.result.parts[0].text);
+
+    expect(result.success).toBe(true);
+    expect(result.agent_dispatch).toBe('activated');
+    expect(result.reply_relay).toBe('delivered');
+    expect(result.reply_relay_peer).toBe('main');
 
     const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
     expect(messageCalls).toEqual(expect.arrayContaining([

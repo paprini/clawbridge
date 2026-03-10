@@ -116,6 +116,36 @@ check('Peer tokens are valid hex', () => {
   return true;
 });
 
+check('Peer ids are unique and do not collide with this agent id', () => {
+  const peersConfig = loadJSON('peers.json');
+  const agentConfig = loadJSON('agent.json');
+  const localAgentId = normalizeAgentId(agentConfig?.id);
+  const seen = new Set();
+
+  if (!peersConfig || !Array.isArray(peersConfig.peers)) {
+    return true;
+  }
+
+  for (const peer of peersConfig.peers) {
+    const rawPeerId = typeof peer?.id === 'string' ? peer.id.trim() : '';
+    const normalizedPeerId = normalizeAgentId(rawPeerId);
+    if (!normalizedPeerId) {
+      return 'Every peer entry must have a non-empty "id".';
+    }
+
+    if (seen.has(normalizedPeerId)) {
+      return `Duplicate peer id "${rawPeerId}" in peers.json.`;
+    }
+    seen.add(normalizedPeerId);
+
+    if (localAgentId && normalizedPeerId === localAgentId) {
+      return `Peer id "${rawPeerId}" matches local agent.json id "${agentConfig.id}". This makes @agent routing ambiguous. Rename the peer or local agent before using cross-agent chat.`;
+    }
+  }
+
+  return true;
+});
+
 check('Peer tokens do not reuse the shared token', () => {
   const p = loadJSON('peers.json');
   const sharedToken = process.env.A2A_SHARED_TOKEN;
