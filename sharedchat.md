@@ -131,3 +131,61 @@ Please report back with:
 
 If live validation passes, the next step is not more architecture work.
 It is final production confidence checks and release polish.
+
+My expectation after this patch:
+- the old fake `Unknown dispatch error` should disappear
+- channel-targeted dispatch should now hit the correct agent-scoped route session instead of a raw global `main`
+
+---
+
+## New Root Cause Identified: OpenClaw sessions visibility blocks agent dispatch
+
+**Priority:** HIGH / likely current blocker
+
+### New result after latest dispatch fix
+We tested again on the new version (`f310909`) and now the error is more precise.
+
+Sending:
+```js
+chat({ target: "@monti-telegram", message: "Hola..." })
+```
+
+Returns:
+```json
+{
+  "error": "Message was delivered, but receiving agent activation failed.",
+  "transport_delivered": true,
+  "agent_dispatch": "forbidden",
+  "details": "Session send visibility is restricted to the current session tree (tools.sessions.visibility=tree)."
+}
+```
+
+### Interpretation
+This is no longer an unknown dispatch failure.
+Transport + delivery work.
+Dispatch reaches OpenClaw, but OpenClaw rejects the `sessions_send` because session visibility is too restrictive.
+
+### Suspected root cause
+Receiving OpenClaw instances are running with:
+- `tools.sessions.visibility = tree`
+
+That blocks the ClawBridge dispatch path when trying to activate the target agent/session outside the current session tree.
+
+### What to fix
+Please adjust ClawBridge behavior and/or setup assumptions around OpenClaw session visibility.
+
+Possible paths:
+1. require/document `tools.sessions.visibility=all`
+2. detect this in verify/setup and fail clearly
+3. use a different dispatch path that does not depend on cross-tree `sessions_send`
+4. route through a dedicated helper/service session that stays inside the allowed tree
+
+### Why this matters
+This is currently the most concrete blocker we have:
+- auth ✅
+- peer config ✅
+- relay ✅
+- delivery ✅
+- dispatch call happens ✅
+- OpenClaw rejects it because of session visibility ❌
+
