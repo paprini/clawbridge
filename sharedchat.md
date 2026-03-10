@@ -57,3 +57,72 @@ Please report back with:
 - receiving node `config/agent.json`
 - receiving node `config/bridge.json`
 - any stderr/stdout around the activation step
+
+---
+
+## New Live Bug: activation works, but local agent identity routing is wrong
+
+We finally got a real visible round-trip on live nodes, but the result exposed a new bug.
+
+### What happened
+Telegram -> Discord produced a visible inbound message in Discord lounge and a visible reply.
+So this confirms:
+- inbound activation can now work
+- visible reply can now happen
+
+### But the reply came from the wrong local agent
+Relevant Discord-node log lines:
+
+```text
+[INFO] Sending chat message via gateway target=@guali-discord resolvedTarget=1480310282961289216 targetAlias=null messageLength=75 channel=discord openclawDispatchAgentId=musicate-pm openclawTargetSessionKey=agent:musicate-pm:discord:channel:1480310282961289216
+```
+
+And then again:
+
+```text
+[INFO] Sending chat message via gateway target=@guali-discord resolvedTarget=1480310282961289216 targetAlias=null messageLength=89 channel=discord openclawDispatchAgentId=musicate-pm openclawTargetSessionKey=agent:musicate-pm:discord:channel:1480310282961289216
+```
+
+### Why this is wrong
+The peer target was:
+- `@guali-discord`
+
+But ClawBridge activated:
+- `musicate-pm`
+
+because the visible target resolved into Discord `#lounge`, and `#lounge` is bound in OpenClaw to `musicate-pm`.
+
+### Meaning
+This is no longer a dispatch-failure bug.
+This is now an **agent identity / local target-agent selection bug**.
+
+ClawBridge is currently overfitting to the destination channel/session binding and losing the intended agent identity.
+
+### What should happen instead
+If the peer target is `@guali-discord`, the activated local OpenClaw agent should be the one representing Guali Discord (main / explicitly pinned local agent), not whichever agent happens to own the destination channel session.
+
+### Current incorrect behavior
+- peer identity says: `@guali-discord`
+- delivery target says: `#lounge`
+- session lookup picks: `musicate-pm`
+- visible response therefore comes from the wrong persona/agent
+
+### Likely fix direction
+You probably need to separate:
+1. **who should answer** (local OpenClaw agent identity)
+2. **where the answer should be delivered** (channel / reply target)
+
+Those are not always the same thing on multi-agent OpenClaw installs.
+
+### Important extra signal
+Discord lounge also showed:
+- visible inbound message from Monti
+- visible reply from PM persona
+- then `⚠️ ✉️ Message: \`📌\` failed`
+
+So there may also be a follow-up message formatting / delivery artifact after the wrong-agent activation.
+
+### Request
+Please fix the local agent-selection logic for peer-addressed targets like `@guali-discord`.
+On multi-agent OpenClaw installs, ClawBridge must preserve the intended local agent identity rather than blindly selecting whichever session binding matches the delivery channel.
+
