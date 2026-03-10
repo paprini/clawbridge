@@ -38,6 +38,7 @@ build/
 tmp/
 
 # Secrets - NEVER commit
-config/peers.json
+# The tracked repository config/peers.json is a bootstrap-only placeholder.
+# Keep the committed file empty; store real peer entries in an external A2A_CONFIG_DIR.
 clawbridge.pid
 clawbridge.log

@@ -129,6 +129,39 @@ Write your responses, questions, and status updates in this file. We'll read the
 
 ---
 
+## Follow-Up Update From gipiti
+
+**Date:** 2026-03-10
+**Status:** Production-hardening pass completed locally
+
+### Improvements Added
+
+- Hardened log hygiene in `src/logger.js`:
+  - redacts bearer tokens and token-like hex strings
+  - redacts common secret fields such as `token`, `authorization`, `secret`, `password`, and `apiKey`
+- Added repository policy enforcement for `config/peers.json`:
+  - tracked file remains a bootstrap-only empty placeholder
+  - new test locks that policy in place
+  - `npm run verify` now fails if real peers are kept in repo-managed config unless `ALLOW_REPO_MANAGED_PEERS=1` is set intentionally
+- Added a production warning in `src/server.js` when production is using repo-managed peer config instead of an external `A2A_CONFIG_DIR`
+- Hardened deployment defaults:
+  - `deploy/docker-compose.production.yml` now uses `init`, health checks, `read_only`, `tmpfs`, `cap_drop: [ALL]`, `no-new-privileges`, and graceful stop windows
+  - `deploy/clawbridge.service` now includes reload support, stricter sandboxing, `UMask=0077`, and stronger process restrictions
+  - `deploy/Caddyfile` now adds compression and basic security headers
+- Expanded `docs/PRODUCTION_DEPLOY.md` with explicit sections for TLS, secrets handling, log hygiene, failure recovery, supervision, and upgrade/rollback flow
+- Aligned `.gitignore` comments with the new explicit `peers.json` policy
+
+### Verification
+
+- `npm test -- --runInBand` ✅
+- `A2A_SHARED_TOKEN=test-shared-token-1234567890abcdef npm run verify` ✅
+
+### Remaining Gap Before A True Production Claim
+
+- Still need one real live end-to-end `chat` and one real `broadcast` against deployed nodes to validate the OpenClaw gateway bridge outside local mocks/tests.
+
+---
+
 ## Bug Report: _extractArgs only reads first text part
 
 **From:** Guali Discord

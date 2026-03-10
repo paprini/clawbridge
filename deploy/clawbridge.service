@@ -9,8 +9,11 @@ User=openclaw
 Group=openclaw
 WorkingDirectory=/opt/clawbridge
 ExecStart=/usr/bin/node src/server.js
+ExecReload=/bin/kill -HUP $MAINPID
 Restart=always
 RestartSec=5
+TimeoutStopSec=15
+UMask=0077
 
 # Environment
 Environment=NODE_ENV=production
@@ -24,6 +27,16 @@ ProtectSystem=strict
 ProtectHome=read-only
 ReadWritePaths=/opt/clawbridge/config /opt/clawbridge/logs
 PrivateTmp=true
+PrivateDevices=true
+ProtectControlGroups=true
+ProtectKernelModules=true
+ProtectKernelTunables=true
+ProtectClock=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictRealtime=true
+RestrictSUIDSGID=true
+SystemCallArchitectures=native
 
 # Logging
 StandardOutput=journal

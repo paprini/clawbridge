@@ -1,4 +1,12 @@
 {$A2A_DOMAIN:localhost} {
+  encode zstd gzip
+
+  header {
+    -Server
+    X-Content-Type-Options nosniff
+    Referrer-Policy no-referrer
+  }
+
   reverse_proxy a2a:9100
 
   # Rate limiting at proxy level

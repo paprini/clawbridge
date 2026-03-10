@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 
 const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', 'config');
+const repoConfigDir = path.join(__dirname, '..', 'config');
 let passed = 0;
 let failed = 0;
 
@@ -92,6 +93,16 @@ check('peers.json file permissions', () => {
   const stats = fs.statSync(p);
   const mode = (stats.mode & 0o777).toString(8);
   if (mode !== '600') return `File mode is ${mode}, should be 600 (owner-only)`;
+  return true;
+});
+
+check('Repository peers policy', () => {
+  const peersConfig = loadJSON('peers.json');
+  const peerCount = Array.isArray(peersConfig?.peers) ? peersConfig.peers.length : 0;
+  const usingRepoConfig = path.resolve(configDir) === path.resolve(repoConfigDir);
+  if (usingRepoConfig && peerCount > 0 && process.env.ALLOW_REPO_MANAGED_PEERS !== '1') {
+    return 'Repository config/peers.json is bootstrap-only. Move real peers to an external A2A_CONFIG_DIR, or set ALLOW_REPO_MANAGED_PEERS=1 if you intentionally accept that risk.';
+  }
   return true;
 });
 

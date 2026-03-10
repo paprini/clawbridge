@@ -15,6 +15,7 @@ dotenv.config();
 
 const PORT = parseInt(process.env.A2A_PORT, 10) || 9100;
 const BIND = process.env.A2A_BIND || '0.0.0.0';
+const DEFAULT_CONFIG_DIR = process.env.A2A_CONFIG_DIR || require('path').join(__dirname, '..', 'config');
 
 // --- Build Agent Card from config ---
 function buildAgentCard() {
@@ -135,6 +136,22 @@ function createServer() {
   return app;
 }
 
+function warnOnProductionConfig() {
+  if (process.env.NODE_ENV !== 'production') return;
+
+  try {
+    const peers = require('./config').loadPeersConfig();
+    const usingRepoConfig = DEFAULT_CONFIG_DIR === require('path').join(__dirname, '..', 'config');
+    if (usingRepoConfig && peers.length > 0) {
+      logger.warn(
+        'Production is using repository-managed config/peers.json. Prefer an external A2A_CONFIG_DIR so peer tokens are not edited in the working tree.'
+      );
+    }
+  } catch (err) {
+    logger.warn('Production config warning skipped', { error: err.message });
+  }
+}
+
 // --- Start if run directly ---
 if (require.main === module) {
   let app;
@@ -145,6 +162,7 @@ if (require.main === module) {
       process.exit(1);
     }
     app = createServer();
+    warnOnProductionConfig();
   } catch (err) {
     logger.error(`Startup failed: ${err.message}`);
     if (err.message.includes('Config file not found')) {

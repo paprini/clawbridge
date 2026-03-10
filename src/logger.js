@@ -9,21 +9,49 @@
  */
 
 const isProduction = process.env.NODE_ENV === 'production';
+const REDACT_KEYS = /(authorization|token|secret|password|api[_-]?key)/i;
+const HEX_SECRET = /\b[0-9a-f]{32,}\b/gi;
+const BEARER_SECRET = /Bearer\s+[A-Za-z0-9._-]+/gi;
+
+function sanitizeValue(value) {
+  if (typeof value === 'string') {
+    return value
+      .replace(BEARER_SECRET, 'Bearer [REDACTED]')
+      .replace(HEX_SECRET, '[REDACTED]');
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((item) => sanitizeValue(item));
+  }
+
+  if (value && typeof value === 'object') {
+    const sanitized = {};
+    for (const [key, nested] of Object.entries(value)) {
+      sanitized[key] = REDACT_KEYS.test(key) ? '[REDACTED]' : sanitizeValue(nested);
+    }
+    return sanitized;
+  }
+
+  return value;
+}
 
 function formatLog(level, message, data = {}) {
+  const sanitizedMessage = sanitizeValue(message);
+  const sanitizedData = sanitizeValue(data);
+
   if (isProduction) {
     return JSON.stringify({
       timestamp: new Date().toISOString(),
       level,
-      message,
-      ...data,
+      message: sanitizedMessage,
+      ...sanitizedData,
     });
   }
   // Dev format: [LEVEL] message key=value
-  const extras = Object.keys(data).length > 0
-    ? ' ' + Object.entries(data).map(([k, v]) => `${k}=${v}`).join(' ')
+  const extras = Object.keys(sanitizedData).length > 0
+    ? ' ' + Object.entries(sanitizedData).map(([k, v]) => `${k}=${v}`).join(' ')
     : '';
-  return `[${level.toUpperCase()}] ${message}${extras}`;
+  return `[${level.toUpperCase()}] ${sanitizedMessage}${extras}`;
 }
 
 const logger = {
@@ -33,4 +61,4 @@ const logger = {
   audit(message, data) { console.log(formatLog('audit', message, data)); },
 };
 
-module.exports = logger;
+module.exports = { ...logger, formatLog };

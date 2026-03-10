@@ -8,6 +8,7 @@
 services:
   caddy:
     image: caddy:2-alpine
+    init: true
     ports:
       - "80:80"
       - "443:443"
@@ -18,9 +19,11 @@ services:
     depends_on:
       - a2a
     restart: unless-stopped
+    stop_grace_period: 15s
 
   a2a:
     build: ..
+    init: true
     environment:
       - A2A_PORT=9100
       - A2A_BIND=0.0.0.0
@@ -30,6 +33,20 @@ services:
     volumes:
       - ../config:/app/config:ro
     restart: unless-stopped
+    stop_grace_period: 15s
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://127.0.0.1:9100/health"]
+      interval: 30s
+      timeout: 5s
+      start_period: 5s
+      retries: 3
     # Not exposed to host — only Caddy can reach it
     expose:
       - "9100"
