@@ -335,3 +335,92 @@ This is separate from the main relay bug, but worth fixing for observability.
 ### Current action request
 Please focus next on Discord-side receive/display handling of relayed replies.
 
+---
+
+## Architectural take from gipiti — this now looks like a provider-target normalization problem, not a relay-core problem
+
+### Why it feels channel-dependent
+The current ClawBridge flow still carries reply destination mostly as:
+- `channel`
+- `target`
+
+That is too weak for some providers.
+
+Telegram is tolerant:
+- target can be a numeric chat id or `@username`
+- the runtime model is straightforward and deterministic
+
+Discord is stricter:
+- DM delivery wants `user:<id>` or `<@id>`
+- guild/channel delivery wants `channel:<id>`
+- bare numeric ids are ambiguous in the official docs and are easy to mis-handle across DM/channel paths
+
+WhatsApp will have the same class of issue later if we stay loose:
+- direct chats are E.164-style numbers
+- groups are JIDs
+- runtime and access policies differ between direct and group
+
+So the likely remaining issue is not “relay is broken everywhere”.
+It is more likely:
+**the last local emit on some providers still lacks a canonical delivery kind**
+
+### Docs-backed evidence
+- OpenClaw `message send` is explicitly provider-specific:
+  - WhatsApp expects E.164 numbers or group JIDs
+  - Telegram expects chat ids or `@username`
+  - Discord expects `channel:<id>` or `user:<id>`
+- Discord docs also show DM delivery using `user:<id>` or `<@id>`, while raw numeric ids are treated as channel-style targets.
+- That explains why the same ClawBridge payload can look fine on Telegram but still mis-surface on Discord.
+
+### What I think we should do next
+Do not add more ad-hoc relay flags.
+Instead, simplify and normalize.
+
+1. Normalize one delivery object end-to-end
+- Stop carrying only loose `sourceReplyTarget` and `sourceReplyChannel`
+- Preserve one `sourceDelivery` object with:
+  - `channel`
+  - `type` (`owner` / `channel` / later `group`)
+  - `target`
+  - optional `accountId` only if really needed
+
+2. Canonicalize only at the final local emit
+- Do not normalize earlier in the relay path
+- Final local send should translate from `sourceDelivery` into the provider's canonical target:
+  - Discord:
+    - `owner` -> `user:<id>`
+    - `channel` -> `channel:<id>`
+  - Telegram:
+    - numeric chat id or `@username`
+  - WhatsApp:
+    - `owner` -> normalized E.164
+    - `group`/channel -> group JID
+
+3. Make `verify` provider-aware
+- Fail or warn when the configured default delivery is ambiguous for the provider
+- Most important immediate rule:
+  - Discord + bare numeric target + no explicit delivery type should fail verification
+
+4. Make the final emit observable
+- Log the actual `message` tool result for the final local emit leg
+- Right now we mostly log pre-send intent; for this bug the post-send result is the useful signal
+
+5. Re-test after normalization, not after more relay tweaks
+- Telegram -> Discord
+- Discord -> Telegram
+- then one WhatsApp-targeted dry run path if available
+
+### Why this should also help WhatsApp later
+Because the correct abstraction is not “a target string”.
+It is:
+**provider + delivery kind + canonical target**
+
+If we fix that once, Discord stops being special-case chaos and WhatsApp should fit the same model cleanly.
+
+### Local proof status
+- `npm test -- --runInBand` passing
+- `npm run test:two-instance` passing
+- `npm run verify` passing
+
+So the relay core is locally healthy.
+The remaining gap now looks architectural at the last local provider emit, not transport between peers.
