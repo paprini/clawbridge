@@ -28,6 +28,42 @@ describe('Bridge', () => {
       expect(config.enabled).toBe(true);
       expect(config.exposed_tools).toContain('web_search');
     });
+
+    test('rejects dangerous tools unless explicitly allowed', () => {
+      fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({
+        enabled: true,
+        gateway: { url: 'http://127.0.0.1:18789', tokenPath: '/nonexistent', sessionKey: 'main' },
+        exposed_tools: ['exec'],
+      }));
+
+      expect(() => loadBridgeConfig()).toThrow('blocked by default');
+
+      fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({
+        enabled: true,
+        gateway: { url: 'http://127.0.0.1:18789', tokenPath: '/nonexistent', sessionKey: 'main' },
+        exposed_tools: ['web_search', 'memory_search', 'session_status'],
+        timeout_ms: 5000,
+        max_concurrent: 2,
+      }));
+    });
+
+    test('rejects invalid bridge tool names', () => {
+      fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({
+        enabled: true,
+        gateway: { url: 'http://127.0.0.1:18789', tokenPath: '/nonexistent', sessionKey: 'main' },
+        exposed_tools: ['web-search'],
+      }));
+
+      expect(() => loadBridgeConfig()).toThrow('Invalid bridge tool name');
+
+      fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({
+        enabled: true,
+        gateway: { url: 'http://127.0.0.1:18789', tokenPath: '/nonexistent', sessionKey: 'main' },
+        exposed_tools: ['web_search', 'memory_search', 'session_status'],
+        timeout_ms: 5000,
+        max_concurrent: 2,
+      }));
+    });
   });
 
   describe('getBridgedTools', () => {

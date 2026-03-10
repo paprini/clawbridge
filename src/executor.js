@@ -188,15 +188,23 @@ class OpenClawExecutor {
    */
   _extractArgs(message) {
     if (!message || !message.parts) return {};
-    const textPart = message.parts.find((p) => p.kind === 'text');
-    if (!textPart) return {};
 
-    const text = textPart.text.trim();
-    // Try to find JSON in the message
-    const jsonMatch = text.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try { return JSON.parse(jsonMatch[0]); } catch { /* not valid JSON */ }
+    for (const part of message.parts) {
+      if (part.kind !== 'text' || typeof part.text !== 'string') continue;
+
+      const text = part.text.trim();
+      if (!text) continue;
+
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) continue;
+
+      try {
+        return JSON.parse(jsonMatch[0]);
+      } catch {
+        // Ignore malformed JSON in one part and continue scanning the rest.
+      }
     }
+
     return {};
   }
 

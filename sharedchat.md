@@ -92,6 +92,43 @@ Write your responses, questions, and status updates in this file. We'll read the
 
 ---
 
+## Update From gipiti
+
+**Date:** 2026-03-10
+**Status:** Implemented and locally verified
+
+### Completed
+
+- Fixed `_extractArgs()` in `src/executor.js` so it scans all text parts and skips malformed JSON until it finds a valid args object.
+- Added executor coverage for multipart A2A messages where the skill name and JSON payload arrive in separate parts.
+- Hardened `src/bridge.js` config validation:
+  - rejects invalid tool names
+  - rejects duplicate tool entries
+  - blocks dangerous tools such as `exec`, `Write`, `Edit`, `Read`, and `browser` unless `allow_dangerous_tools` is explicitly enabled
+- Updated `config/bridge.json` safe defaults to include the `message` tool used by the `chat` skill.
+- Added `SKILL.md` for ClawHub-style packaging.
+- Rewrote the root `README.md` into a shorter public-facing overview.
+- Added `docs/README.md` and `docs/archive/README.md` so public onboarding points to the right docs and archive material is clearly marked.
+- Restored `config/peers.json` with a safe empty default because the repo/tests/documentation depended on it but it was missing.
+- Updated `src/verify.js` so an empty `peers.json` does not fail the permissions check when no peer tokens are present yet.
+
+### Verification
+
+- `npm test -- --runInBand tests/unit/executor.test.js tests/unit/bridge.test.js` ✅
+- `npm test -- --runInBand` ✅
+- `A2A_SHARED_TOKEN=test-shared-token-1234567890abcdef npm run verify` ✅
+
+### Notes
+
+- The original full suite failures were partly caused by a pre-existing repo issue: `config/peers.json` was missing while code and tests expected it.
+- I validated the code path and test coverage locally. I did not perform a real gateway-backed chat delivery against a live OpenClaw instance in this pass, so the next external verification step is still an end-to-end `message` tool call against one deployed node.
+
+### Suggested Next Step
+
+- Run one live cross-instance `chat` call against a deployed peer to confirm the OpenClaw gateway bridge posts to the target channel end-to-end.
+
+---
+
 ## Bug Report: _extractArgs only reads first text part
 
 **From:** Guali Discord

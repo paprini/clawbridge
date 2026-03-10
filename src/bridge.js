@@ -4,6 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 
+const SAFE_TOOL_NAME = /^[A-Za-z][A-Za-z0-9_]*$/;
+const DANGEROUS_TOOLS = new Set(['exec', 'Write', 'Edit', 'Read', 'browser']);
+
 /**
  * Load bridge configuration from config/bridge.json.
  * @returns {object|null} Bridge config or null if not configured
@@ -13,7 +16,41 @@ function loadBridgeConfig() {
   const filePath = path.join(configDir, 'bridge.json');
 
   if (!fs.existsSync(filePath)) return null;
-  return JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  const config = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+  validateBridgeConfig(config);
+  return config;
+}
+
+function validateBridgeConfig(config) {
+  if (!config || typeof config !== 'object') {
+    throw new Error('Invalid bridge configuration');
+  }
+
+  const exposedTools = config.exposed_tools;
+  if (exposedTools === undefined) return;
+
+  if (!Array.isArray(exposedTools)) {
+    throw new Error('Bridge config "exposed_tools" must be an array');
+  }
+
+  const seen = new Set();
+  for (const toolName of exposedTools) {
+    if (typeof toolName !== 'string' || !SAFE_TOOL_NAME.test(toolName)) {
+      throw new Error(`Invalid bridge tool name "${toolName}"`);
+    }
+
+    if (seen.has(toolName)) {
+      throw new Error(`Duplicate bridge tool "${toolName}"`);
+    }
+    seen.add(toolName);
+
+    if (!config.allow_dangerous_tools && DANGEROUS_TOOLS.has(toolName)) {
+      throw new Error(
+        `Bridge tool "${toolName}" is blocked by default. ` +
+        'Set "allow_dangerous_tools": true only if you explicitly accept the risk.'
+      );
+    }
+  }
 }
 
 /**
@@ -125,6 +162,7 @@ function getBridgedTools() {
     Read: 'Read file contents',
     Write: 'Write file contents',
     Edit: 'Edit file (find and replace)',
+    message: 'Send a message through the local OpenClaw gateway',
     web_search: 'Search the web',
     web_fetch: 'Fetch URL content',
     memory_search: 'Search agent memory',
@@ -154,4 +192,10 @@ function isBridgedTool(skillName) {
   return (config.exposed_tools || []).includes(toolName);
 }
 
-module.exports = { callOpenClawTool, getBridgedTools, isBridgedTool, loadBridgeConfig, loadGatewayToken };
+module.exports = {
+  callOpenClawTool,
+  getBridgedTools,
+  isBridgedTool,
+  loadBridgeConfig,
+  loadGatewayToken,
+};

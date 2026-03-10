@@ -6,6 +6,7 @@
     "sessionKey": "main"
   },
   "exposed_tools": [
+    "message",
     "web_search",
     "web_fetch",
     "memory_search",

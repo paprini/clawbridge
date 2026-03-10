@@ -83,6 +83,12 @@ check('peers.json file permissions', () => {
   const p = path.join(configDir, 'peers.json');
   if (!fs.existsSync(p)) return true;
   if (process.platform === 'win32') return true; // skip on Windows
+  const peersConfig = loadJSON('peers.json');
+  const hasSensitivePeerTokens = Array.isArray(peersConfig?.peers)
+    && peersConfig.peers.some((peer) => peer && typeof peer.token === 'string' && peer.token.length > 0);
+  if (!hasSensitivePeerTokens) {
+    return true;
+  }
   const stats = fs.statSync(p);
   const mode = (stats.mode & 0o777).toString(8);
   if (mode !== '600') return `File mode is ${mode}, should be 600 (owner-only)`;

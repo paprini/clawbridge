@@ -4,6 +4,14 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+jest.mock('../../src/skills/chat', () => ({
+  chat: jest.fn(async (params) => ({
+    success: true,
+    delivered_to: params.target,
+    message_length: params.message.length,
+  })),
+}));
+
 // Use a temp config dir without restrictive permissions
 const tmpDir = path.join(os.tmpdir(), `a2a-exec-test-${Date.now()}`);
 fs.mkdirSync(tmpDir, { recursive: true });
@@ -15,6 +23,7 @@ fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({ enabled: fal
 process.env.A2A_CONFIG_DIR = tmpDir;
 
 const { OpenClawExecutor } = require('../../src/executor');
+const { chat } = require('../../src/skills/chat');
 
 describe('OpenClawExecutor', () => {
   let executor;
@@ -32,6 +41,20 @@ describe('OpenClawExecutor', () => {
         messageId: 'test-msg',
         role: 'user',
         parts: [{ kind: 'text', text }],
+      },
+      taskId: 'test-task',
+      contextId: 'test-context',
+      context: { user: { userName: '__shared__', isAuthenticated: true } },
+    };
+  }
+
+  function makeMultipartContext(parts) {
+    return {
+      userMessage: {
+        kind: 'message',
+        messageId: 'test-msg',
+        role: 'user',
+        parts,
       },
       taskId: 'test-task',
       contextId: 'test-context',
@@ -101,6 +124,45 @@ describe('OpenClawExecutor', () => {
     await executor.execute(ctx, bus);
 
     expect(bus.isFinished()).toBe(true);
+  });
+
+  test('extracts JSON args from later text parts', () => {
+    const args = executor._extractArgs({
+      parts: [
+        { kind: 'text', text: 'chat' },
+        { kind: 'text', text: '{"target":"#general","message":"hello"}' },
+      ],
+    });
+
+    expect(args).toEqual({ target: '#general', message: 'hello' });
+  });
+
+  test('ignores malformed JSON parts and keeps scanning', () => {
+    const args = executor._extractArgs({
+      parts: [
+        { kind: 'text', text: 'broadcast' },
+        { kind: 'text', text: '{"target":' },
+        { kind: 'text', text: '{"message":"hello"}' },
+      ],
+    });
+
+    expect(args).toEqual({ message: 'hello' });
+  });
+
+  test('executes chat when skill name and args are split across parts', async () => {
+    const ctx = makeMultipartContext([
+      { kind: 'text', text: 'chat' },
+      { kind: 'text', text: '{"target":"#general","message":"hello"}' },
+    ]);
+    const bus = makeEventBus();
+
+    await executor.execute(ctx, bus);
+
+    expect(chat).toHaveBeenCalledWith({ target: '#general', message: 'hello' });
+    const result = JSON.parse(bus.getEvents()[0].parts[0].text);
+    expect(result.error).toBeUndefined();
+    expect(result.success).toBe(true);
+    expect(result.delivered_to).toBe('#general');
   });
 
   test('cancelTask finishes immediately', async () => {
