@@ -187,11 +187,86 @@ function loadGatewayDefaults() {
   };
 }
 
-function getOpenClawCommand() {
+function isExecutableFile(candidate) {
+  if (typeof candidate !== 'string' || candidate.trim().length === 0) {
+    return false;
+  }
+
+  try {
+    fs.accessSync(candidate, fs.constants.X_OK);
+    return fs.statSync(candidate).isFile();
+  } catch {
+    return false;
+  }
+}
+
+function getExecutableNames(commandName = 'openclaw') {
+  if (process.platform === 'win32') {
+    return [`${commandName}.cmd`, `${commandName}.exe`, `${commandName}.bat`, commandName];
+  }
+
+  return [commandName];
+}
+
+function buildOpenClawCommandCandidates() {
   const configured = typeof process.env.OPENCLAW_BIN === 'string'
     ? process.env.OPENCLAW_BIN.trim()
     : '';
-  return configured || 'openclaw';
+  const pathEntries = typeof process.env.PATH === 'string'
+    ? process.env.PATH.split(path.delimiter).filter(Boolean)
+    : [];
+  const bareCommand = configured && !configured.includes(path.sep) ? configured : 'openclaw';
+  const names = getExecutableNames(bareCommand);
+  const candidates = [];
+
+  if (configured) {
+    candidates.push(expandHome(configured));
+  }
+
+  for (const entry of pathEntries) {
+    for (const name of names) {
+      candidates.push(path.join(entry, name));
+    }
+  }
+
+  if (process.platform === 'darwin') {
+    candidates.push('/opt/homebrew/bin/openclaw');
+    candidates.push('/usr/local/bin/openclaw');
+  } else if (process.platform === 'linux') {
+    candidates.push('/usr/local/bin/openclaw');
+    candidates.push('/usr/bin/openclaw');
+    candidates.push('/snap/bin/openclaw');
+  }
+
+  candidates.push(path.join(os.homedir(), '.local', 'bin', 'openclaw'));
+  candidates.push(path.join(os.homedir(), 'bin', 'openclaw'));
+
+  return [...new Set(candidates.map((candidate) => candidate.trim()).filter(Boolean))];
+}
+
+function resolveOpenClawCommand() {
+  const configured = typeof process.env.OPENCLAW_BIN === 'string'
+    ? process.env.OPENCLAW_BIN.trim()
+    : '';
+
+  if (configured && !configured.includes(path.sep) && !configured.startsWith('.')) {
+    const pathMatch = buildOpenClawCommandCandidates().find((candidate) => isExecutableFile(candidate));
+    if (pathMatch) {
+      return pathMatch;
+    }
+    return configured;
+  }
+
+  if (configured && isExecutableFile(expandHome(configured))) {
+    return expandHome(configured);
+  }
+
+  const discovered = buildOpenClawCommandCandidates().find((candidate) => isExecutableFile(candidate));
+  return discovered || (configured || 'openclaw');
+}
+
+function getOpenClawCommand() {
+  return resolveOpenClawCommand();
 }
 
 function parseOpenClawJsonOutput(stdout) {
@@ -262,8 +337,10 @@ async function runOpenClawAgentTurn({
     args.push('--timeout', String(normalizedTimeoutSeconds));
   }
 
+  const command = resolveOpenClawCommand();
+
   try {
-    const result = await execFileAsync(getOpenClawCommand(), args, {
+    const result = await execFileAsync(command, args, {
       timeout: normalizedTimeoutSeconds ? (normalizedTimeoutSeconds + 30) * 1000 : 330000,
       maxBuffer: 1024 * 1024,
     });
@@ -273,21 +350,16 @@ async function runOpenClawAgentTurn({
     const stdout = typeof err?.stdout === 'string' ? err.stdout.trim() : '';
     const stderr = typeof err?.stderr === 'string' ? err.stderr.trim() : '';
     const details = [stderr, stdout].filter(Boolean).join(' | ');
-    const messageText = details || err.message || 'OpenClaw agent activation failed';
+    const notFound = err?.code === 'ENOENT'
+      ? `OpenClaw CLI not found at "${command}". Set OPENCLAW_BIN or install the binary in PATH.`
+      : null;
+    const messageText = details || notFound || err.message || 'OpenClaw agent activation failed';
     throw new Error(messageText);
   }
 }
 
 function isOpenClawCliAvailable() {
-  try {
-    const result = require('child_process').spawnSync(getOpenClawCommand(), ['--version'], {
-      encoding: 'utf8',
-      timeout: 5000,
-    });
-    return result.status === 0;
-  } catch {
-    return false;
-  }
+  return isExecutableFile(resolveOpenClawCommand());
 }
 
 async function invokeGatewayTool(toolName, args = {}, opts = {}) {
@@ -324,6 +396,7 @@ async function invokeGatewayTool(toolName, args = {}, opts = {}) {
 }
 
 module.exports = {
+  buildOpenClawCommandCandidates,
   expandHome,
   getOpenClawCommand,
   isOpenClawCliAvailable,
@@ -337,6 +410,7 @@ module.exports = {
   resolveGatewayDefaultAgentId,
   normalizeGatewayAgentId,
   parseOpenClawJsonOutput,
+  resolveOpenClawCommand,
   runOpenClawAgentTurn,
   unwrapGatewayToolResult,
 };

@@ -6,14 +6,15 @@ const path = require('path');
 
 jest.mock('child_process', () => ({
   execFile: jest.fn(),
-  spawnSync: jest.fn(() => ({ status: 0 })),
 }));
 
 const tmpDir = path.join(os.tmpdir(), `clawbridge-gateway-test-${Date.now()}`);
 const openClawConfigPath = path.join(tmpDir, 'openclaw.json');
-const { execFile, spawnSync } = require('child_process');
+const fakeOpenClawPath = path.join(tmpDir, 'openclaw');
+const { execFile } = require('child_process');
 
 const {
+  buildOpenClawCommandCandidates,
   getOpenClawCommand,
   isOpenClawCliAvailable,
   invokeGatewayTool,
@@ -22,16 +23,20 @@ const {
   resolveGatewayAgentId,
   resolveGatewayBindingAgentId,
   resolveGatewayDefaultAgentId,
+  resolveOpenClawCommand,
   runOpenClawAgentTurn,
   unwrapGatewayToolResult,
 } = require('../../src/openclaw-gateway');
 
 describe('openclaw gateway helpers', () => {
   const originalConfigDir = process.env.A2A_CONFIG_DIR;
+  const originalOpenClawBin = process.env.OPENCLAW_BIN;
   const originalFetch = global.fetch;
 
   beforeAll(() => {
     fs.mkdirSync(tmpDir, { recursive: true });
+    fs.writeFileSync(fakeOpenClawPath, '#!/bin/sh\nexit 0\n');
+    fs.chmodSync(fakeOpenClawPath, 0o755);
     process.env.A2A_CONFIG_DIR = tmpDir;
 
     fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({
@@ -70,7 +75,7 @@ describe('openclaw gateway helpers', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    spawnSync.mockReturnValue({ status: 0 });
+    process.env.OPENCLAW_BIN = fakeOpenClawPath;
   });
 
   afterAll(() => {
@@ -79,6 +84,11 @@ describe('openclaw gateway helpers', () => {
       delete process.env.A2A_CONFIG_DIR;
     } else {
       process.env.A2A_CONFIG_DIR = originalConfigDir;
+    }
+    if (originalOpenClawBin === undefined) {
+      delete process.env.OPENCLAW_BIN;
+    } else {
+      process.env.OPENCLAW_BIN = originalOpenClawBin;
     }
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -180,7 +190,7 @@ describe('openclaw gateway helpers', () => {
     })).resolves.toEqual({ result: { status: 'ok', payloads: [] } });
 
     expect(execFile).toHaveBeenCalledWith(
-      'openclaw',
+      fakeOpenClawPath,
       [
         'agent',
         '--json',
@@ -211,7 +221,9 @@ describe('openclaw gateway helpers', () => {
   });
 
   test('detects OpenClaw CLI availability', () => {
-    expect(getOpenClawCommand()).toBe('openclaw');
+    expect(resolveOpenClawCommand()).toBe(fakeOpenClawPath);
+    expect(getOpenClawCommand()).toBe(fakeOpenClawPath);
+    expect(buildOpenClawCommandCandidates()).toContain(fakeOpenClawPath);
     expect(isOpenClawCliAvailable()).toBe(true);
   });
 });

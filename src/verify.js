@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { getClawBridgeVersion } = require('./version');
-const { isOpenClawCliAvailable } = require('./openclaw-gateway');
+const { getOpenClawCommand, isOpenClawCliAvailable } = require('./openclaw-gateway');
 
 const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', 'config');
 const repoConfigDir = path.join(__dirname, '..', 'config');
@@ -276,7 +276,7 @@ check('agent-to-agent dispatch readiness', () => {
   }
 
   if (!isOpenClawCliAvailable()) {
-    return 'OpenClaw CLI not found in PATH. Install OpenClaw or set OPENCLAW_BIN so ClawBridge can activate local agents for @agent delivery.';
+    return `OpenClaw CLI not found at "${getOpenClawCommand()}". Install OpenClaw, expose it in PATH, or set OPENCLAW_BIN so ClawBridge can activate local agents for @agent delivery.`;
   }
 
   const gatewayConfig = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
