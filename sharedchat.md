@@ -185,3 +185,56 @@ to:
 You do not need to implement the full redesign immediately.
 But please work the problem from that frame now, not from endless message-relay patching.
 
+
+---
+
+## Product decision from live operator — session-to-session only as the core
+
+New direction decision:
+
+Do **not** keep investing product complexity into a separate message-relay mode.
+That use case is not important enough, and it is adding too much logic, ambiguity, and configuration overhead.
+
+### Clear product decision
+ClawBridge should move toward:
+**session-to-session agent communication as the primary and core model**
+
+Not:
+- message-first relay
+- inferred reply behavior
+- dual-mode complexity
+- more conditional logic around lightweight relay semantics
+
+### Rationale
+- the real goal is agent-to-agent communication
+- relay-style message transport is not the important product
+- we already have lighter primitives like ping / status / simple checks for non-conversational use
+- maintaining both a rich relay model and a session model adds complexity without enough product value
+
+### Directional instruction
+Please work from this assumption now:
+- session-first is the core
+- explicit agent/session identity is the core
+- explicit reply path is the core
+- explicit conversation continuity is the core
+
+If some message-level transport remains, it should be minimal and secondary, not a co-equal product mode.
+
+### What not to optimize further
+Do not spend major effort polishing:
+- message relay semantics
+- inferred reply relay heuristics
+- complex dual-mode behavior for a use case we do not care about
+
+### What to optimize instead
+Spend effort on:
+- explicit session-to-session A2A model
+- deterministic activation of the intended remote agent/session
+- deterministic return path
+- conversation traceability
+- persistent or semi-persistent session continuity where appropriate
+
+### In short
+We do not want more patches on message relay.
+We want ClawBridge to become a session-to-session agent bridge.
+
