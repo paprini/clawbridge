@@ -1,280 +1,159 @@
-# Service Agent Architecture
+# Helper Agent Architecture
 
 **Audience:** contributors, operators, and maintainers  
 **Status:** target architecture  
-**Purpose:** replace the current raw OpenClaw HTTP bridge with a managed ClawBridge-owned service agent
+**Purpose:** define the ClawBridge helper agent that supports installation, diagnostics, and ClawBridge-specific context
 
-## Why This Exists
+## Critical Clarification
 
-ClawBridge currently succeeds at:
-- receiving A2A requests
-- authenticating and authorizing them
-- routing them to local skills
+The ClawBridge helper agent is **not** the runtime bridge for incoming A2A requests.
 
-The weak point is the last mile:
-- a local ClawBridge skill calls the OpenClaw gateway directly
-- the host OpenClaw agent may have stale assumptions or stale memory
-- updates to ClawBridge do not automatically update the runtime execution context
+It does **not** replace:
+- the HTTP server
+- the executor
+- the auth layer
+- the current request routing path
+- the live bridge behavior used by skills such as `chat`
 
-This document defines the replacement architecture.
+ClawBridge request execution stays in the ClawBridge application.
+
+## What The Helper Agent Is
+
+The helper agent is:
+
+- one managed helper agent per installation
+- owned by ClawBridge
+- backed by its own OpenClaw workspace/session
+- responsible for helping operators and main agents with ClawBridge-specific tasks
+
+Its job is to preserve and provide ClawBridge context so the main bot does not drift or forget how ClawBridge works.
+
+## What The Helper Agent Helps With
+
+- installation guidance
+- config help
+- diagnostics
+- bridge troubleshooting
+- explaining ClawBridge commands
+- preserving relevant ClawBridge operational context
+
+## What It Does Not Do
+
+- it is not the gateway for every message
+- it is not the execution bridge for `chat` or `broadcast`
+- it is not the handler for incoming A2A traffic
+- it is not the replacement for `src/bridge.js`
 
 ## Core Decision
 
-ClawBridge will use **one managed service agent per installation**.
+ClawBridge will manage one helper agent per installation, but the live request path remains unchanged.
 
-That service agent becomes the execution runtime for ClawBridge-originated local actions.
+That means:
 
-This replaces the current "raw HTTP bridge as primary execution path" model.
-
-## Goals
-
-- make ClawBridge execution deterministic after code updates
-- isolate ClawBridge execution from the host bot's main memory/context
-- give ClawBridge a runtime it can bootstrap, inspect, and heal
-- preserve clean separation between network orchestration and local execution
-- make startup, verification, and troubleshooting operationally meaningful
-
-## Non-Goals
-
-- keep dual execution paths long-term
-- treat direct gateway HTTP tool calls as the primary future model
-- store service-agent state inside the git working tree
-
-## Service Agent Model
-
-Each installation owns one service agent/session:
-
-- stable identity
-- stable session key
-- stable workspace/state location
-- ClawBridge-managed instructions
-- background healing on startup
-- visible to the main agent by default
-
-Suggested stable identity:
-
-- session key: `clawbridge-service`
-- display name: `ClawBridge Service Agent`
-
-## Execution Boundary
-
-ClawBridge keeps:
-- A2A transport
-- auth
-- rate limiting
-- permissions
-- peer orchestration
-- response normalization
-
-The service agent owns:
-- local execution of action-taking tasks
-- native OpenClaw tool usage
-- ClawBridge-specific execution context
-- bridge/runtime self-test
-
-This means:
-
-- `chat` routes into the service agent
-- `broadcast` stays orchestrated by ClawBridge across peers, but local execution on each installation goes through the service agent
-- future local bridge-backed operations also route through the same runtime
+- helper agent = support brain
+- ClawBridge app = request executor
 
 ## Storage Model
 
-Service-agent state lives outside the repository.
+The helper agent should have external, installation-local state outside the repo.
 
 Recommended default:
 
 ```text
-~/.clawbridge/
-  service-agent/
-    instructions.md
-    state.json
-    logs/
-  runtime/
-    bootstrap.json
+~/.clawbridge/helper-agent/
+  instructions.md
+  state.json
 ```
 
 Why:
 - avoids git churn
-- avoids accidental config loss on repo operations
-- makes installation-local state explicit
-- keeps runtime concerns separate from source control
+- avoids accidental repo resets affecting helper state
+- makes installation-local context explicit
 
 ## Configuration Model
 
-Add explicit service-agent config instead of relying on convention.
+Use explicit helper config.
 
-Suggested shape:
+Suggested file:
 
-```json
-{
-  "enabled": true,
-  "mode": "service_agent",
-  "gateway": {
-    "url": "http://127.0.0.1:18789",
-    "tokenPath": "~/.openclaw/openclaw.json"
-  },
-  "service_agent": {
-    "sessionKey": "clawbridge-service",
-    "workspaceDir": "~/.clawbridge/service-agent",
-    "healInBackground": true,
-    "visibleTo": ["main"],
-    "alertSession": "main"
-  }
-}
-```
+`config/helper-agent.json`
+
+Suggested fields:
+
+- `enabled`
+- `agentId`
+- `sessionKey`
+- `workspaceDir`
+- `healInBackground`
+- `visibleTo`
+- `alertSession`
+- `bootstrapViaGateway`
+
+## Lifecycle Model
+
+On ClawBridge startup:
+
+1. the HTTP server starts normally
+2. the helper-agent manager starts in background
+3. helper workspace and instructions are synchronized
+4. ClawBridge attempts to ensure the OpenClaw helper session exists
+5. status becomes `ready`, `degraded`, or `failed`
+
+If bootstrap fails:
+- ClawBridge should stay up
+- request execution should still work as before
+- helper status should show degraded state clearly
 
 ## Instruction Model
 
-Do not rely on a human-managed agent session remembering ClawBridge rules.
+ClawBridge should generate the helper instructions it wants the helper agent to use.
 
-ClawBridge will generate and sync service-agent instructions on startup from:
+Those instructions should emphasize:
+- how ClawBridge is installed
+- how it is configured
+- how to diagnose common issues
+- the boundary that the helper is support-only, not the live bridge
 
-- a base instruction template in the repo
-- the installed ClawBridge version
-- the local config
-- current policy settings
-- allowed capabilities
+## Status Surfaces
 
-`SKILL.md` may still exist for packaging and human understanding, but the runtime instruction source should be generated and synchronized by ClawBridge itself.
+Helper-agent status should be visible in:
 
-## Startup Lifecycle
-
-On startup:
-
-1. start the HTTP server
-2. initialize the service-agent manager in background
-3. verify gateway connectivity and auth
-4. ensure the managed session exists
-5. sync current instructions
-6. run a runtime self-test
-7. publish status as `ready`, `degraded`, or `failed`
-
-If startup bootstrap fails:
-- ClawBridge should keep the server up
-- action-taking skills should return a clear degraded error
-- the main agent should be alerted
-
-## Health Model
-
-The service runtime should expose:
-
-- current lifecycle state
-- last successful sync time
-- last self-test time
-- last failure reason
-- current session key / runtime id
-
-This state should be visible in:
 - logs
 - `/health`
 - `/status`
+- CLI status output
 - `npm run verify`
 
-## Verification Requirements
+## Suggested OpenClaw Integration
 
-`npm run verify` must become operational, not just structural.
+If available, ClawBridge should bootstrap the helper session through OpenClaw session APIs such as `sessions_spawn`.
 
-It should validate:
-- config files are valid
-- gateway is reachable
-- gateway auth token loads correctly
-- managed service session exists or can be created
-- instruction sync succeeds
-- service runtime self-test succeeds
+That bootstrap is for helper availability and context continuity only.
 
-Additional commands should be added:
-- `npm run test-service-agent`
-- `npm run test-chat-e2e`
-- optional `npm run doctor`
+It should not alter the live A2A request pipeline.
 
-## Runtime Abstraction
+## Implementation Targets
 
-Before migration, ClawBridge should introduce a local abstraction layer:
+Suggested modules:
 
-- `service runtime`
+- `src/helper-agent/config.js`
+- `src/helper-agent/instructions.js`
+- `src/helper-agent/manager.js`
+- `src/openclaw-gateway.js`
 
-This gives the code a single local execution seam.
-
-Suggested methods:
-
-```js
-executeChat(params)
-executeBroadcastStep(params)
-executeToolCall(toolName, args)
-healthCheck()
-selfTest()
-```
-
-## Module Layout
-
-Suggested new modules:
-
-- `src/service-runtime/index.js`
-- `src/service-runtime/manager.js`
-- `src/service-runtime/gateway-control.js`
-- `src/service-runtime/instructions.js`
-- `src/service-runtime/health.js`
-
-Existing files likely to change:
+Likely touched files:
 
 - `src/server.js`
-- `src/executor.js`
-- `src/skills/chat.js`
-- `src/skills/broadcast.js`
+- `src/cli.js`
 - `src/verify.js`
-- config loader / config docs
-
-Current `src/bridge.js` should be reduced from "business execution path" to "low-level gateway control helper" or be retired after migration.
-
-## Migration Order
-
-This architecture is a full replacement, but the implementation should still be staged:
-
-1. add service-runtime abstraction
-2. add service-agent manager and background bootstrap
-3. route `chat` through the service runtime
-4. route `broadcast` local execution through the service runtime
-5. migrate other bridge-backed execution paths
-6. remove the old direct execution path
-
-## Operational Behavior
-
-Background healing is required.
-
-That means:
-- startup should not hard-fail the whole server just because the service agent is temporarily unhealthy
-- but the unhealthy state must be loud and explicit
-
-Main-agent alerting should happen when:
-- service session cannot be ensured
-- instruction sync fails
-- self-test fails
-- runtime degrades after startup
-
-## Risks
-
-Main architectural risks:
-
-- OpenClaw session APIs may not support all desired lifecycle guarantees cleanly
-- hidden runtime indirection can make debugging harder without explicit health surfaces
-- partial migration would create two execution models and confuse operations
+- docs and config
 
 ## What “Done” Means
 
-This architecture is done when:
-- ClawBridge owns one managed service agent per installation
-- startup can ensure and sync that runtime automatically
-- `chat` succeeds through the service agent on real deployed nodes
-- `broadcast` succeeds through the same execution model
-- health and verify surfaces show real runtime state
-- repo-managed config no longer acts like hidden runtime state
+This helper-agent architecture is done when:
 
-## Open Questions To Resolve During Implementation
-
-- which exact OpenClaw primitive will represent the managed runtime
-- which gateway/session API guarantees are real and stable
-- how instruction updates are attached to the runtime in practice
-- what exact structured task/result protocol the service agent should use
-
-Those questions affect implementation detail, not the core architecture direction.
+- each installation gets one helper agent
+- its workspace and instructions are synced automatically
+- its status is visible operationally
+- it preserves ClawBridge-specific context for the local main agent
+- the live request execution path remains unchanged

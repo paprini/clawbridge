@@ -3,6 +3,7 @@
 
 const { fetchAgentCard, callPeerSkill, callPeers } = require('./client');
 const { loadPeersConfig, loadAgentConfig } = require('./config');
+const { getHelperAgentStatus } = require('./helper-agent/manager');
 
 const [,, command, ...args] = process.argv;
 
@@ -13,6 +14,8 @@ async function main() {
       const peers = loadPeersConfig();
       console.log(`Agent: ${agent.name} (${agent.id})`);
       console.log(`URL: ${agent.url}`);
+      const helper = getHelperAgentStatus();
+      console.log(`Helper agent: ${helper.status}${helper.sessionKey ? ` (${helper.sessionKey})` : ''}`);
       console.log(`Peers: ${peers.length}`);
       for (const p of peers) {
         process.stdout.write(`  ${p.id} (${p.url}) ... `);
@@ -23,6 +26,11 @@ async function main() {
           console.log(`❌ ${err.message}`);
         }
       }
+      break;
+    }
+
+    case 'helper': {
+      console.log(JSON.stringify(getHelperAgentStatus(), null, 2));
       break;
     }
 
@@ -121,12 +129,14 @@ Commands:
   call      Call a skill on a peer: call <peerId> <skill>
   card      Fetch agent card: card <url>
   search    Search public agents by skill: search <skill>
+  helper    Show helper agent bootstrap status
 
 Examples:
   node src/cli.js status
   node src/cli.js call my-vps ping
   node src/cli.js card http://10.0.1.10:9100
   node src/cli.js search web_search
+  node src/cli.js helper
 `);
   }
 }

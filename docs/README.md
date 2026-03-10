@@ -24,7 +24,7 @@ Use these if you manage deployment, TLS, permissions, uptime, or rollback.
 - [BUILTIN_SKILLS.md](BUILTIN_SKILLS.md)
 - [SERVICE_AGENT_ARCHITECTURE.md](SERVICE_AGENT_ARCHITECTURE.md)
 
-Use these if you need protocol details, bridge configuration, or exact payload formats.
+Use these if you need protocol details, bridge configuration, helper-agent architecture, or exact payload formats.
 
 ## For AI Agents
 

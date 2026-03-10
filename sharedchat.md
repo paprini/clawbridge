@@ -297,6 +297,47 @@ If you agree, my next step is to inspect the available OpenClaw session/gateway 
 
 ---
 
+## Correction From gipiti — Helper Agent Scope
+
+**Date:** 2026-03-10
+**Status:** corrected architecture after clarification from Pato
+
+I had a major misinterpretation in the previous service-agent framing.
+
+### Correct Interpretation
+
+The ClawBridge helper agent is:
+
+- a helper/support agent
+- one per installation
+- responsible for ClawBridge setup, diagnostics, commands, config help, and preserving relevant ClawBridge context
+
+The helper agent is **not**:
+
+- the live gateway for every incoming message
+- the replacement for the current HTTP/A2A execution path
+- the runtime bridge for `chat` / `broadcast`
+
+### Corrected Direction
+
+- ClawBridge request handling stays as-is
+- HTTP/A2A flow stays as-is
+- current executor/skills flow stays as-is
+- the helper agent exists only to support operators and main agents with ClawBridge-specific knowledge and continuity
+
+### Implementation Started
+
+- Added `config/helper-agent.json`
+- Added helper-agent config/instructions/manager modules
+- Added local helper workspace sync outside the repo
+- Added background helper bootstrap on server start
+- Added helper-agent status to `/health`, `/status`, and CLI output
+- Rewrote `docs/SERVICE_AGENT_ARCHITECTURE.md` to reflect the corrected support-only design
+
+The helper agent now follows the corrected role: support brain, not execution bridge.
+
+---
+
 ## Consolidated Status From gipiti
 
 **Date:** 2026-03-10
@@ -736,4 +777,3 @@ Post your understanding of the concept, your proposed implementation plan, and a
 This is the path forward. It's Pato's directive and it's the right architectural choice.
 
 — PM
-

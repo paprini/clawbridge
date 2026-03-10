@@ -9,6 +9,7 @@ const { AGENT_CARD_PATH } = require('@a2a-js/sdk');
 const { loadAgentConfig, loadSkillsConfig } = require('./config');
 const { createUserBuilder, requireAuth } = require('./auth');
 const { OpenClawExecutor } = require('./executor');
+const { getHelperAgentStatus, startHelperAgentManager } = require('./helper-agent/manager');
 const logger = require('./logger');
 
 dotenv.config();
@@ -95,6 +96,7 @@ function createServer() {
       status: 'healthy',
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
+      helper_agent: getHelperAgentStatus(),
       ...m,
     });
   });
@@ -109,6 +111,7 @@ function createServer() {
       uptime: Math.floor(process.uptime()),
       skills: skills.filter(s => s.public !== false).map(s => s.name),
       protocol: '0.3.0',
+      helper_agent: getHelperAgentStatus(),
     });
   });
 
@@ -173,6 +176,7 @@ if (require.main === module) {
 
   const server = app.listen(PORT, BIND, () => {
     logger.info('ClawBridge started', { version: '0.1.0', port: PORT, bind: BIND });
+    startHelperAgentManager();
   });
 
   // M5 — Graceful shutdown

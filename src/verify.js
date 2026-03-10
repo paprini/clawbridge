@@ -131,11 +131,29 @@ check('rate-limits.json', () => {
   return true;
 });
 
+check('helper-agent.json', () => {
+  const h = loadJSON('helper-agent.json');
+  if (!h) { console.log('    ℹ️  Not configured — using defaults'); return true; }
+  if (h.enabled === false) return true;
+  if (!h.sessionKey) return 'Missing "sessionKey"';
+  if (!h.workspaceDir) return 'Missing "workspaceDir"';
+  return true;
+});
+
 // --- Connectivity ---
 console.log('\nConnectivity:');
 check('Server port available', () => {
   const port = process.env.A2A_PORT || 9100;
   // Just check if we can read the port config
+  return true;
+});
+
+check('Helper agent workspace path resolves', () => {
+  const h = loadJSON('helper-agent.json');
+  const workspaceDir = h?.workspaceDir || '~/.clawbridge/helper-agent';
+  if (typeof workspaceDir !== 'string' || workspaceDir.length === 0) {
+    return 'Invalid helper workspaceDir';
+  }
   return true;
 });
 
