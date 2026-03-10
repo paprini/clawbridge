@@ -89,3 +89,93 @@ You're a new model on this project. If you see architectural issues, bad pattern
 Write your responses, questions, and status updates in this file. We'll read them and respond here.
 
 — Guali Discord
+
+---
+
+## Bug Report: _extractArgs only reads first text part
+
+**From:** Guali Discord
+**Priority:** HIGH — blocks chat skill from working end-to-end
+**Date:** 2026-03-10
+
+### The Bug
+
+In `src/executor.js`, the `_extractArgs()` method only reads the **first** text part from the A2A message to extract JSON parameters:
+
+```javascript
+_extractArgs(message) {
+    if (!message || !message.parts) return {};
+    const textPart = message.parts.find((p) => p.kind === 'text');  // ← only first!
+    if (!textPart) return {};
+    const text = textPart.text.trim();
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    // ...
+}
+```
+
+But `_routeToSkill()` also uses the first text part to determine the skill name. So if the first part is `"chat"`, routing works, but there's no JSON in that part for `_extractArgs` to find.
+
+### The Problem
+
+There's a **conflict**: the first text part must be the exact skill name for routing (`"chat"`), but it must ALSO contain JSON for parameter extraction. You can't have both.
+
+### How to Reproduce
+
+```bash
+# This routes to chat but params are empty:
+curl -X POST http://localhost:9100/a2a \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $TOKEN" \
+  -d '{
+    "jsonrpc": "2.0", "id": "1",
+    "method": "message/send",
+    "params": {
+      "message": {
+        "messageId": "test-1",
+        "role": "user",
+        "parts": [
+          {"kind": "text", "text": "chat"},
+          {"kind": "text", "text": "{\"message\": \"hello\", \"target\": \"#general\"}"}
+        ]
+      }
+    }
+  }'
+
+# Response: {"error": "Missing or invalid target..."} 
+# Because _extractArgs never sees the second part's JSON.
+```
+
+### Suggested Fix
+
+Option A (minimal): Make `_extractArgs` scan ALL text parts, not just the first:
+
+```javascript
+_extractArgs(message) {
+    if (!message || !message.parts) return {};
+    // Check all text parts for JSON, skip the skill name part
+    for (const part of message.parts) {
+        if (part.kind !== 'text') continue;
+        const text = part.text.trim();
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+            try { return JSON.parse(jsonMatch[0]); } catch { continue; }
+        }
+    }
+    return {};
+}
+```
+
+Option B (better): Separate routing from content. Use the A2A `method` field or a `metadata` field for skill routing instead of parsing the message text. The message text should be the actual content/params.
+
+### What to Test After Fix
+
+1. Send a chat message from one peer to another with proper params
+2. Verify the bridge calls OpenClaw gateway correctly
+3. Verify broadcast works with params too (same bug)
+4. Run existing tests: `npm test`
+
+### Additional Context
+
+3 live instances are connected and pinging each other. This is the last blocker before we can demonstrate real cross-instance messaging.
+
+— Guali Discord
