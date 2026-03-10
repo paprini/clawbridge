@@ -156,16 +156,15 @@ Rate limiting config. If absent, sensible defaults apply (200/min global, 60/min
 ### config/bridge.json (optional)
 OpenClaw gateway bridge config. Enabled by default in the tracked repo config and by `npm run setup`.
 ```json
-{"enabled": true, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json", "sessionKey": "main"}, "agent_dispatch": {"enabled": true, "sessionKey": "auto", "requesterSessionKey": "auto", "timeoutSeconds": 0}, "exposed_tools": ["message", "web_search"], "timeout_ms": 300000, "max_concurrent": 5}
+{"enabled": true, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json", "sessionKey": "main"}, "agent_dispatch": {"enabled": true, "sessionKey": "auto", "timeoutSeconds": 30}, "exposed_tools": ["message", "web_search"], "timeout_ms": 300000, "max_concurrent": 5}
 ```
 
-`agent_dispatch` is used for inbound `@agent-name` delivery. It dispatches the received message into the local OpenClaw session via `sessions_send` after the visible message is posted.
+`agent_dispatch` is used for inbound `@agent-name` delivery. After the visible inbound `message` is posted, ClawBridge activates the local OpenClaw agent with the native `openclaw agent` path and explicit reply targeting.
 
 - `sessionKey: "auto"` means ClawBridge derives the correct agent-scoped OpenClaw target session.
-- `requesterSessionKey: "auto"` means it invokes `sessions_send` from that same target session by default, which avoids OpenClaw visibility blockers under the default `tools.sessions.visibility=tree`.
-- For inbound agent delivery, ClawBridge now also posts the visible `message` from that same target session so OpenClaw keeps delivery context aligned with the activated session.
-- Before inbound dispatch, ClawBridge inspects `sessions_list` and, when OpenClaw already has a unique session row whose delivery context matches the real target, retargets both visible delivery and `sessions_send` to that row.
-- If OpenClaw reports a risky target session state, such as `sendPolicy: "deny"` or a direct session with no delivery target metadata, ClawBridge switches to a manual reply fallback: it waits for the hidden agent reply and posts that reply itself through the known target.
+- `timeoutSeconds` is the maximum time ClawBridge will wait for the local OpenClaw agent to complete the activated turn.
+- Before activation, ClawBridge inspects `sessions_list` and, when OpenClaw already has a unique session row whose delivery context matches the real target, retargets visible delivery to that row and reuses its `sessionId` for the activation step.
+- The visible reply target is passed explicitly to OpenClaw, so the activation path no longer depends on best-effort `sessions_send` announce behavior or `gateway.tools.allow -> sessions_send`.
 - ClawBridge peer ID and OpenClaw agent ID are different concepts. If you need to pin the receiving OpenClaw agent explicitly, set `config/agent.json -> openclaw_agent_id` or `config/bridge.json -> agent_dispatch.agentId`.
 
 ### config/agent.json

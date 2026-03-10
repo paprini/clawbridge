@@ -3,6 +3,10 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { execFile } = require('child_process');
+const { promisify } = require('util');
+
+const execFileAsync = promisify(execFile);
 
 function expandHome(filePath) {
   return typeof filePath === 'string' ? filePath.replace(/^~/, os.homedir()) : filePath;
@@ -183,6 +187,109 @@ function loadGatewayDefaults() {
   };
 }
 
+function getOpenClawCommand() {
+  const configured = typeof process.env.OPENCLAW_BIN === 'string'
+    ? process.env.OPENCLAW_BIN.trim()
+    : '';
+  return configured || 'openclaw';
+}
+
+function parseOpenClawJsonOutput(stdout) {
+  const trimmed = typeof stdout === 'string' ? stdout.trim() : '';
+  if (!trimmed) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    const first = trimmed.indexOf('{');
+    const last = trimmed.lastIndexOf('}');
+    if (first !== -1 && last > first) {
+      return JSON.parse(trimmed.slice(first, last + 1));
+    }
+    throw new Error(`Failed to parse OpenClaw JSON output: ${trimmed.slice(0, 200)}`);
+  }
+}
+
+async function runOpenClawAgentTurn({
+  message,
+  agentId,
+  sessionId,
+  target,
+  channel,
+  replyTo,
+  replyChannel,
+  replyAccountId,
+  timeoutSeconds,
+}) {
+  if (typeof message !== 'string' || message.trim().length === 0) {
+    throw new Error('OpenClaw agent activation requires a non-empty message');
+  }
+
+  const args = ['agent', '--json', '--deliver', '--message', message];
+
+  if (typeof sessionId === 'string' && sessionId.trim().length > 0) {
+    args.push('--session-id', sessionId.trim());
+  } else if (typeof target === 'string' && target.trim().length > 0) {
+    args.push('--to', target.trim());
+  }
+
+  if (typeof agentId === 'string' && agentId.trim().length > 0) {
+    args.push('--agent', agentId.trim());
+  }
+
+  if (typeof channel === 'string' && channel.trim().length > 0) {
+    args.push('--channel', channel.trim());
+  }
+
+  if (typeof replyTo === 'string' && replyTo.trim().length > 0) {
+    args.push('--reply-to', replyTo.trim());
+  }
+
+  if (typeof replyChannel === 'string' && replyChannel.trim().length > 0) {
+    args.push('--reply-channel', replyChannel.trim());
+  }
+
+  if (typeof replyAccountId === 'string' && replyAccountId.trim().length > 0) {
+    args.push('--reply-account', replyAccountId.trim());
+  }
+
+  const normalizedTimeoutSeconds = typeof timeoutSeconds === 'number' && Number.isFinite(timeoutSeconds)
+    ? Math.max(1, Math.floor(timeoutSeconds))
+    : null;
+  if (normalizedTimeoutSeconds) {
+    args.push('--timeout', String(normalizedTimeoutSeconds));
+  }
+
+  try {
+    const result = await execFileAsync(getOpenClawCommand(), args, {
+      timeout: normalizedTimeoutSeconds ? (normalizedTimeoutSeconds + 30) * 1000 : 330000,
+      maxBuffer: 1024 * 1024,
+    });
+
+    return parseOpenClawJsonOutput(result.stdout);
+  } catch (err) {
+    const stdout = typeof err?.stdout === 'string' ? err.stdout.trim() : '';
+    const stderr = typeof err?.stderr === 'string' ? err.stderr.trim() : '';
+    const details = [stderr, stdout].filter(Boolean).join(' | ');
+    const messageText = details || err.message || 'OpenClaw agent activation failed';
+    throw new Error(messageText);
+  }
+}
+
+function isOpenClawCliAvailable() {
+  try {
+    const result = require('child_process').spawnSync(getOpenClawCommand(), ['--version'], {
+      encoding: 'utf8',
+      timeout: 5000,
+    });
+    return result.status === 0;
+  } catch {
+    return false;
+  }
+}
+
 async function invokeGatewayTool(toolName, args = {}, opts = {}) {
   const defaults = loadGatewayDefaults();
   const gateway = { ...defaults, ...(opts.gateway || {}) };
@@ -218,6 +325,8 @@ async function invokeGatewayTool(toolName, args = {}, opts = {}) {
 
 module.exports = {
   expandHome,
+  getOpenClawCommand,
+  isOpenClawCliAvailable,
   loadGatewayConfig,
   loadGatewayDefaults,
   loadGatewayToken,
@@ -227,5 +336,7 @@ module.exports = {
   resolveGatewayBindingAgentId,
   resolveGatewayDefaultAgentId,
   normalizeGatewayAgentId,
+  parseOpenClawJsonOutput,
+  runOpenClawAgentTurn,
   unwrapGatewayToolResult,
 };

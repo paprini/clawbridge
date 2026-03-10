@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { getClawBridgeVersion } = require('./version');
+const { isOpenClawCliAvailable } = require('./openclaw-gateway');
 
 const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', 'config');
 const repoConfigDir = path.join(__dirname, '..', 'config');
@@ -274,21 +275,11 @@ check('agent-to-agent dispatch readiness', () => {
     return `OpenClaw config not found at ${tokenPath}`;
   }
 
-  const gatewayConfig = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
-  const allow = Array.isArray(gatewayConfig?.gateway?.tools?.allow)
-    ? gatewayConfig.gateway.tools.allow
-    : [];
-
-  if (!allow.includes('sessions_send')) {
-    return 'bridge agent_dispatch is enabled, but OpenClaw gateway.tools.allow does not include "sessions_send"';
+  if (!isOpenClawCliAvailable()) {
+    return 'OpenClaw CLI not found in PATH. Install OpenClaw or set OPENCLAW_BIN so ClawBridge can activate local agents for @agent delivery.';
   }
 
-  const visibility = typeof gatewayConfig?.tools?.sessions?.visibility === 'string'
-    ? gatewayConfig.tools.sessions.visibility.trim().toLowerCase()
-    : 'tree';
-  const requesterSessionKey = typeof dispatch.requesterSessionKey === 'string'
-    ? dispatch.requesterSessionKey.trim().toLowerCase()
-    : 'auto';
+  const gatewayConfig = JSON.parse(fs.readFileSync(tokenPath, 'utf8'));
   const knownAgentIds = Array.isArray(gatewayConfig?.agents?.list)
     ? gatewayConfig.agents.list
       .map((agent) => normalizeAgentId(agent?.id))
@@ -296,9 +287,6 @@ check('agent-to-agent dispatch readiness', () => {
     : ['main'];
   const agent = loadJSON('agent.json');
   const configuredDispatchAgentId = normalizeAgentId(dispatch.agentId || agent?.openclaw_agent_id);
-  const sendPolicyDefault = typeof gatewayConfig?.session?.sendPolicy?.default === 'string'
-    ? gatewayConfig.session.sendPolicy.default.trim().toLowerCase()
-    : '';
   const bindings = Array.isArray(gatewayConfig?.bindings) ? gatewayConfig.bindings : [];
 
   if (configuredDispatchAgentId && !knownAgentIds.includes(configuredDispatchAgentId)) {
@@ -307,14 +295,6 @@ check('agent-to-agent dispatch readiness', () => {
 
   if (!configuredDispatchAgentId && knownAgentIds.length > 1) {
     console.log(`    ℹ️  Multiple OpenClaw agents detected (${knownAgentIds.join(', ')}). ClawBridge will auto-resolve @agent delivery from bindings/default agent; set agent.json.openclaw_agent_id to pin a specific one.`);
-  }
-
-  if (visibility === 'tree' && requesterSessionKey === 'main') {
-    return 'bridge agent_dispatch.requesterSessionKey=main can be blocked by OpenClaw tools.sessions.visibility=tree. Prefer requesterSessionKey="auto".';
-  }
-
-  if (sendPolicyDefault === 'deny') {
-    console.log('    ℹ️  OpenClaw session.sendPolicy default=deny. ClawBridge can use manual reply fallback, but existing sessions may still need /send on or explicit allow rules for visible replies.');
   }
 
   const defaultDelivery = agent?.default_delivery;

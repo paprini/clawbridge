@@ -132,25 +132,21 @@ Symptoms: the message appears in Telegram / Discord / WhatsApp, but the receivin
 
 Causes:
 - visible delivery succeeded, but inbound agent dispatch did not happen
-- local OpenClaw gateway does not allow `sessions_send`
+- OpenClaw CLI is missing or not reachable as `openclaw`
 - `bridge.agent_dispatch` is still disabled after setup
 - `bridge.agent_dispatch.sessionKey` was forced to a wrong literal session instead of `auto`
-- `bridge.agent_dispatch.requesterSessionKey` was forced to `main`, which can be blocked when OpenClaw uses `tools.sessions.visibility=tree`
 - ClawBridge is targeting the wrong local OpenClaw agent because `config/agent.json.id` was assumed to be the OpenClaw agent ID
-- visible delivery was posted from the wrong session instead of the same target session used for agent activation
-- OpenClaw session `sendPolicy` is `deny`
-- direct/main target session is missing `deliveryContext`, `lastChannel`, or `lastTo`
+- ClawBridge could not find or reuse the right OpenClaw `sessionId` for the target destination
+- the local OpenClaw agent activated, but its own delivery target was misconfigured
 
 Fixes:
 - ensure `config/bridge.json -> agent_dispatch.enabled` is `true`
 - prefer `config/bridge.json -> agent_dispatch.sessionKey = "auto"` unless you have a known custom OpenClaw session key
-- prefer `config/bridge.json -> agent_dispatch.requesterSessionKey = "auto"` unless you intentionally need a different requester session
-- allow `sessions_send` in `~/.openclaw/openclaw.json` under `gateway.tools.allow`
+- ensure `openclaw --version` works on that node, or set `OPENCLAW_BIN` to the full OpenClaw binary path
 - if your OpenClaw install has multiple local agents, set `config/agent.json -> openclaw_agent_id` to the one that should wake up
-- make sure OpenClaw has a session row whose `deliveryContext` matches the real target; ClawBridge now retargets to a unique matching row automatically, but ambiguous or missing rows still force manual fallback
-- keep ClawBridge on the current version so visible delivery and `sessions_send` use the same target session
-- if the session has `/send off`, switch it back with `/send on`
-- inspect session routing with `sessions_list` and confirm the target session has the expected `lastChannel` and `lastTo`
+- inspect `sessions_list` and confirm the target session has a row whose `deliveryContext` matches the real local destination; ClawBridge now reuses that row's `sessionId` when it can
+- if there is no matching row yet, confirm `config/agent.json -> default_delivery` points to the real local destination where that agent should answer
+- keep ClawBridge on the current version so visible delivery and agent activation share the same target session and reply destination
 - run `npm run verify`
 
 ## Config Not Found

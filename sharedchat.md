@@ -10,116 +10,44 @@ Archive:
 ## Current State — 2026-03-10
 
 ### Repo status
-- latest local fix prepared on top of current `origin/main`
-- full suite passing locally: `22` suites / `181` tests
-- local `npm run verify` still fails only because this machine's `~/.openclaw/openclaw.json` does not allow `sessions_send`
+- latest fix implemented locally on top of current `origin/main`
+- focused unit coverage updated for the new dispatch path
+- local `npm run verify` no longer depends on `sessions_send` allowlisting
 
-### Confirmed working on live nodes
-- peer auth ✅
-- peer ping ✅
-- `@agent-name` routing ✅
-- visible message delivery ✅
-- dispatch path no longer hard-fails early ✅
+### What changed now
+- inbound `@agent-name` activation no longer uses OpenClaw `sessions_send`
+- ClawBridge now:
+  - posts the visible inbound message with the existing `message` bridge path
+  - inspects `sessions_list` to find the best matching OpenClaw session row
+  - if a matching session row exists, uses its `sessionId`
+  - activates the local OpenClaw agent through the native `openclaw agent` command with:
+    - explicit `--session-id` when known
+    - explicit `--reply-channel`
+    - explicit `--reply-to`
+- this removes the old best-effort announce dependency and the false-success `accepted` case
 
-### Current blocker
-Live Discord → Telegram still does not produce a clean announce-mode downstream wake-up/reply.
+### Why this should fix the live bug
+- the old path depended on `sessions_send` queueing a hidden run and then guessing the final announce target from session metadata
+- the new path activates the target agent directly and tells OpenClaw exactly where the visible reply must be delivered
+- `gateway.tools.allow -> sessions_send` is no longer the blocker for `@agent` activation
 
-Latest real result from Discord node:
+### Next live validation needed
+Please pull latest `main` on the live nodes and re-test:
 
-```json
-{
-  "success": true,
-  "delivered_to": "@monti-telegram",
-  "resolved_target": "5914004682",
-  "channel": "telegram",
-  "agent_dispatch": "manual_reply",
-  "manual_reply_reason": "delivery_target_mismatch",
-  "reply_length": 12
-}
-```
-
-### Latest fix from gipiti
-What I confirmed locally:
-- OpenClaw `sessions_send` has no explicit announce-target parameter
-- announce-mode delivery depends on the target session's stored `deliveryContext`
-- ClawBridge was still trusting the statically derived target session key too much
-
-What changed now:
-- before inbound dispatch, ClawBridge inspects `sessions_list`
-- if OpenClaw already has a unique session row whose delivery context matches the real target, ClawBridge retargets both:
-  - visible `message`
-  - `sessions_send`
-- delivery-target comparison is now more tolerant of provider prefixes such as `telegram:` / `channel:` / `user:`
-
-Why this matters:
-- it should eliminate false `delivery_target_mismatch` cases when OpenClaw already has the right target session row
-- it makes dispatch follow real runtime session state instead of config-only inference
-
-### What needs live validation next
-Please re-test this exact case on the live Discord ↔ Telegram nodes with the latest `main`:
-
-```js
-chat({ target: "@monti-telegram", message: "hello" })
-```
-
-Expected improvement:
-- if the receiving node already has a Telegram session row for that destination, ClawBridge should stop returning `manual_reply_reason: "delivery_target_mismatch"`
-- receiving agent should visibly respond without ClawBridge needing the manual fallback path
-
-### If it still fails
-Please report back with:
-- exact returned JSON
-- receiving node `config/agent.json`
-- receiving node `config/bridge.json`
-- receiving node `~/.openclaw/openclaw.json` sections:
-  - `agents`
-  - `bindings`
-  - `gateway.tools.allow`
-  - `tools.sessions.visibility`
-  - `session.dmScope`
-- relevant OpenClaw gateway logs around `sessions_send`
-
----
-
-## Live Retest Result: dispatch accepted, still no visible reply on either side
-
-We re-tested on the latest live Discord node after pulling the current `main`.
-
-### Result
-Using:
 ```js
 chat({ target: "@monti-telegram", message: "Hola... contestame..." })
 ```
 
-Returned:
-```json
-{
-  "success": true,
-  "delivered_to": "@monti-telegram",
-  "resolved_target": "5914004682",
-  "channel": "telegram",
-  "agent_dispatch": "accepted"
-}
-```
+Expected result now:
+- target side still receives the visible inbound message
+- target agent visibly replies in the same destination
+- ClawBridge should return `agent_dispatch: "activated"` instead of `accepted` / `manual_reply`
 
-### But real-world behavior is still wrong
-- Telegram receives the message
-- Discord receives messages too in the opposite direction
-- **Neither side visibly responds as an activated agent**
-
-So the current exact state is:
-- peer auth ✅
-- ping ✅
-- routing ✅
-- delivery ✅
-- dispatch accepted ✅
-- actual downstream agent reply/execution ❌
-
-### Important conclusion
-The remaining bug is now clearly:
-**accepted dispatch does not become a real responding agent turn on live nodes**
-
-### Logs
-I am including local runtime logs from the Discord node around this phase for you to inspect.
-If you need more precise logs, specific timestamps, or extra instrumentation runs, ask and we will provide them.
-
+### If it still fails
+Please report back with:
+- exact returned JSON
+- whether the target side received the visible reply or only the inbound message
+- output of `openclaw --version`
+- target node `config/agent.json`
+- target node `config/bridge.json`
+- any stderr/stdout from the target node around the `openclaw agent` activation step

@@ -5,7 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const os = require('os');
 const { fetchAgentCard, validatePeerUrl } = require('../client');
-const { resolveGatewayDefaultAgentId } = require('../openclaw-gateway');
+const { isOpenClawCliAvailable, resolveGatewayDefaultAgentId } = require('../openclaw-gateway');
 const { getClawBridgeVersion } = require('../version');
 
 /**
@@ -77,24 +77,6 @@ function generateToken() {
 
 function expandHome(filePath) {
   return typeof filePath === 'string' ? filePath.replace(/^~/, os.homedir()) : filePath;
-}
-
-function gatewayAllowsTool(tokenPath, toolName) {
-  try {
-    const resolved = expandHome(tokenPath || '~/.openclaw/openclaw.json');
-    if (!fs.existsSync(resolved)) {
-      return false;
-    }
-
-    const config = JSON.parse(fs.readFileSync(resolved, 'utf8'));
-    const allow = Array.isArray(config?.gateway?.tools?.allow)
-      ? config.gateway.tools.allow
-      : [];
-
-    return allow.includes(toolName);
-  } catch {
-    return false;
-  }
 }
 
 /**
@@ -293,10 +275,9 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
       sessionKey: 'main',
     },
     agent_dispatch: {
-      enabled: gatewayAllowsTool('~/.openclaw/openclaw.json', 'sessions_send'),
+      enabled: isOpenClawCliAvailable(),
       sessionKey: 'auto',
-      requesterSessionKey: 'auto',
-      timeoutSeconds: 0,
+      timeoutSeconds: 30,
     },
     exposed_tools: ['message', 'web_search', 'web_fetch', 'memory_search', 'session_status'],
     timeout_ms: 300000,
@@ -309,7 +290,7 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
 
   const notes = [];
   if (!existing.bridge && bridge.agent_dispatch?.enabled === false) {
-    notes.push('OpenClaw gateway.tools.allow does not include "sessions_send". agent_dispatch was disabled for this install. Add "sessions_send" to ~/.openclaw/openclaw.json, restart the gateway, then enable bridge.agent_dispatch when you want receiving agents to auto-activate.');
+    notes.push('OpenClaw CLI was not found during setup, so inbound @agent activation was disabled. Install OpenClaw or set OPENCLAW_BIN, then enable bridge.agent_dispatch when you want receiving agents to auto-activate.');
   }
 
   return { agent, peers: peersData.peers, token, configDir, bridge, contacts, notes };

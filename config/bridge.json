@@ -8,8 +8,7 @@
   "agent_dispatch": {
     "enabled": true,
     "sessionKey": "auto",
-    "requesterSessionKey": "auto",
-    "timeoutSeconds": 0
+    "timeoutSeconds": 30
   },
   "exposed_tools": [
     "message",

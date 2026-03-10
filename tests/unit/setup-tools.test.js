@@ -4,6 +4,11 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+jest.mock('../../src/openclaw-gateway', () => ({
+  isOpenClawCliAvailable: jest.fn(() => true),
+  resolveGatewayDefaultAgentId: jest.fn(() => 'main'),
+}));
+
 // Use a temp dir for config writes
 const tmpDir = path.join(os.tmpdir(), `a2a-test-${Date.now()}`);
 process.env.A2A_CONFIG_DIR = tmpDir;
@@ -68,7 +73,7 @@ describe('Setup Tools', () => {
 
       expect(result.agent.id).toBe('test-agent');
       expect(result.peers).toHaveLength(1);
-      expect(result.notes).toHaveLength(1);
+      expect(result.notes).toHaveLength(0);
 
       // Verify files exist
       expect(fs.existsSync(path.join(tmpDir, 'agent.json'))).toBe(true);
@@ -99,10 +104,9 @@ describe('Setup Tools', () => {
       expect(bridge.enabled).toBe(true);
       expect(bridge.exposed_tools).toContain('message');
       expect(bridge.agent_dispatch).toEqual({
-        enabled: false,
+        enabled: true,
         sessionKey: 'auto',
-        requesterSessionKey: 'auto',
-        timeoutSeconds: 0,
+        timeoutSeconds: 30,
       });
 
       const contacts = JSON.parse(fs.readFileSync(path.join(tmpDir, 'contacts.json'), 'utf8'));

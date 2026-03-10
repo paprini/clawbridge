@@ -57,8 +57,8 @@ Behavior:
 - lets you add more peers afterwards
 - preserves existing bridge, contacts, and custom skills config when rewriting files
 - preserves `agent.json -> openclaw_agent_id` when you already pinned a specific local OpenClaw agent
-- if you want inbound `@agent` messages to activate the receiving OpenClaw agent, also allow `sessions_send` in `~/.openclaw/openclaw.json -> gateway.tools.allow`
-- fresh setup will disable `bridge.agent_dispatch` automatically when that allowlist is missing, instead of writing a broken default
+- if you want inbound `@agent` messages to activate the receiving OpenClaw agent, make sure OpenClaw CLI is installed on that node and reachable as `openclaw` (or via `OPENCLAW_BIN`)
+- fresh setup now defaults `bridge.agent_dispatch` on and uses a real wait timeout instead of the old fire-and-forget dispatch path
 
 ## Environment Variables
 

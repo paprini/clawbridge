@@ -4,15 +4,25 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+jest.mock('child_process', () => ({
+  execFile: jest.fn(),
+  spawnSync: jest.fn(() => ({ status: 0 })),
+}));
+
 const tmpDir = path.join(os.tmpdir(), `clawbridge-gateway-test-${Date.now()}`);
 const openClawConfigPath = path.join(tmpDir, 'openclaw.json');
+const { execFile, spawnSync } = require('child_process');
 
 const {
+  getOpenClawCommand,
+  isOpenClawCliAvailable,
   invokeGatewayTool,
   listGatewayAgentIds,
+  parseOpenClawJsonOutput,
   resolveGatewayAgentId,
   resolveGatewayBindingAgentId,
   resolveGatewayDefaultAgentId,
+  runOpenClawAgentTurn,
   unwrapGatewayToolResult,
 } = require('../../src/openclaw-gateway');
 
@@ -58,6 +68,11 @@ describe('openclaw gateway helpers', () => {
     }));
   });
 
+  beforeEach(() => {
+    jest.clearAllMocks();
+    spawnSync.mockReturnValue({ status: 0 });
+  });
+
   afterAll(() => {
     global.fetch = originalFetch;
     if (originalConfigDir === undefined) {
@@ -80,6 +95,11 @@ describe('openclaw gateway helpers', () => {
     expect(unwrapGatewayToolResult({
       content: [{ type: 'text', text: '{"status":"ok","reply":"done"}' }],
     })).toEqual({ status: 'ok', reply: 'done' });
+  });
+
+  test('parses OpenClaw JSON output with banner noise', () => {
+    expect(parseOpenClawJsonOutput('banner\n{"result":{"status":"ok"}}\n'))
+      .toEqual({ result: { status: 'ok' } });
   });
 
   test('invokeGatewayTool returns the unwrapped result payload', async () => {
@@ -137,5 +157,61 @@ describe('openclaw gateway helpers', () => {
       peerKind: 'direct',
       peerId: '5914004682',
     })).toBe('main');
+  });
+
+  test('builds an OpenClaw agent command with explicit reply overrides', async () => {
+    execFile.mockImplementation((command, args, options, callback) => {
+      callback(null, {
+        stdout: JSON.stringify({ result: { status: 'ok', payloads: [] } }),
+        stderr: '',
+      });
+    });
+
+    await expect(runOpenClawAgentTurn({
+      message: 'Hello from ClawBridge',
+      agentId: 'discord-helper',
+      sessionId: 'abc-session',
+      target: '1480310282961289216',
+      channel: 'discord',
+      replyTo: '1480310282961289216',
+      replyChannel: 'discord',
+      replyAccountId: 'default',
+      timeoutSeconds: 45,
+    })).resolves.toEqual({ result: { status: 'ok', payloads: [] } });
+
+    expect(execFile).toHaveBeenCalledWith(
+      'openclaw',
+      [
+        'agent',
+        '--json',
+        '--deliver',
+        '--message',
+        'Hello from ClawBridge',
+        '--session-id',
+        'abc-session',
+        '--agent',
+        'discord-helper',
+        '--channel',
+        'discord',
+        '--reply-to',
+        '1480310282961289216',
+        '--reply-channel',
+        'discord',
+        '--reply-account',
+        'default',
+        '--timeout',
+        '45',
+      ],
+      expect.objectContaining({
+        timeout: 75000,
+        maxBuffer: 1024 * 1024,
+      }),
+      expect.any(Function),
+    );
+  });
+
+  test('detects OpenClaw CLI availability', () => {
+    expect(getOpenClawCommand()).toBe('openclaw');
+    expect(isOpenClawCliAvailable()).toBe(true);
   });
 });

@@ -34,8 +34,7 @@ Example `config/bridge.json`:
   "agent_dispatch": {
     "enabled": true,
     "sessionKey": "auto",
-    "requesterSessionKey": "auto",
-    "timeoutSeconds": 0
+    "timeoutSeconds": 30
   },
   "exposed_tools": [
     "message",
@@ -70,9 +69,7 @@ Start with low-risk tools:
 
 High-risk tools are blocked by default unless you explicitly opt in.
 
-For inbound `@agent-name` delivery, ClawBridge also needs the local gateway to allow `sessions_send` in `~/.openclaw/openclaw.json -> gateway.tools.allow`. This is an internal dispatch dependency, not a public A2A-exposed skill. Fresh setup will disable `agent_dispatch` until that allowlist is present, then you can re-enable it in `config/bridge.json`.
-
-`requesterSessionKey: "auto"` is intentionally visibility-safe. It dispatches from the target session itself by default, which avoids OpenClaw rejecting the send under `tools.sessions.visibility=tree`.
+For inbound `@agent-name` delivery, ClawBridge now activates the receiving OpenClaw agent through the native `openclaw agent` path after posting the visible inbound message. It no longer depends on `sessions_send` being allowed on the local gateway.
 
 ClawBridge peer IDs are not OpenClaw agent IDs. If the receiving OpenClaw instance has multiple local agents and you want to pin which one wakes up for inbound `@agent` delivery, set either:
 
@@ -81,12 +78,7 @@ ClawBridge peer IDs are not OpenClaw agent IDs. If the receiving OpenClaw instan
 
 If neither is set, ClawBridge auto-resolves from OpenClaw bindings or the default OpenClaw agent.
 
-ClawBridge also guards against two OpenClaw announce-path failures:
-
-- `session.sendPolicy = deny`
-- direct/main sessions missing delivery target metadata (`lastChannel` / `lastTo` / `deliveryContext`)
-
-When it detects those states, it waits for the hidden agent reply and delivers that reply manually instead of relying on OpenClaw's best-effort announce step.
+When OpenClaw already has a matching session row for the target destination, ClawBridge reuses that row's `sessionId` and delivery metadata so the activated agent replies into the correct local chat destination explicitly.
 
 ## Restart And Validate
 

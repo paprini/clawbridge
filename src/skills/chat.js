@@ -9,13 +9,14 @@ const {
   invokeGatewayTool,
   loadGatewayConfig,
   resolveGatewayAgentId,
+  runOpenClawAgentTurn,
 } = require('../openclaw-gateway');
 const logger = require('../logger');
 
 const MAX_RELAY_HOPS = 4;
 const DEFAULT_OPENCLAW_MAIN_KEY = 'main';
 const DEFAULT_OPENCLAW_ACCOUNT_ID = 'default';
-const MANUAL_REPLY_WAIT_SECONDS = 20;
+const DEFAULT_AGENT_DISPATCH_TIMEOUT_SECONDS = 30;
 const SESSION_LIST_LIMIT = 200;
 
 function getTargetingSuggestion() {
@@ -385,33 +386,6 @@ function getAgentDispatchConfig({ openclawAgentId, defaultDelivery, resolvedTarg
   };
 }
 
-function buildInboundDispatchMessage({ message, requestedTarget, resolvedTarget, agentDeliveryMeta }) {
-  const lines = [
-    'ClawBridge inbound agent message.',
-    'Treat this as a trusted new inter-agent turn.',
-  ];
-
-  if (agentDeliveryMeta?.sourceAgentId) {
-    lines.push(`Source agent: ${agentDeliveryMeta.sourceAgentId}`);
-  }
-
-  if (agentDeliveryMeta?.requestedTarget || requestedTarget) {
-    lines.push(`Requested target: ${agentDeliveryMeta?.requestedTarget || requestedTarget}`);
-  }
-
-  if (resolvedTarget) {
-    lines.push(`Resolved local delivery target: ${resolvedTarget}`);
-  }
-
-  if (agentDeliveryMeta?.remoteChannelTarget) {
-    lines.push(`Remote channel target: ${agentDeliveryMeta.remoteChannelTarget}`);
-  }
-
-  lines.push('');
-  lines.push(message);
-  return lines.join('\n');
-}
-
 function stripAgentSessionPrefix(sessionKey) {
   const trimmed = typeof sessionKey === 'string' ? sessionKey.trim() : '';
   if (!trimmed) {
@@ -424,12 +398,6 @@ function stripAgentSessionPrefix(sessionKey) {
   }
 
   return trimmed;
-}
-
-function isChannelScopedSessionKey(sessionKey) {
-  const stripped = stripAgentSessionPrefix(sessionKey);
-  const parts = stripped.split(':').filter(Boolean);
-  return parts.length >= 3 && (parts[1] === 'group' || parts[1] === 'channel');
 }
 
 function normalizeSessionComparisonValue(value) {
@@ -645,75 +613,34 @@ function maybeRetargetDispatchSession({ dispatchConfig, inspection, resolvedTarg
   };
 }
 
-function resolveManualReplyFallbackReason({ sessionRow, dispatchConfig, resolvedTarget, deliveryChannel }) {
-  if (!sessionRow || !dispatchConfig?.targetSessionKey) {
-    return null;
+function resolveAgentDispatchTimeoutSeconds(dispatchConfig) {
+  if (typeof dispatchConfig?.timeoutSeconds === 'number' && Number.isFinite(dispatchConfig.timeoutSeconds)) {
+    const normalized = Math.floor(dispatchConfig.timeoutSeconds);
+    if (normalized > 0) {
+      return normalized;
+    }
   }
 
-  if (typeof sessionRow.sendPolicy === 'string' && sessionRow.sendPolicy.trim().toLowerCase() === 'deny') {
-    return 'send_policy_deny';
-  }
+  return DEFAULT_AGENT_DISPATCH_TIMEOUT_SECONDS;
+}
 
-  if (isChannelScopedSessionKey(dispatchConfig.targetSessionKey)) {
-    return null;
-  }
-
+function resolveAgentActivationOptions({ dispatchConfig, sessionRow, resolvedTarget, deliveryChannel }) {
   const delivery = resolveSessionDeliveryTarget(sessionRow);
-  if (!delivery.channel || !delivery.to) {
-    return 'missing_delivery_target';
-  }
+  const replyChannel = delivery.channel || deliveryChannel || null;
+  const replyTo = delivery.to || resolvedTarget;
 
-  const expectedChannel = normalizeComparableDeliveryChannel(deliveryChannel);
-  const actualChannel = normalizeComparableDeliveryChannel(delivery.channel);
-  const expectedTarget = normalizeComparableDeliveryTarget(expectedChannel, resolvedTarget);
-  const actualTarget = normalizeComparableDeliveryTarget(actualChannel, delivery.to);
-
-  if ((expectedChannel && actualChannel && actualChannel !== expectedChannel)
-    || (expectedTarget && actualTarget && actualTarget !== expectedTarget)) {
-    return 'delivery_target_mismatch';
-  }
-
-  return null;
-}
-
-function getDispatchTimeoutSeconds(dispatchConfig, manualReplyFallbackReason) {
-  if (!manualReplyFallbackReason) {
-    return dispatchConfig.timeoutSeconds;
-  }
-
-  return Math.max(dispatchConfig.timeoutSeconds || 0, MANUAL_REPLY_WAIT_SECONDS);
-}
-
-async function dispatchInboundAgentTurn({
-  message,
-  requestedTarget,
-  resolvedTarget,
-  agentDeliveryMeta,
-  dispatchConfig,
-  timeoutSecondsOverride,
-}) {
-
-  if (!dispatchConfig) {
-    return {
-      status: 'skipped',
-      error: 'Inbound agent dispatch is disabled in config/bridge.json.',
-    };
-  }
-
-  return invokeGatewayTool('sessions_send', {
-    sessionKey: dispatchConfig.targetSessionKey,
-    message: buildInboundDispatchMessage({
-      message,
-      requestedTarget,
-      resolvedTarget,
-      agentDeliveryMeta,
-    }),
-    timeoutSeconds: timeoutSecondsOverride ?? dispatchConfig.timeoutSeconds,
-  }, {
-    gateway: dispatchConfig.gateway,
-    sessionKey: dispatchConfig.requesterSessionKey,
-    timeoutMs: dispatchConfig.timeoutMs,
-  });
+  return {
+    agentId: dispatchConfig?.dispatchAgentId || null,
+    sessionId: typeof sessionRow?.sessionId === 'string' && sessionRow.sessionId.trim().length > 0
+      ? sessionRow.sessionId.trim()
+      : null,
+    target: replyTo,
+    channel: replyChannel,
+    replyTo,
+    replyChannel,
+    replyAccountId: delivery.accountId || null,
+    timeoutSeconds: resolveAgentDispatchTimeoutSeconds(dispatchConfig),
+  };
 }
 
 function resolveTarget(target, channel) {
@@ -1041,100 +968,19 @@ async function chat(params) {
       const inspection = dispatchConfig
         ? await inspectDispatchSession(dispatchConfig)
         : { row: null, sessions: [] };
-      const sessionRow = inspection.row || preDispatchInspection.row;
-      const manualReplyFallbackReason = resolveManualReplyFallbackReason({
-        sessionRow,
+      const sessionRow = inspection.row || preDispatchInspection.row || null;
+      const activationOptions = resolveAgentActivationOptions({
         dispatchConfig,
+        sessionRow,
         resolvedTarget,
         deliveryChannel: resolved.resolvedChannel || effectiveChannel,
       });
 
-      if (manualReplyFallbackReason) {
-        logger.warn('OpenClaw announce path looks unsafe; using manual reply fallback', {
-          target: requestedTarget || effectiveTarget,
-          resolvedTarget,
-          targetSessionKey: dispatchConfig?.targetSessionKey || null,
-          reason: manualReplyFallbackReason,
-          sendPolicy: sessionRow?.sendPolicy || null,
-          sessionLastChannel: sessionRow?.lastChannel || null,
-          sessionLastTo: sessionRow?.lastTo || null,
-        });
-      }
-
       try {
-        const dispatchResult = await dispatchInboundAgentTurn({
+        const dispatchResult = await runOpenClawAgentTurn({
           message,
-          requestedTarget: requestedTarget || effectiveTarget,
-          resolvedTarget,
-          agentDeliveryMeta,
-          dispatchConfig,
-          timeoutSecondsOverride: getDispatchTimeoutSeconds(dispatchConfig, manualReplyFallbackReason),
+          ...activationOptions,
         });
-
-        if (manualReplyFallbackReason) {
-          const manualReply = typeof dispatchResult?.reply === 'string' ? dispatchResult.reply.trim() : '';
-
-          if (dispatchResult?.status === 'ok' && manualReply) {
-            const manualReplyArgs = {
-              action: 'send',
-              target: resolvedTarget,
-              message: manualReply,
-            };
-            if (resolved.resolvedChannel || effectiveChannel) {
-              manualReplyArgs.channel = resolved.resolvedChannel || effectiveChannel;
-            }
-
-            await callOpenClawTool('message', manualReplyArgs, { sessionKey: dispatchConfig.targetSessionKey });
-
-            return {
-              success: true,
-              delivered_to: requestedTarget || effectiveTarget,
-              resolved_target: resolvedTarget,
-              channel: resolved.resolvedChannel || effectiveChannel || 'auto',
-              message_length: message.length,
-              agent_dispatch: 'manual_reply',
-              manual_reply_reason: manualReplyFallbackReason,
-              reply_length: manualReply.length,
-              timestamp: new Date().toISOString(),
-            };
-          }
-
-          if (dispatchResult?.status === 'timeout') {
-            return {
-              error: 'Message was delivered, but the receiving agent did not produce a reply before the fallback timeout.',
-              delivered_to: requestedTarget || effectiveTarget,
-              resolved_target: resolvedTarget,
-              transport_delivered: true,
-              agent_dispatch: 'timeout',
-              manual_reply_reason: manualReplyFallbackReason,
-              details: dispatchResult?.error || `No visible reply within ${getDispatchTimeoutSeconds(dispatchConfig, manualReplyFallbackReason)}s.`,
-              suggestion: 'Check OpenClaw sendPolicy, bindings, and sessions_send logs on the receiving node.',
-            };
-          }
-
-          return {
-            error: 'Message was delivered, but the receiving agent did not produce a manual fallback reply.',
-            delivered_to: requestedTarget || effectiveTarget,
-            resolved_target: resolvedTarget,
-            transport_delivered: true,
-            agent_dispatch: dispatchResult?.status || 'error',
-            manual_reply_reason: manualReplyFallbackReason,
-            details: dispatchResult?.error || 'sessions_send completed without a reply payload',
-            suggestion: 'Check OpenClaw sendPolicy, bindings, and sessions_send logs on the receiving node.',
-          };
-        }
-
-        if (!['accepted', 'ok'].includes(dispatchResult?.status)) {
-          return {
-            error: 'Message was delivered, but receiving agent activation failed.',
-            delivered_to: requestedTarget || effectiveTarget,
-            resolved_target: resolvedTarget,
-            transport_delivered: true,
-            agent_dispatch: dispatchResult?.status || 'error',
-            details: dispatchResult?.error || 'Unknown dispatch error',
-            suggestion: 'Allow the sessions_send gateway tool and confirm agent.json.openclaw_agent_id or bridge.agent_dispatch.agentId matches the receiving OpenClaw agent.',
-          };
-        }
 
         return {
           success: true,
@@ -1142,7 +988,12 @@ async function chat(params) {
           resolved_target: resolvedTarget,
           channel: resolved.resolvedChannel || effectiveChannel || 'auto',
           message_length: message.length,
-          agent_dispatch: dispatchResult.status,
+          agent_dispatch: 'activated',
+          openclaw_session_id: activationOptions.sessionId,
+          openclaw_agent_id: activationOptions.agentId,
+          openclaw_reply_channel: activationOptions.replyChannel,
+          openclaw_reply_to: activationOptions.replyTo,
+          openclaw_result: dispatchResult?.result?.status || dispatchResult?.status || null,
           timestamp: new Date().toISOString()
         };
       } catch (err) {
@@ -1153,6 +1004,7 @@ async function chat(params) {
           sourceAgentId: agentDeliveryMeta.sourceAgentId || null,
           dispatchAgentId: dispatchConfig?.dispatchAgentId || null,
           targetSessionKey: dispatchConfig?.targetSessionKey || null,
+          targetSessionId: activationOptions.sessionId,
         });
 
         return {
@@ -1162,7 +1014,7 @@ async function chat(params) {
           transport_delivered: true,
           agent_dispatch: 'error',
           details: err.message,
-          suggestion: 'Allow the sessions_send gateway tool and confirm agent.json.openclaw_agent_id or bridge.agent_dispatch.agentId matches the receiving OpenClaw agent.',
+          suggestion: 'Confirm the local OpenClaw CLI is installed, agent.json.openclaw_agent_id or bridge.agent_dispatch.agentId matches the receiving OpenClaw agent, and the target session or default delivery is valid.',
         };
       }
     }
