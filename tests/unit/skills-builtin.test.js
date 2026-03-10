@@ -200,16 +200,18 @@ describe('Built-in Skills', () => {
         message: 'Hello from Instagram'
       });
 
-      expect(callPeerSkill).toHaveBeenCalledWith('discord-agent', 'chat', {
+      expect(callPeerSkill).toHaveBeenCalledWith('discord-agent', 'chat', expect.objectContaining({
         message: 'Hello from Instagram',
-        _agentDelivery: {
+        _agentDelivery: expect.objectContaining({
           activateSession: true,
+          sourcePeerId: 'local-agent',
           sourceAgentId: 'local-agent',
           sourceUrl: 'http://10.0.1.10:9100/a2a',
           requestedTarget: '@discord-agent',
-        },
+          conversationId: expect.any(String),
+        }),
         _relay: { hops: 1, visited: ['local-agent'] },
-      });
+      }));
       expect(callOpenClawTool).not.toHaveBeenCalled();
       expect(result.success).toBe(true);
       expect(result.relayed_via).toBe('discord-agent');
@@ -228,18 +230,20 @@ describe('Built-in Skills', () => {
         message: 'Hello to general'
       });
 
-      expect(callPeerSkill).toHaveBeenCalledWith('discord-agent', 'chat', {
+      expect(callPeerSkill).toHaveBeenCalledWith('discord-agent', 'chat', expect.objectContaining({
         target: '#general',
         message: 'Hello to general',
-        _agentDelivery: {
+        _agentDelivery: expect.objectContaining({
           activateSession: true,
+          sourcePeerId: 'local-agent',
           sourceAgentId: 'local-agent',
           sourceUrl: 'http://10.0.1.10:9100/a2a',
           requestedTarget: '#general@discord-agent',
           remoteChannelTarget: '#general',
-        },
+          conversationId: expect.any(String),
+        }),
         _relay: { hops: 1, visited: ['local-agent'] },
-      });
+      }));
       expect(result.success).toBe(true);
       expect(result.remote_target).toBe('#general');
     });
@@ -593,6 +597,53 @@ describe('Built-in Skills', () => {
         _sourceDelivery: { type: 'target', target: '1480310282961289216', channel: 'discord', accountId: null },
         _relay: { hops: 1, visited: ['guali-discord'] },
       });
+      expect(result.reply_relay).toBe('delivered');
+      expect(result.reply_relay_peer).toBe('monti-telegram');
+    });
+
+    it('prefers an explicit sourcePeerId over legacy sourceAgentId inference', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'guali-discord',
+        url: 'http://172.31.30.104:9100',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      loadPeersConfig.mockReturnValue([
+        { id: 'monti-telegram', url: 'http://172.31.30.105:9100', token: 'peer-token' },
+      ]);
+      callOpenClawTool.mockResolvedValue({ ok: true });
+      runOpenClawAgentTurn.mockResolvedValue({
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: 'Hola desde Discord' },
+          ],
+        },
+      });
+      callPeerSkill.mockResolvedValue({ success: true });
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourcePeerId: 'monti-telegram',
+          sourceAgentId: 'main',
+          sourceUrl: 'http://172.31.30.105:9100/a2a',
+          sourceReplyTarget: '5914004682',
+          sourceReplyChannel: 'telegram',
+          requestedTarget: '@guali-discord',
+          conversationId: 'conv-123',
+        },
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('monti-telegram', 'chat', {
+        target: '5914004682',
+        channel: 'telegram',
+        message: 'Hola desde Discord',
+        _sourceDelivery: { type: 'target', target: '5914004682', channel: 'telegram', accountId: null },
+        _relay: { hops: 1, visited: ['guali-discord'] },
+      });
+      expect(result.conversation_id).toBe('conv-123');
       expect(result.reply_relay).toBe('delivered');
       expect(result.reply_relay_peer).toBe('monti-telegram');
     });

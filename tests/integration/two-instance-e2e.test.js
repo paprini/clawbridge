@@ -449,6 +449,7 @@ describe('two-instance cross-node chat', () => {
     const result = JSON.parse(body.result.parts[0].text);
 
     expect(result.success).toBe(true);
+    expect(result.conversation_id).toEqual(expect.any(String));
     expect(result.relayed_via).toBe('guali-discord');
     expect(result.agent_dispatch).toBe('activated');
     expect(result.openclaw_deliver_locally).toBe(false);
@@ -557,11 +558,13 @@ describe('two-instance cross-node chat', () => {
                   message: 'Hola desde Telegram',
                   _agentDelivery: {
                     activateSession: true,
+                    sourcePeerId: 'main',
                     sourceAgentId: 'main',
                     sourceUrl: `http://127.0.0.1:${portA}/a2a`,
                     sourceReplyTarget: '5914004682',
                     sourceReplyChannel: 'telegram',
                     requestedTarget: '@main',
+                    conversationId: 'conv-generic-main',
                   },
                 }),
               },
@@ -576,6 +579,7 @@ describe('two-instance cross-node chat', () => {
     const result = JSON.parse(body.result.parts[0].text);
 
     expect(result.success).toBe(true);
+    expect(result.conversation_id).toBe('conv-generic-main');
     expect(result.agent_dispatch).toBe('activated');
     expect(result.openclaw_deliver_locally).toBe(false);
     expect(result.reply_relay).toBe('delivered');

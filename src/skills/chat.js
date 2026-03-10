@@ -2,6 +2,7 @@
  * Chat skill - Send message to another platform via OpenClaw gateway
  */
 
+const crypto = require('crypto');
 const { callOpenClawTool, loadBridgeConfig } = require('../bridge');
 const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../config');
 const { callPeerSkill } = require('../client');
@@ -246,11 +247,15 @@ function normalizeAgentDeliveryMeta(entry) {
 
   return {
     activateSession: true,
+    sourcePeerId: sanitizePeerId(entry.sourcePeerId || entry.replyPeerId),
     sourceAgentId: typeof entry.sourceAgentId === 'string' && entry.sourceAgentId.trim().length > 0
       ? entry.sourceAgentId.trim()
       : null,
     sourceUrl: typeof entry.sourceUrl === 'string' && entry.sourceUrl.trim().length > 0
       ? entry.sourceUrl.trim()
+      : null,
+    conversationId: typeof entry.conversationId === 'string' && entry.conversationId.trim().length > 0
+      ? entry.conversationId.trim()
       : null,
     requestedTarget: typeof entry.requestedTarget === 'string' && entry.requestedTarget.trim().length > 0
       ? entry.requestedTarget.trim()
@@ -269,8 +274,10 @@ function normalizeAgentDeliveryMeta(entry) {
 }
 
 function buildAgentDeliveryMeta({
+  sourcePeerId,
   sourceAgentId,
   sourceUrl,
+  conversationId,
   requestedTarget,
   remoteChannelTarget,
   sourceDelivery,
@@ -278,11 +285,20 @@ function buildAgentDeliveryMeta({
   sourceReplyChannel,
 }) {
   const normalizedSourceDelivery = normalizeDeliveryDescriptor(sourceDelivery);
+  const normalizedSourcePeerId = sanitizePeerId(sourcePeerId);
+  const normalizedSourceAgentId = typeof sourceAgentId === 'string' && sourceAgentId.trim().length > 0
+    ? sourceAgentId.trim()
+    : null;
+  const normalizedConversationId = typeof conversationId === 'string' && conversationId.trim().length > 0
+    ? conversationId.trim()
+    : crypto.randomUUID();
 
   return {
     activateSession: true,
-    ...(sourceAgentId ? { sourceAgentId } : {}),
+    ...(normalizedSourcePeerId ? { sourcePeerId: normalizedSourcePeerId } : {}),
+    ...(normalizedSourceAgentId || normalizedSourcePeerId ? { sourceAgentId: normalizedSourceAgentId || normalizedSourcePeerId } : {}),
     ...(sourceUrl ? { sourceUrl } : {}),
+    conversationId: normalizedConversationId,
     ...(requestedTarget ? { requestedTarget } : {}),
     ...(remoteChannelTarget ? { remoteChannelTarget } : {}),
     ...(normalizedSourceDelivery ? { sourceDelivery: normalizedSourceDelivery } : {}),
@@ -334,6 +350,7 @@ function findPeerIdBySourceUrl(sourceUrl) {
 
 function resolveReplyRelayPeerId({
   requestPeerId,
+  sourcePeerId,
   sourceAgentId,
   sourceUrl,
   localAgentId,
@@ -352,6 +369,13 @@ function resolveReplyRelayPeerId({
   if (requestPeer) {
     if (requestPeer !== normalizedLocalAgentId || peerExists(requestPeer)) {
       return requestPeer;
+    }
+  }
+
+  const explicitSourcePeer = sanitizePeerId(sourcePeerId);
+  if (explicitSourcePeer) {
+    if (explicitSourcePeer !== normalizedLocalAgentId || isExplicitRemoteSourceUrl || peerExists(explicitSourcePeer)) {
+      return explicitSourcePeer;
     }
   }
 
@@ -980,19 +1004,20 @@ function extractOpenClawReplyText(dispatchResult) {
 }
 
 async function relayActivationReplyToSourcePeer({
-  sourceAgentId,
+  sourcePeerId,
   sourceDelivery,
   sourceReplyTarget,
   sourceReplyChannel,
   message,
   relayMeta,
   agentId,
+  conversationId,
 }) {
-  if (typeof sourceAgentId !== 'string' || sourceAgentId.trim().length === 0) {
+  if (typeof sourcePeerId !== 'string' || sourcePeerId.trim().length === 0) {
     return { status: 'not_requested' };
   }
 
-  const normalizedSourceAgentId = sourceAgentId.trim();
+  const normalizedSourcePeerId = sourcePeerId.trim();
   const relayMessage = typeof message === 'string' ? message.trim() : '';
   if (!relayMessage) {
     return { status: 'skipped_no_text' };
@@ -1027,7 +1052,8 @@ async function relayActivationReplyToSourcePeer({
     }
 
     logger.info('Relaying activated agent reply to source peer', {
-      sourcePeerId: normalizedSourceAgentId,
+      sourcePeerId: normalizedSourcePeerId,
+      conversationId: conversationId || null,
       sourceReplyTarget: relayParams.target || null,
       sourceReplyChannel: relayParams.channel || null,
       sourceReplyType: relayParams._sourceDelivery?.type || null,
@@ -1035,25 +1061,25 @@ async function relayActivationReplyToSourcePeer({
       messageLength: relayMessage.length,
     });
 
-    const result = await callPeerSkill(normalizedSourceAgentId, 'chat', relayParams);
+    const result = await callPeerSkill(normalizedSourcePeerId, 'chat', relayParams);
 
     if (result && typeof result === 'object' && !Array.isArray(result) && typeof result.error === 'string' && result.error.trim().length > 0) {
       return {
         status: 'error',
-        peerId: normalizedSourceAgentId,
+        peerId: normalizedSourcePeerId,
         error: result.error,
       };
     }
 
     return {
       status: 'delivered',
-      peerId: normalizedSourceAgentId,
+      peerId: normalizedSourcePeerId,
       result,
     };
   } catch (err) {
     return {
       status: 'error',
-      peerId: normalizedSourceAgentId,
+      peerId: normalizedSourcePeerId,
       error: err.message,
     };
   }
@@ -1177,6 +1203,7 @@ async function chat(params) {
   if (agentTarget) {
     if (agentTarget.peerId === agentId) {
       agentDeliveryMeta = agentDeliveryMeta || buildAgentDeliveryMeta({
+        sourcePeerId: agentId,
         sourceAgentId: agentId,
         sourceUrl: agentUrl,
         requestedTarget: requestedTarget || effectiveTarget,
@@ -1218,6 +1245,7 @@ async function chat(params) {
       }
       relayParams._relay = buildRelayMeta(relayMeta, agentId);
       relayParams._agentDelivery = buildAgentDeliveryMeta({
+        sourcePeerId: agentId,
         sourceAgentId: agentId,
         sourceUrl: agentUrl,
         requestedTarget: requestedTarget || effectiveTarget,
@@ -1237,6 +1265,7 @@ async function chat(params) {
         const relayResult = await callPeerSkill(agentTarget.peerId, 'chat', relayParams);
         return {
           ...relayResult,
+          conversation_id: relayResult.conversation_id || relayParams._agentDelivery.conversationId,
           delivered_to: requestedTarget || effectiveTarget,
           relayed_via: agentTarget.peerId,
           remote_target: agentTarget.channelTarget || null,
@@ -1427,6 +1456,7 @@ async function chat(params) {
       try {
         const replyRelayPeerId = resolveReplyRelayPeerId({
           requestPeerId,
+          sourcePeerId: agentDeliveryMeta.sourcePeerId,
           sourceAgentId: agentDeliveryMeta.sourceAgentId,
           sourceUrl: agentDeliveryMeta.sourceUrl,
           localAgentId: agentId,
@@ -1435,7 +1465,9 @@ async function chat(params) {
         const openclawDeliverLocally = !replyRelayPeerId;
 
         logger.info('Resolved inbound agent reply mode', {
+          conversationId: agentDeliveryMeta.conversationId || null,
           requestPeerId: requestPeerId || null,
+          sourcePeerId: agentDeliveryMeta.sourcePeerId || null,
           sourceAgentId: agentDeliveryMeta.sourceAgentId || null,
           sourceUrl: agentDeliveryMeta.sourceUrl || null,
           sourceReplyTarget: agentDeliveryMeta.sourceReplyTarget || null,
@@ -1457,25 +1489,28 @@ async function chat(params) {
           deliver: openclawDeliverLocally,
         });
         const replyRelay = await relayActivationReplyToSourcePeer({
-          sourceAgentId: replyRelayPeerId,
+          sourcePeerId: replyRelayPeerId,
           sourceDelivery: agentDeliveryMeta.sourceDelivery,
           sourceReplyTarget: agentDeliveryMeta.sourceReplyTarget,
           sourceReplyChannel: agentDeliveryMeta.sourceReplyChannel,
           message: extractOpenClawReplyText(dispatchResult),
           relayMeta,
           agentId,
+          conversationId: agentDeliveryMeta.conversationId,
         });
 
         if (replyRelay.status === 'error') {
           logger.error('Inbound agent reply relay failed', {
             error: replyRelay.error,
-            sourceAgentId: replyRelay.peerId,
+            sourcePeerId: replyRelay.peerId,
+            conversationId: agentDeliveryMeta.conversationId || null,
             target: requestedTarget || effectiveTarget,
             resolvedTarget,
           });
         } else if (replyRelay.status === 'delivered') {
           logger.info('Inbound agent reply relayed back to source peer', {
-            sourceAgentId: replyRelay.peerId,
+            sourcePeerId: replyRelay.peerId,
+            conversationId: agentDeliveryMeta.conversationId || null,
             target: requestedTarget || effectiveTarget,
             resolvedTarget,
           });
@@ -1483,6 +1518,7 @@ async function chat(params) {
 
         return {
           success: true,
+          conversation_id: agentDeliveryMeta.conversationId || null,
           delivered_to: requestedTarget || effectiveTarget,
           resolved_target: resolvedTarget,
           channel: resolved.resolvedChannel || effectiveChannel || 'auto',
