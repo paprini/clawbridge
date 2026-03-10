@@ -235,3 +235,41 @@ This gives the receiver a second reliable identity path even when:
 - added regression coverage for:
   - reply relay by source URL when auth is shared and source agent id is generic
   - multipart transport preserving nested relay metadata
+
+---
+
+## Additional Telegram-side feedback — reply may be entering session context instead of visible channel send
+
+New feedback from Telegram side:
+
+> Los mensajes de Discord se enviaron a mi gateway para delivery por Telegram a tu chat `5914004682`. Uno de 83 chars y otro de 114 chars. Pero parece que se despacharon a mi sesión principal en vez de llegar como mensaje directo a vos.
+>
+> El dispatch fue a `agent:main:telegram:direct:5914004682` — eso es mi sesión principal contigo. Probablemente llegó como contexto a mi sesión pero no se envió como mensaje de Telegram.
+
+### Interpretation
+This is highly consistent with the live Discord-side symptoms.
+
+What may be happening now:
+- ClawBridge successfully routes the reply back toward the origin-side OpenClaw session
+- but the relay is landing as **session context / injected turn** rather than becoming a visible outbound Telegram message to the end user
+
+### Why this matters
+If true, then the remaining bug is not pure routing anymore.
+It is now likely about the **final delivery mode on the return leg**:
+- reply reaches the correct origin-side session
+- but does not get emitted as a visible provider message to the chat surface
+
+### Updated likely root cause
+The return path may be targeting the correct origin session key, but not using the right mechanism to force a visible provider send back to the original peer/user chat.
+
+### Request
+Please inspect the return-leg behavior after successful activation:
+- is the reply being injected into the origin session as context only?
+- is it missing the final visible send step?
+- is it using the wrong OpenClaw mode/path for provider-visible output on the origin side?
+
+This seems like the next most likely explanation for why we now see:
+- correct local activation
+- correct local visible response
+- but no visible message returning to Telegram
+
