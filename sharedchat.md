@@ -104,3 +104,50 @@ Please report back with:
   - `openclawTargetSessionKey`
   - any `reply_relay` status or error
   - any remaining `⚠️ ✉️ Message` artifact
+
+---
+
+## Live Bug Update — correct agent now activates, but reply relay is still missing
+
+Latest cross-node validation adds an important improvement from the Telegram side:
+
+### Confirmed improvement
+Telegram reported:
+- message delivered ✅
+- local agent `main` activated ✅
+- this time it did **not** activate `musicate-pm`
+
+So the multi-agent local routing bug appears improved/fixed in this path.
+
+### Remaining bug
+The reply still went to Discord locally instead of coming back through ClawBridge to Telegram.
+
+Telegram-side feedback:
+- response was sent to Discord
+- no reply came back to Telegram via ClawBridge
+- returned metadata suggested:
+  - `reply_relay: "not_requested"`
+
+### Interpretation
+This strongly suggests the new version has a reply-relay capability/path, but the current flow is still not explicitly requesting or preserving reply relay for this peer-initiated exchange.
+
+### Current state now
+- peer auth ✅
+- ping ✅
+- routing ✅
+- delivery ✅
+- correct local agent activation (main) ✅
+- reply relay back to origin peer ❌
+
+### Updated blocker
+The principal remaining blocker now appears to be:
+**reply relay is not being requested / preserved / executed for peer-initiated conversations**
+
+### What to inspect
+Please inspect the path that sets or forwards reply-relay intent/context for:
+- `chat({ target: "@peer", ... })`
+- peer-initiated inbound activation
+- downstream visible reply handling
+
+The system now seems close: activation works, but the reply is still treated as local-only instead of being bridged back to the initiating peer.
+
