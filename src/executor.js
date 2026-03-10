@@ -11,6 +11,7 @@ const { validateAdvancedToken, scopeAllowsSkill } = require('./token-manager');
 const logger = require('./logger');
 const { chat } = require('./skills/chat');
 const { broadcast } = require('./skills/broadcast');
+const { getClawBridgeVersion } = require('./version');
 
 /**
  * AgentExecutor implementation for ClawBridge.
@@ -221,7 +222,7 @@ class OpenClawExecutor {
 
     return {
       agent: { id: agent.id, name: agent.name },
-      version: agent.version || '0.1.0',
+      version: getClawBridgeVersion(),
       uptime: Math.floor((Date.now() - this.startTime) / 1000),
       skills: skills.filter((s) => s.public !== false).map((s) => s.name),
       timestamp: new Date().toISOString(),

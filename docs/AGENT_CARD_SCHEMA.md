@@ -44,7 +44,7 @@ For Phase 1, we expose only two skills: `ping` and `get_status`. This is our "ul
   "name": "openclaw-agent-alpha",
   "description": "OpenClaw agent on laptop (Alpha instance)",
   "url": "http://192.168.1.100:9100/a2a",
-  "version": "0.1.0",
+  "version": "<installed-clawbridge-version>",
   "protocolVersion": "0.3.0",
   
   "capabilities": {
@@ -130,7 +130,7 @@ Agent Cards are NOT hand-written in production. They're generated from config:
   "name": "openclaw-agent-alpha",
   "description": "OpenClaw agent on laptop",
   "port": 9100,
-  "version": "0.1.0",
+  "version": "<installed-clawbridge-version>",
   "skills": ["ping", "get_status"]
 }
 ```

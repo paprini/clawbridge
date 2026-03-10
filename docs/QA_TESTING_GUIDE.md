@@ -161,7 +161,7 @@ cat config/agent.json
 #   "name": "discord-agent",
 #   "description": "A2A agent: discord-agent",
 #   "url": "http://10.0.1.10:9100/a2a",
-#   "version": "0.1.0",
+#   "version": "<installed-clawbridge-version>",
 #   "default_delivery": {
 #     "type": "channel",
 #     "target": "#general",

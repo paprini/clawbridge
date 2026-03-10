@@ -11,6 +11,7 @@ const { createUserBuilder, requireAuth } = require('./auth');
 const { OpenClawExecutor } = require('./executor');
 const { getHelperAgentStatus, startHelperAgentManager } = require('./helper-agent/manager');
 const logger = require('./logger');
+const { getClawBridgeVersion } = require('./version');
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ function buildAgentCard() {
   const agent = loadAgentConfig();
   const skills = loadSkillsConfig();
   const { getBridgedTools } = require('./bridge');
+  const clawbridgeVersion = getClawBridgeVersion();
 
   const nativeSkills = skills
     .filter((s) => s.public !== false)
@@ -47,7 +49,7 @@ function buildAgentCard() {
     name: agent.name || agent.id,
     description: agent.description || 'OpenClaw A2A agent',
     url: agent.url || `http://localhost:${PORT}/a2a`,
-    version: agent.version || '0.1.0',
+    version: clawbridgeVersion,
     protocolVersion: '0.3.0',
     capabilities: {
       streaming: false,
@@ -79,6 +81,7 @@ function createServer() {
   const executor = new OpenClawExecutor();
   const requestHandler = new DefaultRequestHandler(agentCard, taskStore, executor);
   const userBuilder = createUserBuilder();
+  const clawbridgeVersion = getClawBridgeVersion();
 
   const app = express();
 
@@ -94,6 +97,7 @@ function createServer() {
     const m = require('./metrics').getMetrics().getSnapshot();
     res.json({
       status: 'healthy',
+      version: clawbridgeVersion,
       uptime: process.uptime(),
       timestamp: new Date().toISOString(),
       helper_agent: getHelperAgentStatus(),
@@ -107,7 +111,7 @@ function createServer() {
     const skills = loadSkillsConfig();
     res.json({
       name: agent.name || agent.id,
-      version: agent.version || '0.1.0',
+      version: clawbridgeVersion,
       uptime: Math.floor(process.uptime()),
       skills: skills.filter(s => s.public !== false).map(s => s.name),
       protocol: '0.3.0',
@@ -175,7 +179,7 @@ if (require.main === module) {
   }
 
   const server = app.listen(PORT, BIND, () => {
-    logger.info('ClawBridge started', { version: '0.1.0', port: PORT, bind: BIND });
+    logger.info('ClawBridge started', { version: getClawBridgeVersion(), port: PORT, bind: BIND });
     startHelperAgentManager();
   });
 

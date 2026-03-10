@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { getClawBridgeVersion } = require('./version');
 
 const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', 'config');
 const repoConfigDir = path.join(__dirname, '..', 'config');
@@ -46,6 +47,7 @@ function normalizeAgentId(value) {
 }
 
 console.log('\n🔍 ClawBridge setup verification\n');
+console.log(`ClawBridge version: ${getClawBridgeVersion()}`);
 console.log(`Config dir: ${configDir}\n`);
 
 // --- Required configs ---

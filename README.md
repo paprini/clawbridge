@@ -89,6 +89,38 @@ npm start
 
 If you are not sure what to do next, go to [docs/QUICKSTART_SIMPLE.md](docs/QUICKSTART_SIMPLE.md).
 
+## Versioning
+
+ClawBridge now uses `package.json` as the single source of truth for the installed software version.
+
+Users can see the installed version in:
+- `npm run status`
+- `node src/cli.js version`
+- `GET /status`
+- `GET /health`
+- `get_status`
+- the A2A agent card
+
+Release flow:
+
+```bash
+npm version patch
+git push origin main --follow-tags
+```
+
+Install a specific release tag:
+
+```bash
+git clone --branch v0.1.1 --depth 1 https://github.com/paprini/clawbridge.git
+```
+
+Use:
+- `patch` for fixes
+- `minor` for backward-compatible features
+- `major` for breaking changes
+
+See [CHANGELOG.md](CHANGELOG.md) for release notes.
+
 ## Documentation
 
 - [docs/README.md](docs/README.md): documentation map by audience

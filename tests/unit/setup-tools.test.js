@@ -9,6 +9,7 @@ const tmpDir = path.join(os.tmpdir(), `a2a-test-${Date.now()}`);
 process.env.A2A_CONFIG_DIR = tmpDir;
 
 const { generateToken, getCurrentConfig, writeConfig, getLocalSubnet, executeTool } = require('../../src/setup/tools');
+const { version: packageVersion } = require('../../package.json');
 
 beforeAll(() => {
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -79,6 +80,7 @@ describe('Setup Tools', () => {
       // Verify content
       const agent = JSON.parse(fs.readFileSync(path.join(tmpDir, 'agent.json'), 'utf8'));
       expect(agent.name).toBe('test-agent');
+      expect(agent.version).toBe(packageVersion);
       expect(agent.default_delivery).toEqual({ type: 'owner', target: '5914004682', channel: 'telegram' });
       if (agent.openclaw_agent_id !== undefined) {
         expect(typeof agent.openclaw_agent_id).toBe('string');
@@ -111,6 +113,7 @@ describe('Setup Tools', () => {
       const result = getCurrentConfig();
       expect(result.exists).toBe(true);
       expect(result.agent.name).toBe('test-agent');
+      expect(result.agent.version).toBe(packageVersion);
       expect(result.peers).toHaveLength(1);
       expect(result.skills).toHaveLength(4);
       expect(result.bridge.enabled).toBe(true);
@@ -153,6 +156,7 @@ describe('Setup Tools', () => {
       expect(result.bridge.exposed_tools).toEqual(['message']);
       expect(result.contacts.aliases['telegram:Pato']).toBeDefined();
       expect(result.agent.default_delivery).toEqual({ type: 'channel', target: '#general', channel: 'discord' });
+      expect(result.agent.version).toBe(packageVersion);
     });
   });
 

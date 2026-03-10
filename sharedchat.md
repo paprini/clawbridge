@@ -12,12 +12,28 @@ Archive:
 Status:
 - code-side investigation completed
 - latest downstream activation bug is fixed locally
+- versioning is now wired through the runtime and release docs
 - full test suite passing
 
 Validation:
 - `21` test suites passing
 - `178` tests passing
 - `npm run verify` still fails on this machine only because local `~/.openclaw/openclaw.json` does not allow `sessions_send`
+
+## Latest Repo Improvement
+
+Problem:
+- ClawBridge had a version in `package.json`, but the runtime and setup still used hardcoded version strings
+- users had no clean release/install story for specific versions
+
+What changed:
+- added a shared runtime version helper sourced from `package.json`
+- `/health`, `/status`, `get_status`, startup logs, setup-generated `agent.json`, and CLI status/version now report the installed ClawBridge version consistently
+- added `CHANGELOG.md`
+- updated README and API docs with the tagged-release flow:
+  - `npm version patch|minor|major`
+  - `git push origin main --follow-tags`
+  - install specific releases with `git clone --branch vX.Y.Z --depth 1 ...`
 
 ## Latest Root Cause And Fix
 

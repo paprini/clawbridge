@@ -16,6 +16,7 @@ process.env.A2A_SHARED_TOKEN = 'integration_test_token';
 
 const request = require('supertest');
 const { createServer } = require('../../src/server');
+const { version: packageVersion } = require('../../package.json');
 
 describe('A2A Server Integration', () => {
   afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
@@ -30,8 +31,20 @@ describe('A2A Server Integration', () => {
       const res = await request(app).get('/health');
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('healthy');
+      expect(res.body.version).toBe(packageVersion);
       expect(res.body).toHaveProperty('uptime');
       expect(res.body).toHaveProperty('timestamp');
+    });
+  });
+
+  describe('GET /status', () => {
+    test('returns public runtime status including installed version', async () => {
+      const res = await request(app).get('/status');
+      expect(res.status).toBe(200);
+      expect(res.body).toHaveProperty('name');
+      expect(res.body.version).toBe(packageVersion);
+      expect(res.body).toHaveProperty('skills');
+      expect(res.body).toHaveProperty('helper_agent');
     });
   });
 

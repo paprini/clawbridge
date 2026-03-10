@@ -24,6 +24,7 @@ process.env.A2A_CONFIG_DIR = tmpDir;
 
 const { OpenClawExecutor } = require('../../src/executor');
 const { chat } = require('../../src/skills/chat');
+const { version: packageVersion } = require('../../package.json');
 
 describe('OpenClawExecutor', () => {
   let executor;
@@ -102,6 +103,7 @@ describe('OpenClawExecutor', () => {
     expect(result.agent).toHaveProperty('id');
     expect(result).toHaveProperty('uptime');
     expect(result).toHaveProperty('skills');
+    expect(result.version).toBe(packageVersion);
     expect(result.skills).toContain('ping');
     expect(result.skills).toContain('get_status');
   });

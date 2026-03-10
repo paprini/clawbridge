@@ -4,6 +4,7 @@
 const { fetchAgentCard, callPeerSkill, callPeers } = require('./client');
 const { loadPeersConfig, loadAgentConfig } = require('./config');
 const { getHelperAgentStatus } = require('./helper-agent/manager');
+const { getClawBridgeVersion } = require('./version');
 
 const [,, command, ...args] = process.argv;
 
@@ -12,6 +13,7 @@ async function main() {
     case 'status': {
       const agent = loadAgentConfig();
       const peers = loadPeersConfig();
+      console.log(`ClawBridge: ${getClawBridgeVersion()}`);
       console.log(`Agent: ${agent.name} (${agent.id})`);
       console.log(`URL: ${agent.url}`);
       const helper = getHelperAgentStatus();
@@ -26,6 +28,11 @@ async function main() {
           console.log(`❌ ${err.message}`);
         }
       }
+      break;
+    }
+
+    case 'version': {
+      console.log(getClawBridgeVersion());
       break;
     }
 
@@ -124,6 +131,7 @@ async function main() {
 
 Commands:
   status    Show agent info and peer connectivity
+  version   Show installed ClawBridge version
   peers     List configured peers
   ping      Ping all peers
   call      Call a skill on a peer: call <peerId> <skill>
@@ -133,6 +141,7 @@ Commands:
 
 Examples:
   node src/cli.js status
+  node src/cli.js version
   node src/cli.js call my-vps ping
   node src/cli.js card http://10.0.1.10:9100
   node src/cli.js search web_search

@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const { fetchAgentCard, validatePeerUrl } = require('../client');
 const { resolveGatewayDefaultAgentId } = require('../openclaw-gateway');
+const { getClawBridgeVersion } = require('../version');
 
 /**
  * Get the local subnet (e.g. "192.168.1") from network interfaces.
@@ -251,7 +252,7 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defa
     name: agentName,
     description: agentDescription || `A2A agent: ${agentName}`,
     url: agentUrl || 'http://localhost:9100/a2a',
-    version: '0.1.0',
+    version: getClawBridgeVersion(),
     ...(openclawAgentId
       ? { openclaw_agent_id: openclawAgentId }
       : {}),

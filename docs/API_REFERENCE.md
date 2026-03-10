@@ -8,6 +8,7 @@ Health check. No auth required.
 ```json
 {
   "status": "healthy",
+  "version": "<installed-clawbridge-version>",
   "uptime": 12345.67,
   "timestamp": "2026-03-09T20:00:00.000Z",
   "helper_agent": {
@@ -35,7 +36,7 @@ Public-safe runtime status. No auth required.
 ```json
 {
   "name": "My Agent",
-  "version": "0.1.0",
+  "version": "<installed-clawbridge-version>",
   "uptime": 12345,
   "skills": ["ping", "get_status"],
   "protocol": "0.3.0",
@@ -104,7 +105,7 @@ Response text part: `{"status": "pong", "timestamp": "..."}`
 Agent info: name, version, uptime, available skills.
 
 Request text part: `"get_status"`
-Response text part: `{"agent": {"id": "...", "name": "..."}, "version": "0.1.0", "uptime": 123, "skills": ["ping", "get_status"]}`
+Response text part: `{"agent": {"id": "...", "name": "..."}, "version": "<installed-clawbridge-version>", "uptime": 123, "skills": ["ping", "get_status"]}`
 
 ### openclaw_* (bridged tools)
 When bridge is enabled, OpenClaw tools are exposed with `openclaw_` prefix. Pass JSON args in the message text.
@@ -118,8 +119,10 @@ Example: `"text": "openclaw_web_search {\"query\": \"test\"}"`
 ### config/agent.json
 Agent identity.
 ```json
-{"id": "my-agent", "name": "My Agent", "description": "...", "url": "http://IP:9100/a2a", "version": "0.1.0", "default_delivery": {"type": "channel", "target": "#general", "channel": "discord"}}
+{"id": "my-agent", "name": "My Agent", "description": "...", "url": "http://IP:9100/a2a", "version": "<installed-clawbridge-version>", "default_delivery": {"type": "channel", "target": "#general", "channel": "discord"}}
 ```
+
+`version` is written from the installed ClawBridge package version during setup and reported at runtime from `package.json`.
 
 `default_delivery` is used when this instance receives:
 - `chat` without an explicit `target`
