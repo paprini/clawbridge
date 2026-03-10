@@ -3,9 +3,15 @@
  */
 
 const { callOpenClawTool, loadBridgeConfig } = require('../bridge');
-const { loadContactsConfig } = require('../config');
+const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../config');
 const { callPeerSkill } = require('../client');
 const logger = require('../logger');
+
+const MAX_RELAY_HOPS = 4;
+
+function getTargetingSuggestion() {
+  return 'Use @agent-name for agent-to-agent, #channel for local channels, #channel@agent for remote channels, or configure config/contacts.json aliases.';
+}
 
 function getChatBridgeError() {
   try {
@@ -63,6 +69,105 @@ function normalizeAliasEntry(entry, fallbackChannel) {
   };
 }
 
+function normalizeDefaultDelivery(entry) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return null;
+  }
+
+  if (typeof entry.target !== 'string' || entry.target.trim().length === 0) {
+    return null;
+  }
+
+  return {
+    type: typeof entry.type === 'string' && entry.type.trim().length > 0
+      ? entry.type.trim()
+      : 'target',
+    target: entry.target.trim(),
+    channel: typeof entry.channel === 'string' && entry.channel.trim().length > 0
+      ? entry.channel.trim()
+      : null,
+  };
+}
+
+function getLocalAgentContext() {
+  try {
+    const config = loadAgentConfig();
+    return {
+      agentId: typeof config?.id === 'string' && config.id.trim().length > 0
+        ? config.id.trim()
+        : null,
+      defaultDelivery: normalizeDefaultDelivery(config?.default_delivery),
+    };
+  } catch {
+    return {
+      agentId: null,
+      defaultDelivery: null,
+    };
+  }
+}
+
+function parseAgentTarget(target) {
+  if (typeof target !== 'string') {
+    return null;
+  }
+
+  const trimmed = target.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const remoteChannelMatch = trimmed.match(/^(#[^@\s]+)@([^@\s]+)$/);
+  if (remoteChannelMatch) {
+    return {
+      peerId: remoteChannelMatch[2],
+      channelTarget: remoteChannelMatch[1],
+    };
+  }
+
+  const remoteAgentMatch = trimmed.match(/^@([^@\s]+)$/);
+  if (remoteAgentMatch) {
+    return {
+      peerId: remoteAgentMatch[1],
+      channelTarget: null,
+    };
+  }
+
+  return null;
+}
+
+function peerExists(peerId) {
+  try {
+    return loadPeersConfig().some((peer) => peer?.id === peerId);
+  } catch {
+    return false;
+  }
+}
+
+function normalizeRelayMeta(entry) {
+  if (!entry || typeof entry !== 'object' || Array.isArray(entry)) {
+    return { hops: 0, visited: [] };
+  }
+
+  const hops = Number.isInteger(entry.hops) && entry.hops >= 0 ? entry.hops : 0;
+  const visited = Array.isArray(entry.visited)
+    ? entry.visited.filter((value) => typeof value === 'string' && value.trim().length > 0)
+    : [];
+
+  return { hops, visited };
+}
+
+function buildRelayMeta(currentMeta, agentId) {
+  const visited = [...currentMeta.visited];
+  if (agentId && !visited.includes(agentId)) {
+    visited.push(agentId);
+  }
+
+  return {
+    hops: currentMeta.hops + 1,
+    visited,
+  };
+}
+
 function resolveTarget(target, channel) {
   const contacts = loadContactsConfig();
   const aliases = contacts?.aliases && typeof contacts.aliases === 'object'
@@ -117,11 +222,17 @@ async function chat(params) {
   }
 
   const { target, message, channel } = params;
+  const requestedChannel = typeof channel === 'string' && channel.trim().length > 0
+    ? channel.trim()
+    : null;
+  const { agentId, defaultDelivery } = getLocalAgentContext();
+  const relayMeta = normalizeRelayMeta(params._relay);
 
-  if (!target || typeof target !== 'string') {
+  if (target !== undefined && typeof target !== 'string') {
     return {
-      error: 'Missing or invalid target. Must be a string.',
-      usage: 'chat({ target: "5914004682", message: "Hello" })'
+      error: 'Invalid target. Must be a string when provided.',
+      suggestion: getTargetingSuggestion(),
+      usage: 'chat({ target: "@discord-agent", message: "Hello" })'
     };
   }
 
@@ -147,46 +258,146 @@ async function chat(params) {
     };
   }
 
-  const requestedTarget = target.trim();
-  const resolved = resolveTarget(requestedTarget, channel);
+  if (agentId && relayMeta.visited.includes(agentId)) {
+    return {
+      error: 'Relay loop detected while delivering chat.',
+      suggestion: 'Check config/contacts.json relay aliases and @agent routing to avoid circular peer delivery.',
+      relay_hops: relayMeta.hops,
+      relay_path: relayMeta.visited,
+    };
+  }
+
+  if (relayMeta.hops >= MAX_RELAY_HOPS) {
+    return {
+      error: 'Relay hop limit exceeded while delivering chat.',
+      suggestion: 'Check config/contacts.json and peer routing for circular or overly indirect delivery paths.',
+      relay_hops: relayMeta.hops,
+      max_hops: MAX_RELAY_HOPS,
+      relay_path: relayMeta.visited,
+    };
+  }
+
+  const requestedTarget = typeof target === 'string' ? target.trim() : '';
+  let effectiveTarget = requestedTarget;
+  let effectiveChannel = requestedChannel;
+
+  if (!effectiveTarget) {
+    if (!defaultDelivery) {
+      return {
+        error: 'Missing target and no default delivery is configured.',
+        suggestion: `${getTargetingSuggestion()} Configure config/agent.json -> default_delivery to support @agent delivery and broadcasts.`,
+        usage: 'chat({ target: "@discord-agent", message: "Hello" })'
+      };
+    }
+
+    effectiveTarget = defaultDelivery.target;
+    effectiveChannel = effectiveChannel || defaultDelivery.channel;
+  }
+
+  const agentTarget = parseAgentTarget(effectiveTarget);
+  if (agentTarget) {
+    if (agentTarget.peerId === agentId) {
+      if (agentTarget.channelTarget) {
+        effectiveTarget = agentTarget.channelTarget;
+      } else if (defaultDelivery) {
+        effectiveTarget = defaultDelivery.target;
+        effectiveChannel = effectiveChannel || defaultDelivery.channel;
+      } else {
+        return {
+          error: 'Agent target resolved to this agent, but no default delivery is configured.',
+          target: requestedTarget || effectiveTarget,
+          suggestion: 'Configure config/agent.json -> default_delivery so this agent knows where to deliver @agent messages.',
+        };
+      }
+    } else {
+      if (!peerExists(agentTarget.peerId)) {
+        return {
+          error: `Unknown peer target "${agentTarget.peerId}".`,
+          target: requestedTarget || effectiveTarget,
+          suggestion: 'Add the peer to config/peers.json or re-run npm run setup to register it.',
+        };
+      }
+
+      const relayParams = { message };
+      if (agentTarget.channelTarget) {
+        relayParams.target = agentTarget.channelTarget;
+      }
+      relayParams._relay = buildRelayMeta(relayMeta, agentId);
+
+      try {
+        logger.info('Relaying chat message to peer agent', {
+          target: requestedTarget || effectiveTarget,
+          relayPeerId: agentTarget.peerId,
+          relayChannelTarget: agentTarget.channelTarget || null,
+        });
+
+        const relayResult = await callPeerSkill(agentTarget.peerId, 'chat', relayParams);
+        return {
+          ...relayResult,
+          delivered_to: requestedTarget || effectiveTarget,
+          relayed_via: agentTarget.peerId,
+          remote_target: agentTarget.channelTarget || null,
+          channel: relayResult.channel || effectiveChannel || 'default',
+        };
+      } catch (err) {
+        logger.error('Agent-target chat relay failed', {
+          error: err.message,
+          target: requestedTarget || effectiveTarget,
+          relayPeerId: agentTarget.peerId,
+          relayChannelTarget: agentTarget.channelTarget || null,
+        });
+
+        return {
+          error: 'Failed to relay message to the target agent',
+          details: err.message,
+          target: requestedTarget || effectiveTarget,
+          relay_peer: agentTarget.peerId,
+          suggestion: 'Check that the target peer exists, is reachable, and exposes the chat skill.',
+        };
+      }
+    }
+  }
+
+  const resolved = resolveTarget(effectiveTarget, effectiveChannel);
   const resolvedTarget = resolved.resolvedTarget;
 
-  if (resolved.relayPeerId) {
+  if (resolved.relayPeerId && resolved.relayPeerId !== agentId) {
     try {
       logger.info('Relaying chat message to peer', {
-        target: requestedTarget,
+        target: requestedTarget || effectiveTarget,
         resolvedTarget,
         relayPeerId: resolved.relayPeerId,
         targetAlias: resolved.alias,
-        channel: resolved.resolvedChannel || channel || 'auto',
+        channel: resolved.resolvedChannel || effectiveChannel || 'auto',
       });
 
       const relayResult = await callPeerSkill(resolved.relayPeerId, 'chat', {
         target: resolvedTarget,
         message,
-        channel: resolved.resolvedChannel || channel,
+        channel: resolved.resolvedChannel || effectiveChannel,
+        _relay: buildRelayMeta(relayMeta, agentId),
       });
 
       return {
         ...relayResult,
-        delivered_to: requestedTarget,
+        delivered_to: requestedTarget || effectiveTarget,
         resolved_target: resolvedTarget,
         relayed_via: resolved.relayPeerId,
-        channel: resolved.resolvedChannel || channel || relayResult.channel || 'auto',
+        channel: resolved.resolvedChannel || effectiveChannel || relayResult.channel || 'auto',
       };
     } catch (err) {
       logger.error('Chat relay failed', {
         error: err.message,
-        target: requestedTarget,
+        target: requestedTarget || effectiveTarget,
         resolvedTarget,
         relayPeerId: resolved.relayPeerId,
-        channel: resolved.resolvedChannel || channel,
+        channel: resolved.resolvedChannel || effectiveChannel,
       });
 
       return {
         error: 'Failed to relay message to the correct peer',
         details: err.message,
-        target: requestedTarget,
+        target: requestedTarget || effectiveTarget,
         resolved_target: resolvedTarget,
         relay_peer: resolved.relayPeerId,
         suggestion: 'Check the relay peer in config/contacts.json and confirm that peer is reachable.',
@@ -201,10 +412,10 @@ async function chat(params) {
 
   if (!looksLikeDirectTargetId(resolvedTarget)) {
     return {
-      error: 'Target could not be resolved to a platform-specific ID.',
-      target: requestedTarget,
-      suggestion: 'Use the local platform target ID directly, or add an alias in config/contacts.json. For cross-platform delivery, include a relay peer in the alias entry.',
-      usage: 'chat({ target: "5914004682", message: "Hello" })'
+      error: 'No target found.',
+      target: requestedTarget || effectiveTarget,
+      suggestion: `${getTargetingSuggestion()} Configure config/contacts.json for local channel aliases, or configure agent.json -> default_delivery for agent-level delivery.`,
+      usage: 'chat({ target: "@discord-agent", message: "Hello" })'
     };
   }
 
@@ -217,40 +428,40 @@ async function chat(params) {
     };
 
     // Add optional channel if provided
-    if (resolved.resolvedChannel || channel) {
-      messageArgs.channel = resolved.resolvedChannel || channel;
+    if (resolved.resolvedChannel || effectiveChannel) {
+      messageArgs.channel = resolved.resolvedChannel || effectiveChannel;
     }
 
     logger.info('Sending chat message via gateway', {
-      target: requestedTarget,
+      target: requestedTarget || effectiveTarget,
       resolvedTarget,
       targetAlias: resolved.alias,
       messageLength: message.length,
-      channel: resolved.resolvedChannel || channel || 'auto'
+      channel: resolved.resolvedChannel || effectiveChannel || 'auto'
     });
 
     await callOpenClawTool('message', messageArgs);
 
     return {
       success: true,
-      delivered_to: requestedTarget,
+      delivered_to: requestedTarget || effectiveTarget,
       resolved_target: resolvedTarget,
-      channel: resolved.resolvedChannel || channel || 'auto',
+      channel: resolved.resolvedChannel || effectiveChannel || 'auto',
       message_length: message.length,
       timestamp: new Date().toISOString()
     };
   } catch (err) {
     logger.error('Chat skill failed', {
       error: err.message,
-      target: requestedTarget,
+      target: requestedTarget || effectiveTarget,
       resolvedTarget,
-      channel: resolved.resolvedChannel || channel
+      channel: resolved.resolvedChannel || effectiveChannel
     });
 
     return {
       error: 'Failed to send message via gateway',
       details: err.message,
-      target: requestedTarget,
+      target: requestedTarget || effectiveTarget,
       resolved_target: resolvedTarget,
       suggestion: 'Check that OpenClaw gateway is running, bridge is enabled, and the target is a platform-specific ID or contacts alias.'
     };

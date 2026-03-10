@@ -97,17 +97,34 @@ Fixes:
 
 ## Chat Target Not Resolved
 
-Symptoms: `Target could not be resolved to a platform-specific ID`
+Symptoms: `No target found`
 
 Causes:
-- Using a display name like `Pato` instead of the platform's real target ID
+- Using a display name like `Pato` instead of a direct target, alias, or `@agent`
 - Missing alias in `config/contacts.json`
+- Missing `default_delivery` in `config/agent.json` for `@agent` delivery or broadcast landing
 
 Fixes:
+- Use `@agent-name` for agent-to-agent delivery
+- Use `#channel@agent-name` for a named remote channel
 - Use the platform-specific numeric ID directly
 - Or define an alias in `config/contacts.json`, for example:
-  `{"aliases":{"Pato":"552287292342009884","telegram:Pato":{"peerId":"telegram-agent","target":"5914004682","channel":"telegram"}}}`
+  `{"aliases":{"Pato":"552287292342009884","#general":"1480310282961289216","telegram:Pato":{"peerId":"telegram-agent","target":"5914004682","channel":"telegram"}}}`
+- Configure `config/agent.json -> default_delivery` if this instance should receive target-less chat or broadcasts
 - Run `npm run verify` after editing config
+
+## Broadcast Reaches Peer But Does Not Deliver
+
+Symptoms: peer accepts `broadcast`, but nothing is delivered on that platform
+
+Causes:
+- receiving peer exposes `broadcast`, but `config/agent.json` has no `default_delivery`
+- `default_delivery.target` uses a local alias like `#general`, but that alias is missing in `config/contacts.json`
+
+Fixes:
+- set `config/agent.json -> default_delivery`
+- if you use `#channel` names, map them in `config/contacts.json`
+- run `npm run verify`
 
 ## Config Not Found
 

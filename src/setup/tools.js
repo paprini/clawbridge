@@ -150,10 +150,34 @@ function getCurrentConfig() {
   return result;
 }
 
+function normalizeDefaultDelivery(defaultDelivery) {
+  if (!defaultDelivery) {
+    return null;
+  }
+
+  if (typeof defaultDelivery !== 'object' || Array.isArray(defaultDelivery)) {
+    return null;
+  }
+
+  if (typeof defaultDelivery.target !== 'string' || defaultDelivery.target.trim().length === 0) {
+    return null;
+  }
+
+  return {
+    type: typeof defaultDelivery.type === 'string' && defaultDelivery.type.trim().length > 0
+      ? defaultDelivery.type.trim()
+      : 'target',
+    target: defaultDelivery.target.trim(),
+    ...(typeof defaultDelivery.channel === 'string' && defaultDelivery.channel.trim().length > 0
+      ? { channel: defaultDelivery.channel.trim() }
+      : {}),
+  };
+}
+
 /**
  * Write config files with validation.
  */
-function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
+function writeConfig({ agentName, agentDescription, agentUrl, peers, token, defaultDelivery }) {
   // Validate inputs
   if (!agentName || typeof agentName !== 'string' || agentName.trim().length === 0) {
     return { error: 'Agent name is required' };
@@ -174,6 +198,9 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
 
   const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', '..', 'config');
   const existing = getCurrentConfig();
+  const normalizedDefaultDelivery = normalizeDefaultDelivery(defaultDelivery)
+    || normalizeDefaultDelivery(existing.agent?.default_delivery)
+    || null;
 
   if (!fs.existsSync(configDir)) {
     fs.mkdirSync(configDir, { recursive: true });
@@ -186,6 +213,7 @@ function writeConfig({ agentName, agentDescription, agentUrl, peers, token }) {
     description: agentDescription || `A2A agent: ${agentName}`,
     url: agentUrl || 'http://localhost:9100/a2a',
     version: '0.1.0',
+    default_delivery: normalizedDefaultDelivery,
   };
   fs.writeFileSync(path.join(configDir, 'agent.json'), JSON.stringify(agent, null, 2) + '\n');
 
@@ -330,6 +358,15 @@ const TOOL_DEFINITIONS = [
               properties: { id: { type: 'string' }, url: { type: 'string' }, token: { type: 'string' } },
             },
             description: 'List of peer agents to connect to',
+          },
+          defaultDelivery: {
+            type: 'object',
+            properties: {
+              type: { type: 'string', description: 'Delivery type, e.g. owner or channel' },
+              target: { type: 'string', description: 'Local default delivery target id or alias' },
+              channel: { type: 'string', description: 'Optional local platform/channel namespace' },
+            },
+            description: 'Default local delivery target used for @agent delivery and broadcasts',
           },
           token: { type: 'string', description: 'Shared bearer token (from generate_token)' },
         },

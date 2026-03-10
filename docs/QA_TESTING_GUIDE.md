@@ -161,7 +161,12 @@ cat config/agent.json
 #   "name": "discord-agent",
 #   "description": "A2A agent: discord-agent",
 #   "url": "http://10.0.1.10:9100/a2a",
-#   "version": "0.1.0"
+#   "version": "0.1.0",
+#   "default_delivery": {
+#     "type": "channel",
+#     "target": "#general",
+#     "channel": "discord"
+#   }
 # }
 
 cat config/peers.json
@@ -184,6 +189,11 @@ cat config/skills.json
 #   ]
 # }
 ```
+
+**Important for live messaging tests:**
+- `default_delivery` must be configured if this agent should receive `@agent-name` messages
+- `broadcast` also relies on each receiving peer having a valid `default_delivery`
+- if `default_delivery.target` uses a symbolic channel like `#general`, map that channel in `config/contacts.json`
 
 **On failure:**
 - If setup fails: Check error message, verify Node.js version

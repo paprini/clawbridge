@@ -65,16 +65,32 @@ callPeerSkill('discord-agent', 'get_status')
 
 ### `chat`
 
-**Purpose:** Send a message to another channel/platform via the target agent's OpenClaw gateway.
+**Purpose:** Send a message locally, to another agent, or to a remote agent's channel via the target agent's OpenClaw gateway.
 
 **How it works:**
 1. Peer agent receives `chat` skill call via ClawBridge
-2. ClawBridge resolves the target locally, or relays the request to another peer if the contact alias specifies a relay peer
+2. ClawBridge interprets the target:
+   - `@agent-name` relays to that peer and lets the receiving agent choose its `default_delivery`
+   - `#channel@agent-name` relays to that peer with a local channel target like `#general`
+   - `#channel` or a plain alias resolves locally through `config/contacts.json`
+   - direct platform IDs are sent locally
 3. The final peer uses its own OpenClaw gateway `message` tool
-4. Message is delivered to the target channel/user on the correct platform
+4. Message is delivered on the correct platform
 
 **Usage:**
 ```javascript
+// Agent-to-agent delivery
+callPeerSkill('instagram-agent', 'chat', {
+  target: '@discord-agent',
+  message: 'Hello from Instagram!'
+})
+
+// Agent-to-agent delivery to a named remote channel
+callPeerSkill('instagram-agent', 'chat', {
+  target: '#general@discord-agent',
+  message: 'Hello Discord general'
+})
+
 // Direct local-platform target ID
 callPeerSkill('discord-agent', 'chat', {
   target: '552287292342009884',
@@ -97,9 +113,16 @@ callPeerSkill('telegram-agent', 'chat', {
 ```
 
 **Parameters:**
-- `target` (required): Platform-specific target ID, or an alias defined in `config/contacts.json`
+- `target` (optional): one of:
+  - `@agent-name`
+  - `#channel@agent-name`
+  - a local `#channel` alias
+  - a platform-specific target ID
+  - an alias defined in `config/contacts.json`
 - `message` (required): Message text (max 4000 characters)
 - `channel` (optional): Specific channel/platform ('discord', 'whatsapp', 'telegram', etc.)
+
+If `target` is omitted, the receiving agent uses `config/agent.json -> default_delivery`.
 
 **Response (success):**
 ```json
@@ -133,8 +156,9 @@ callPeerSkill('telegram-agent', 'chat', {
 - Peer agent must have OpenClaw gateway configured
 - Bridge must be enabled
 - `message` tool must be allowed in bridge config
-- Use a platform-specific target ID directly for the local platform
-- For cross-platform delivery, define an alias in `config/contacts.json` with `peerId`, `target`, and `channel`
+- Configure `config/agent.json -> default_delivery` if you want `@agent-name` delivery or incoming broadcasts to land somewhere by default
+- Use a platform-specific target ID directly for the local platform when you already know it
+- For local `#channel` names or cross-platform human aliases, define aliases in `config/contacts.json`
 
 ---
 
@@ -147,7 +171,7 @@ callPeerSkill('telegram-agent', 'chat', {
 **How it works:**
 1. Agent calls `broadcast` with message and optional targets
 2. ClawBridge sends message to all specified peers (or all peers if no targets)
-3. Each peer receives the broadcast and can relay it via their platform
+3. Each peer receives the broadcast via `chat` and delivers it using that peer's `default_delivery`
 4. Results are aggregated and returned
 
 **Usage:**
@@ -230,6 +254,7 @@ broadcast({
 **Requirements:**
 - Peers must have `chat` skill (or custom skill) exposed
 - Permissions must allow peer-to-peer calls
+- Each receiving peer should configure `config/agent.json -> default_delivery`
 
 ---
 

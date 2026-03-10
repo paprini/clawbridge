@@ -118,8 +118,13 @@ Example: `"text": "openclaw_web_search {\"query\": \"test\"}"`
 ### config/agent.json
 Agent identity.
 ```json
-{"id": "my-agent", "name": "My Agent", "description": "...", "url": "http://IP:9100/a2a", "version": "0.1.0"}
+{"id": "my-agent", "name": "My Agent", "description": "...", "url": "http://IP:9100/a2a", "version": "0.1.0", "default_delivery": {"type": "channel", "target": "#general", "channel": "discord"}}
 ```
+
+`default_delivery` is used when this instance receives:
+- `chat` without an explicit `target`
+- `chat` addressed as `@my-agent`
+- `broadcast` fan-out that lands on this instance
 
 ### config/peers.json
 Known peers with auth tokens. File permissions: 0600.
@@ -152,9 +157,9 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 ```
 
 ### config/contacts.json (optional)
-Alias map for human-friendly names used by `chat`. Channel-specific aliases can be declared as `channel:name`. Entries may be simple target strings or relay objects with `peerId`.
+Alias map for human-friendly names and local channel names used by `chat`. Channel-specific aliases can be declared as `channel:name`. Entries may be simple target strings or relay objects with `peerId`.
 ```json
-{"aliases": {"Pato": "552287292342009884", "telegram:Pato": {"peerId": "telegram-agent", "target": "5914004682", "channel": "telegram"}}}
+{"aliases": {"Pato": "552287292342009884", "#general": "1480310282961289216", "telegram:Pato": {"peerId": "telegram-agent", "target": "5914004682", "channel": "telegram"}}}
 ```
 
 ### config/helper-agent.json (optional)
@@ -184,6 +189,13 @@ Helper-agent bootstrap config. Used only for the local support helper, not for r
 
 ### callPeerSkill(peerId, skillText, params?)
 Call a skill on a remote peer.
+
+For `chat`, the supported target forms are:
+- `@agent-name`
+- `#channel@agent-name`
+- `#channel`
+- direct local platform IDs
+- aliases from `config/contacts.json`
 
 ### callPeers([{peerId, skill, params}])
 Fan-out using explicit call objects.

@@ -10,12 +10,14 @@ jest.mock('../../src/bridge');
 jest.mock('../../src/client');
 jest.mock('../../src/logger');
 jest.mock('../../src/config', () => ({
+  loadAgentConfig: jest.fn(() => ({ id: 'local-agent', default_delivery: null })),
   loadContactsConfig: jest.fn(() => ({ aliases: {} })),
+  loadPeersConfig: jest.fn(() => []),
 }));
 
 const { callOpenClawTool, loadBridgeConfig } = require('../../src/bridge');
 const { callPeerSkill, callPeers } = require('../../src/client');
-const { loadContactsConfig } = require('../../src/config');
+const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../../src/config');
 
 describe('Built-in Skills', () => {
   beforeEach(() => {
@@ -24,7 +26,9 @@ describe('Built-in Skills', () => {
       enabled: true,
       exposed_tools: ['message'],
     });
+    loadAgentConfig.mockReturnValue({ id: 'local-agent', default_delivery: null });
     loadContactsConfig.mockReturnValue({ aliases: {} });
+    loadPeersConfig.mockReturnValue([]);
   });
 
   describe('chat', () => {
@@ -33,9 +37,9 @@ describe('Built-in Skills', () => {
       expect(result.error).toContain('Invalid parameters');
     });
 
-    it('requires target', async () => {
+    it('requires target when no default delivery is configured', async () => {
       const result = await chat({ message: 'hello' });
-      expect(result.error).toContain('Missing or invalid target');
+      expect(result.error).toContain('Missing target and no default delivery');
     });
 
     it('requires message', async () => {
@@ -74,6 +78,27 @@ describe('Built-in Skills', () => {
       expect(result.resolved_target).toBe('5914004682');
     });
 
+    it('uses default delivery when target is omitted', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'local-agent',
+        default_delivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+
+      const result = await chat({
+        message: 'Hello from default delivery'
+      });
+
+      expect(callOpenClawTool).toHaveBeenCalledWith('message', {
+        action: 'send',
+        target: '5914004682',
+        message: 'Hello from default delivery',
+        channel: 'telegram'
+      });
+      expect(result.success).toBe(true);
+      expect(result.resolved_target).toBe('5914004682');
+    });
+
     it('includes optional channel parameter', async () => {
       callOpenClawTool.mockResolvedValue({ ok: true });
 
@@ -97,7 +122,8 @@ describe('Built-in Skills', () => {
         message: 'Hello'
       });
 
-      expect(result.error).toContain('could not be resolved');
+      expect(result.error).toContain('No target found');
+      expect(result.suggestion).toContain('@agent-name');
       expect(callOpenClawTool).not.toHaveBeenCalled();
     });
 
@@ -140,11 +166,107 @@ describe('Built-in Skills', () => {
         target: '5914004682',
         message: 'Hello',
         channel: 'telegram',
+        _relay: { hops: 1, visited: ['local-agent'] },
       });
       expect(callOpenClawTool).not.toHaveBeenCalled();
       expect(result.success).toBe(true);
       expect(result.relayed_via).toBe('telegram-agent');
       expect(result.resolved_target).toBe('5914004682');
+    });
+
+    it('relays @agent targets directly to the named peer', async () => {
+      loadPeersConfig.mockReturnValue([{ id: 'discord-agent', url: 'http://10.0.1.11:9100', token: 'abc123' }]);
+      callPeerSkill.mockResolvedValue({
+        success: true,
+        delivered_to: 'default',
+        channel: 'discord',
+      });
+
+      const result = await chat({
+        target: '@discord-agent',
+        message: 'Hello from Instagram'
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('discord-agent', 'chat', {
+        message: 'Hello from Instagram',
+        _relay: { hops: 1, visited: ['local-agent'] },
+      });
+      expect(callOpenClawTool).not.toHaveBeenCalled();
+      expect(result.success).toBe(true);
+      expect(result.relayed_via).toBe('discord-agent');
+    });
+
+    it('relays #channel@agent targets to the named peer with channel target', async () => {
+      loadPeersConfig.mockReturnValue([{ id: 'discord-agent', url: 'http://10.0.1.11:9100', token: 'abc123' }]);
+      callPeerSkill.mockResolvedValue({
+        success: true,
+        delivered_to: '#general',
+        channel: 'discord',
+      });
+
+      const result = await chat({
+        target: '#general@discord-agent',
+        message: 'Hello to general'
+      });
+
+      expect(callPeerSkill).toHaveBeenCalledWith('discord-agent', 'chat', {
+        target: '#general',
+        message: 'Hello to general',
+        _relay: { hops: 1, visited: ['local-agent'] },
+      });
+      expect(result.success).toBe(true);
+      expect(result.remote_target).toBe('#general');
+    });
+
+    it('treats @self as local default delivery instead of relaying', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'discord-agent',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+      callOpenClawTool.mockResolvedValue({ ok: true });
+
+      const result = await chat({
+        target: '@discord-agent',
+        message: 'Loop prevention'
+      });
+
+      expect(callPeerSkill).not.toHaveBeenCalled();
+      expect(callOpenClawTool).toHaveBeenCalledWith('message', {
+        action: 'send',
+        target: '1480310282961289216',
+        message: 'Loop prevention',
+        channel: 'discord'
+      });
+      expect(result.success).toBe(true);
+    });
+
+    it('returns a clear error for unknown @agent targets', async () => {
+      const result = await chat({
+        target: '@missing-agent',
+        message: 'Hello'
+      });
+
+      expect(result.error).toContain('Unknown peer target');
+      expect(result.suggestion).toContain('config/peers.json');
+      expect(callPeerSkill).not.toHaveBeenCalled();
+    });
+
+    it('fails fast on relay loops', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'discord-agent',
+        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      });
+
+      const result = await chat({
+        target: 'Pato',
+        message: 'Hello',
+        _relay: { hops: 2, visited: ['instagram-agent', 'discord-agent'] },
+      });
+
+      expect(result.error).toContain('Relay loop detected');
+      expect(result.relay_path).toEqual(['instagram-agent', 'discord-agent']);
+      expect(callPeerSkill).not.toHaveBeenCalled();
+      expect(callOpenClawTool).not.toHaveBeenCalled();
     });
 
     it('handles gateway errors gracefully', async () => {

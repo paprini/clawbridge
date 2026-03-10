@@ -61,6 +61,7 @@ describe('Setup Tools', () => {
         agentDescription: 'Test agent',
         agentUrl: 'http://localhost:9100/a2a',
         peers: [{ id: 'peer1', url: 'http://10.0.1.11:9100', token: 'tok123' }],
+        defaultDelivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
         token: 'shared_tok',
       });
 
@@ -77,6 +78,7 @@ describe('Setup Tools', () => {
       // Verify content
       const agent = JSON.parse(fs.readFileSync(path.join(tmpDir, 'agent.json'), 'utf8'));
       expect(agent.name).toBe('test-agent');
+      expect(agent.default_delivery).toEqual({ type: 'owner', target: '5914004682', channel: 'telegram' });
 
       const peers = JSON.parse(fs.readFileSync(path.join(tmpDir, 'peers.json'), 'utf8'));
       expect(peers.peers[0].id).toBe('peer1');
@@ -102,9 +104,10 @@ describe('Setup Tools', () => {
       expect(result.skills).toHaveLength(4);
       expect(result.bridge.enabled).toBe(true);
       expect(result.contacts.aliases).toEqual({});
+      expect(result.agent.default_delivery).toEqual({ type: 'owner', target: '5914004682', channel: 'telegram' });
     });
 
-    test('preserves existing bridge, contacts, and skills on re-run', () => {
+    test('preserves existing bridge, contacts, skills, and default delivery on re-run', () => {
       fs.writeFileSync(path.join(tmpDir, 'skills.json'), JSON.stringify({
         exposed_skills: [{ name: 'custom_skill', public: true }],
       }));
@@ -115,6 +118,11 @@ describe('Setup Tools', () => {
       }));
       fs.writeFileSync(path.join(tmpDir, 'contacts.json'), JSON.stringify({
         aliases: { 'telegram:Pato': { peerId: 'telegram-agent', target: '5914004682', channel: 'telegram' } },
+      }));
+      fs.writeFileSync(path.join(tmpDir, 'agent.json'), JSON.stringify({
+        id: 'test-agent',
+        name: 'test-agent',
+        default_delivery: { type: 'channel', target: '#general', channel: 'discord' },
       }));
 
       writeConfig({
@@ -129,6 +137,7 @@ describe('Setup Tools', () => {
       expect(result.skills).toEqual([{ name: 'custom_skill', public: true }]);
       expect(result.bridge.exposed_tools).toEqual(['message']);
       expect(result.contacts.aliases['telegram:Pato']).toBeDefined();
+      expect(result.agent.default_delivery).toEqual({ type: 'channel', target: '#general', channel: 'discord' });
     });
   });
 

@@ -2,6 +2,7 @@
 
 const {
   promptForPeerToken,
+  promptForDefaultDelivery,
   manageExistingPeers,
   collectAdditionalPeers,
 } = require('../../src/setup/cli');
@@ -71,5 +72,23 @@ describe('Setup CLI helpers', () => {
     const prompt = makePrompt(['']);
     const token = await promptForPeerToken(prompt, 'update', 'existing-token');
     expect(token).toBe('existing-token');
+  });
+
+  test('promptForDefaultDelivery preserves and updates default delivery', async () => {
+    const prompt = makePrompt([
+      '',
+      '',
+      'telegram',
+    ]);
+
+    const defaultDelivery = await promptForDefaultDelivery(prompt, {
+      default_delivery: { type: 'owner', target: '5914004682', channel: 'whatsapp' },
+    });
+
+    expect(defaultDelivery).toEqual({
+      type: 'owner',
+      target: '5914004682',
+      channel: 'telegram',
+    });
   });
 });

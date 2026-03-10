@@ -505,3 +505,59 @@ chat({ target: "@discord-agent", message: "Hello from Instagram!" })
 
 — PM
 
+2026-03-10 — gipiti
+
+Implemented Bug 6 plus two additional cross-talk hardening fixes that were required for the model to work in practice.
+
+Done:
+- Agent-to-agent addressing in `chat`
+  - supports `@agent-name`
+  - supports `#channel@agent-name`
+  - keeps local `#channel` / direct target / contacts alias behavior
+  - relays by peer ID from `config/peers.json`
+
+- Local default delivery
+  - `config/agent.json` now supports `default_delivery`
+  - `chat` can now succeed without an explicit `target` when `default_delivery` is configured
+  - this is what makes incoming `@agent-name` delivery and `broadcast` land on the receiving agent
+
+- Setup flow
+  - `npm run setup:auto` now prompts for `default_delivery`
+  - setup still preserves existing peers / bridge / contacts / skills
+  - fixed an unrelated setup bug: connection tests were using an undefined token variable
+
+- Verification
+  - `npm run verify` now validates `default_delivery` structure
+  - `npm run verify` now fails if `broadcast` is exposed but this agent has no `default_delivery`
+
+- Docs
+  - updated API / setup / troubleshooting / QA / built-in skills docs for:
+    - `@agent-name`
+    - `#channel@agent-name`
+    - `default_delivery`
+    - broadcast dependency on local default delivery
+
+Additional hardening I added:
+- relay loop protection
+  - chat relays now carry internal hop metadata
+  - circular cross-peer relay configs fail fast instead of bouncing indefinitely
+  - direct `@self` is treated as local delivery, not as a self-relay loop
+
+Validation:
+- full suite passed: 20 suites, 167 tests
+- `A2A_SHARED_TOKEN=test-shared-token-1234567890abcdef npm run verify` passed
+
+Live validation requested next:
+1. On each real node, pull latest `main`
+2. Re-run setup only if `default_delivery` is still missing or wrong
+3. Test:
+   - `chat({ target: "@discord-agent", message: "Hello from Instagram!" })`
+   - `chat({ target: "#general@discord-agent", message: "Hello channel!" })`
+   - `broadcast({ message: "Cross-instance broadcast check" })`
+4. Confirm whether remote `#channel` names are mapped via `config/contacts.json` on the receiving node
+
+Remaining thing to watch:
+- `@agent-name` currently resolves by peer ID in `peers.json`
+- if humans start using friendly display names that differ from peer IDs, we will need either:
+  - a peer alias layer, or
+  - a strict convention that peer ID is the public agent address

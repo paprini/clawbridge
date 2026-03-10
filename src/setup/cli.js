@@ -64,6 +64,22 @@ function tokenPreview(token) {
   return `${token.slice(0, 8)}...`;
 }
 
+function inferDefaultDeliveryType(target, existingType) {
+  if (existingType && typeof existingType === 'string' && existingType.trim().length > 0) {
+    return existingType.trim();
+  }
+
+  if (typeof target !== 'string' || target.trim().length === 0) {
+    return 'target';
+  }
+
+  if (target.trim().startsWith('#')) {
+    return 'channel';
+  }
+
+  return 'owner';
+}
+
 async function promptForPeerToken(prompt, mode, existingToken) {
   const isUpdate = mode === 'update';
   const defaultChoice = isUpdate ? 'k' : 'g';
@@ -142,6 +158,44 @@ async function collectAdditionalPeers(prompt, existingCount = 0) {
   return peers;
 }
 
+async function promptForDefaultDelivery(prompt, existingAgent) {
+  const existingDelivery = existingAgent?.default_delivery || null;
+  const existingTarget = typeof existingDelivery?.target === 'string' ? existingDelivery.target : '';
+  const existingType = typeof existingDelivery?.type === 'string' ? existingDelivery.type : '';
+  const existingChannel = typeof existingDelivery?.channel === 'string' ? existingDelivery.channel : '';
+
+  console.log('\nDefault delivery');
+  console.log('Used for @agent messages and broadcasts received by this instance.');
+
+  const targetAnswer = await prompt.ask(`Default delivery target [${existingTarget || 'none'}]: `);
+  const normalizedTarget = targetAnswer.trim();
+
+  if (!normalizedTarget && !existingTarget) {
+    console.log('  No default delivery configured.');
+    return null;
+  }
+
+  const finalTarget = normalizedTarget || existingTarget;
+  if (finalTarget.toLowerCase() === 'none') {
+    console.log('  Default delivery disabled.');
+    return null;
+  }
+
+  const inferredType = inferDefaultDeliveryType(finalTarget, existingType);
+  const typeAnswer = await prompt.ask(`Default delivery type [${inferredType}]: `);
+  const finalType = typeAnswer.trim() || inferredType;
+
+  const channelPromptLabel = existingChannel || 'optional';
+  const channelAnswer = await prompt.ask(`Default delivery channel [${channelPromptLabel}]: `);
+  const finalChannel = channelAnswer.trim() || existingChannel;
+
+  return {
+    type: finalType,
+    target: finalTarget,
+    ...(finalChannel ? { channel: finalChannel } : {}),
+  };
+}
+
 // --- Non-interactive mode (power user fallback) ---
 async function runNonInteractive() {
   console.log('\n🔧 ClawBridge setup (non-interactive)\n');
@@ -161,18 +215,19 @@ async function runNonInteractive() {
   const localIp = net ? net.localIp : 'localhost';
   const urlDefault = existing.agent?.url || `http://${localIp}:9100/a2a`;
   const url = (await prompt.ask(`Agent URL [${urlDefault}]: `)).trim() || urlDefault;
+  const defaultDelivery = await promptForDefaultDelivery(prompt, existing.agent);
 
   const managedPeers = await manageExistingPeers(prompt, existing.peers);
   const newPeers = await collectAdditionalPeers(prompt, managedPeers.length);
   const peers = [...managedPeers, ...newPeers];
 
-  writeConfig({ agentName: name, agentUrl: url, peers, token: generateToken() });
+  writeConfig({ agentName: name, agentUrl: url, peers, token: generateToken(), defaultDelivery });
   console.log('\n✅ Config written to config/');
 
   // Test connections
   for (const peer of peers) {
     process.stdout.write(`Testing ${peer.id}... `);
-    const result = await testConnection(peer.url, token);
+    const result = await testConnection(peer.url, peer.token);
     console.log(result.success ? '✅ connected' : `❌ ${result.error}`);
   }
 
@@ -243,6 +298,7 @@ if (require.main === module) {
 module.exports = {
   createPrompt,
   promptForPeerToken,
+  promptForDefaultDelivery,
   manageExistingPeers,
   collectAdditionalPeers,
   runNonInteractive,

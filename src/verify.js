@@ -42,6 +42,22 @@ check('agent.json exists', () => {
   if (!a) return 'File not found. Run: npm run setup';
   if (!a.id) return 'Missing "id" field';
   if (!a.name) return 'Missing "name" field';
+  if (a.default_delivery !== undefined && a.default_delivery !== null) {
+    if (typeof a.default_delivery !== 'object' || Array.isArray(a.default_delivery)) {
+      return '"default_delivery" must be an object when configured';
+    }
+    if (typeof a.default_delivery.target !== 'string' || a.default_delivery.target.trim().length === 0) {
+      return '"default_delivery.target" must be a non-empty string';
+    }
+    if (a.default_delivery.type !== undefined
+      && (typeof a.default_delivery.type !== 'string' || a.default_delivery.type.trim().length === 0)) {
+      return '"default_delivery.type" must be a non-empty string when provided';
+    }
+    if (a.default_delivery.channel !== undefined
+      && (typeof a.default_delivery.channel !== 'string' || a.default_delivery.channel.trim().length === 0)) {
+      return '"default_delivery.channel" must be a non-empty string when provided';
+    }
+  }
   return true;
 });
 
@@ -199,6 +215,24 @@ check('chat/broadcast bridge readiness', () => {
 
   if (!Array.isArray(bridge.exposed_tools) || !bridge.exposed_tools.includes('message')) {
     return 'chat/broadcast are exposed, but bridge.json does not expose the "message" tool';
+  }
+
+  return true;
+});
+
+check('broadcast default delivery readiness', () => {
+  const skills = loadJSON('skills.json');
+  const exposedNames = Array.isArray(skills?.exposed_skills)
+    ? skills.exposed_skills.map((skill) => skill?.name).filter(Boolean)
+    : [];
+
+  if (!exposedNames.includes('broadcast')) {
+    return true;
+  }
+
+  const agent = loadJSON('agent.json');
+  if (!agent?.default_delivery || typeof agent.default_delivery.target !== 'string' || agent.default_delivery.target.trim().length === 0) {
+    return 'broadcast is exposed, but agent.json has no default_delivery.target. Incoming broadcasts and @agent delivery to this instance will fail.';
   }
 
   return true;
