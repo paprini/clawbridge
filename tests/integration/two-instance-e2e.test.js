@@ -184,6 +184,10 @@ const payload = {
   replyChannel: getArg('--reply-channel'),
   message: getArg('--message'),
 };
+if (payload.sessionId && payload.agent) {
+  process.stderr.write('explicit session turns must not include --agent');
+  process.exit(2);
+}
 fs.appendFileSync(${JSON.stringify(logPath)}, JSON.stringify(payload) + '\\n');
 process.stdout.write(JSON.stringify({
   status: 'ok',
@@ -462,7 +466,7 @@ describe('two-instance cross-node chat', () => {
     const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     expect(activationCalls).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        agent: 'main',
+        sessionId: expect.stringMatching(/^sid-/),
         channel: 'discord',
         deliver: false,
         replyTo: 'channel:1480310282961289216',
@@ -574,7 +578,7 @@ describe('two-instance cross-node chat', () => {
     const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     expect(activationCalls).toEqual(expect.arrayContaining([
       expect.objectContaining({
-        agent: 'main',
+        sessionId: expect.stringMatching(/^sid-/),
         channel: 'discord',
         deliver: false,
         replyTo: 'channel:1480310282961289216',

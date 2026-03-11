@@ -165,6 +165,7 @@ Causes:
 - `bridge.agent_dispatch.sessionKey` was forced to a wrong literal session instead of `auto`
 - ClawBridge is targeting the wrong local OpenClaw agent because `config/agent.json.id` was assumed to be the OpenClaw agent ID
 - ClawBridge could not find or reuse the right OpenClaw `sessionId` for the target destination
+- ClawBridge reused the right `sessionId`, but an older build still passed `--agent`, which can push the turn back onto the OpenClaw main session
 - the node is on an older ClawBridge build that still treats `@agent` as visible message relay instead of a session-first agent turn
 - the local `agent.json.id` collides with a configured peer id, so `@agent-name` routing is ambiguous before the relay even starts
 
@@ -174,6 +175,7 @@ Fixes:
 - ensure `openclaw --version` works on that node; if it does not, check the documented install locations (`npm prefix -g`, `~/.openclaw/bin/openclaw`, `~/.local/bin/openclaw`) or set `OPENCLAW_BIN` to the full OpenClaw binary path
 - if your OpenClaw install has multiple local agents, set `config/agent.json -> openclaw_agent_id` to the one that should wake up; rerun `npm run setup` if you need ClawBridge to prompt from the detected local agent list
 - inspect `sessions_list` and confirm the target session has a row whose `deliveryContext` matches the real local destination; ClawBridge now reuses that row's `sessionId` when it can
+- if logs or session history show the turn landing on `agent:main:main` instead of the intended provider-bound session, update to the current ClawBridge build; explicit `sessionId` turns no longer pass `--agent`
 - if there is no matching row yet, confirm `config/agent.json -> default_delivery` points to the real local destination where that agent should answer
 - for Discord, make sure `config/agent.json -> default_delivery.type` matches the actual destination kind; ClawBridge now canonicalizes the final target as `user:<id>` or `channel:<id>` from that field
 - keep ClawBridge on the current version so inbound cross-agent activation runs as a session-first `openclaw agent --json` turn without local provider delivery

@@ -78,6 +78,7 @@ callPeerSkill('discord-agent', 'get_status')
 4. For `@agent-name` and `#channel@agent-name`, the receiving peer runs a session-first `openclaw agent` turn in the resolved local OpenClaw session
 5. The receiving peer returns structured result data such as `conversation_id`, `response_text`, and OpenClaw session metadata to the caller
 6. This keeps agent-to-agent traffic as explicit session communication instead of visible-send plus inferred reply relay
+7. When a concrete OpenClaw `sessionId` is reused, ClawBridge preserves that exact session and does not add `--agent`, because the OpenClaw CLI can otherwise fall back to the agent's main session
 
 For provider-specific delivery, ClawBridge now uses `default_delivery.type` to canonicalize the final local target.
 - Discord DMs: `owner` -> `user:<id>`

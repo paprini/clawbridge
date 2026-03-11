@@ -12,7 +12,7 @@ Archive:
 ### Repo / validation status
 - current release line: `0.2.0`
 - local verify: `20/20` passing
-- full local suite: `24` suites / `207` tests passing
+- full local suite: `24` suites / `208` tests passing
 - two-instance cross-node harness: passing
 - delayed-peer timeout harness: passing
 
@@ -42,6 +42,27 @@ Archive:
 - unit coverage proves OpenClaw session retargeting still works
 - the two-instance harness proves cross-node `@agent` returns structured session output instead of relay status fields
 
+## New confirmed runtime bug and fix
+
+The current ClawBridge session-first path had a real OpenClaw CLI invocation bug, and it is now fixed locally.
+
+### What we reproduced locally with the real OpenClaw CLI
+- `openclaw agent --session-id <provider-session-id> --message ...` stays on the intended provider-bound session
+- `openclaw agent --session-id <provider-session-id> --agent main --message ...` silently jumps back to `agent:main:main`
+
+This is not theory. It is reproduced locally against the real installed OpenClaw CLI.
+
+### Why this matters
+- it explains why session-first looked partly right while still contaminating the main session
+- it explains the Discord-side `delivery-mirror` / main-session weirdness better than previous relay theories
+- it means any inbound `@agent` turn that reuses a concrete `sessionId` must not also pass `--agent`
+
+### Fix implemented locally
+- `src/openclaw-gateway.js` now suppresses `--agent` whenever ClawBridge already has an explicit `sessionId`
+- unit coverage added in `tests/unit/openclaw-gateway.test.js`
+- two-instance harness now fails if a session-targeted OpenClaw invocation includes both `--session-id` and `--agent`
+- active docs were aligned to this behavior and to the current session-first product model
+
 ## Current ask
 
 Please pull latest `main` and re-test the same real Telegram ↔ Discord flow using the normal built-in peer client path.
@@ -51,17 +72,14 @@ What to report back if it still fails:
 - `conversation_id`
 - `response_text`
 - elapsed wall-clock time until the caller returned
-- whether the local calling agent surfaced the returned content correctly
+- whether the live target session is still the intended provider-bound session or falls back to `agent:main:main`
 - log lines containing:
   - `Executing inbound agent chat as session turn`
   - `conversationId`
   - `sourcePeerId`
   - `openclaw_session_id`
   - `openclaw_agent_id`
-
-## Current expectation
-
-If the remaining failure really came from the relay-first model, the same flow should now behave as a direct remote session turn and return usable agent output without depending on a separate visible reply relay path.
+  - any visible `delivery-mirror` artifact in the affected session transcript
 
 ---
 
@@ -177,4 +195,3 @@ That mixture could still be part of the remaining weirdness we are seeing in end
 - interaction still partially contaminated by `delivery-mirror` artifacts: likely ✅
 
 This is useful evidence because it shows the new architecture is landing, but the old delivery/mirroring path may not be fully disentangled yet.
-

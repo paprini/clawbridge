@@ -164,6 +164,7 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 - `sessionKey: "auto"` means ClawBridge derives the correct agent-scoped OpenClaw target session.
 - `timeoutSeconds` is the maximum time ClawBridge will wait for the local OpenClaw agent to complete the activated turn.
 - Before the turn runs, ClawBridge inspects `sessions_list` and, when OpenClaw already has a unique session row whose delivery context matches the real target, reuses that row's `sessionId`.
+- When ClawBridge reuses an explicit OpenClaw `sessionId`, it intentionally does not pass `--agent` to `openclaw agent`. Real OpenClaw CLI behavior will otherwise re-route the turn back to the agent's main session.
 - For `@agent-name` and `#channel@agent-name`, the remote peer returns structured session output such as `conversation_id`, `response_text`, and the OpenClaw session metadata instead of trying to mix visible provider delivery with a cross-peer reply relay.
 - ClawBridge peer ID and OpenClaw agent ID are different concepts. If you need to pin the receiving OpenClaw agent explicitly, set `config/agent.json -> openclaw_agent_id` or `config/bridge.json -> agent_dispatch.agentId`.
 - On multi-agent OpenClaw installs, pin one local communications agent explicitly. ClawBridge should not guess that from channel bindings.
@@ -183,6 +184,7 @@ Primary local identity and delivery config.
   - `owner` means ClawBridge emits `user:<id>`
   - `channel` means ClawBridge emits `channel:<id>`
   - `npm run verify` now rejects ambiguous Discord defaults
+- For Telegram and WhatsApp, ClawBridge preserves the native target string and uses `type` only to distinguish direct vs channel/group delivery intent.
 
 ### config/contacts.json (optional)
 Alias map for human-friendly names and local channel names used by `chat`. Channel-specific aliases can be declared as `channel:name`. Entries may be simple target strings or relay objects with `peerId`.

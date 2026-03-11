@@ -72,7 +72,7 @@ graph TD
 
 - `ping`: check peer connectivity
 - `get_status`: inspect a peer's available skills and uptime
-- `chat`: send a message through the peer's local OpenClaw gateway
+- `chat`: send to local targets or run a session-first `@agent` turn on another peer
 - `broadcast`: fan a message out to multiple peers
 - `openclaw_*`: optionally expose a tightly controlled subset of OpenClaw gateway tools
 

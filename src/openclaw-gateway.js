@@ -402,7 +402,11 @@ async function runOpenClawAgentTurn({
     args.push('--to', target.trim());
   }
 
-  if (typeof agentId === 'string' && agentId.trim().length > 0) {
+  // Real OpenClaw CLI behavior: combining --session-id with --agent can
+  // silently retarget the turn back to the agent's main session. When we have
+  // an explicit session id, preserve that exact session and do not add --agent.
+  if ((!sessionId || typeof sessionId !== 'string' || sessionId.trim().length === 0)
+    && typeof agentId === 'string' && agentId.trim().length > 0) {
     args.push('--agent', agentId.trim());
   }
 

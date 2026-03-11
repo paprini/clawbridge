@@ -204,8 +204,6 @@ describe('openclaw gateway helpers', () => {
         'Hello from ClawBridge',
         '--session-id',
         'abc-session',
-        '--agent',
-        'discord-helper',
         '--channel',
         'discord',
         '--reply-to',
@@ -223,6 +221,44 @@ describe('openclaw gateway helpers', () => {
       }),
       expect.any(Function),
     );
+  });
+
+  test('does not pass --agent when an explicit session id is provided', async () => {
+    execFile.mockImplementation((command, args, options, callback) => {
+      callback(null, {
+        stdout: JSON.stringify({ result: { status: 'ok', payloads: [] } }),
+        stderr: '',
+      });
+    });
+
+    await expect(runOpenClawAgentTurn({
+      message: 'Stay on the explicit session',
+      agentId: 'discord-helper',
+      sessionId: 'provider-bound-session',
+      channel: 'discord',
+      replyTo: '1480310282961289216',
+      replyChannel: 'discord',
+      deliver: false,
+      timeoutSeconds: 30,
+    })).resolves.toEqual({ result: { status: 'ok', payloads: [] } });
+
+    const calledArgs = execFile.mock.calls[0][1];
+    expect(calledArgs).toEqual(expect.arrayContaining([
+      'agent',
+      '--json',
+      '--message',
+      'Stay on the explicit session',
+      '--session-id',
+      'provider-bound-session',
+      '--channel',
+      'discord',
+      '--reply-to',
+      '1480310282961289216',
+      '--reply-channel',
+      'discord',
+    ]));
+    expect(calledArgs).not.toContain('--agent');
+    expect(calledArgs).not.toContain('discord-helper');
   });
 
   test('can run an OpenClaw agent turn without local provider delivery', async () => {
@@ -254,6 +290,7 @@ describe('openclaw gateway helpers', () => {
       'relay-session',
     ]));
     expect(calledArgs).not.toContain('--deliver');
+    expect(calledArgs).not.toContain('--agent');
   });
 
   test('detects OpenClaw CLI availability', () => {
