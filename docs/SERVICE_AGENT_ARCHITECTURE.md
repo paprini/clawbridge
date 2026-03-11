@@ -96,10 +96,15 @@ On ClawBridge startup:
 1. the HTTP server starts normally
 2. the helper-agent manager starts in background
 3. helper workspace and instructions are synchronized
-4. ClawBridge attempts to ensure the OpenClaw helper session exists
-5. status becomes `ready`, `degraded`, or `failed`
+4. if explicitly enabled and supported, ClawBridge attempts to ensure the OpenClaw helper session exists
+5. status becomes `ready_local_only`, `ready`, `degraded`, or `failed`
 
-If bootstrap fails:
+Default behavior:
+- helper workspace/instructions are kept in sync
+- helper status is healthy in `ready_local_only`
+- gateway bootstrap is optional, not assumed
+
+If explicit gateway bootstrap fails after being requested and supported:
 - ClawBridge should stay up
 - request execution should still work as before
 - helper status should show degraded state clearly
@@ -131,6 +136,8 @@ If available, ClawBridge should bootstrap the helper session through OpenClaw se
 That bootstrap is for helper availability and context continuity only.
 
 It should not alter the live A2A request pipeline.
+
+If OpenClaw gateway permissions do not allow `sessions_spawn`, ClawBridge should fall back cleanly to local-only helper mode instead of showing a green install and then degrading immediately at runtime.
 
 ## Implementation Targets
 

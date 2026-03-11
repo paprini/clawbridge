@@ -17,7 +17,11 @@ async function main() {
       console.log(`Agent: ${agent.name} (${agent.id})`);
       console.log(`URL: ${agent.url}`);
       const helper = getHelperAgentStatus();
-      console.log(`Helper agent: ${helper.status}${helper.sessionKey ? ` (${helper.sessionKey})` : ''}`);
+      const helperMode = helper.gatewayBootstrap ? ` [${helper.gatewayBootstrap}]` : '';
+      console.log(`Helper agent: ${helper.status}${helperMode}${helper.sessionKey ? ` (${helper.sessionKey})` : ''}`);
+      if (helper.bootstrapNote) {
+        console.log(`  note: ${helper.bootstrapNote}`);
+      }
       console.log(`Peers: ${peers.length}`);
       for (const p of peers) {
         process.stdout.write(`  ${p.id} (${p.url}) ... `);

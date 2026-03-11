@@ -6,6 +6,7 @@ const path = require('path');
 const os = require('os');
 const { getClawBridgeVersion } = require('./version');
 const { getOpenClawCommand, isOpenClawCliAvailable } = require('./openclaw-gateway');
+const { getHelperGatewayBootstrapReadiness, loadHelperAgentConfig } = require('./helper-agent/config');
 
 const configDir = process.env.A2A_CONFIG_DIR || path.join(__dirname, '..', 'config');
 const repoConfigDir = path.join(__dirname, '..', 'config');
@@ -291,6 +292,28 @@ check('Helper agent workspace path resolves', () => {
   if (typeof workspaceDir !== 'string' || workspaceDir.length === 0) {
     return 'Invalid helper workspaceDir';
   }
+  return true;
+});
+
+check('Helper agent bootstrap readiness', () => {
+  const helperConfig = loadHelperAgentConfig();
+  const readiness = getHelperGatewayBootstrapReadiness(helperConfig);
+
+  if (!readiness.enabled) {
+    console.log('    ℹ️  Helper agent disabled');
+    return true;
+  }
+
+  if (!readiness.requested) {
+    console.log(`    ℹ️  ${readiness.reason}`);
+    return true;
+  }
+
+  if (!readiness.supported) {
+    return readiness.reason;
+  }
+
+  console.log('    ℹ️  Gateway helper bootstrap prerequisites detected');
   return true;
 });
 

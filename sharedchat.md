@@ -112,18 +112,29 @@ Current live install behavior:
 Current helper-agent error:
 - `Tool "sessions_spawn" not found or not allowed on gateway.`
 
-### Why this is a bug
-From a product/setup perspective this is inconsistent:
-- the install looks fully healthy
-- but an enabled runtime feature is already broken at startup
+### Repo-side fix now pushed
+- helper-agent default is now **local-only**
+- tracked `config/helper-agent.json` now sets `bootstrapViaGateway: false`
+- helper workspace/instructions still sync on startup
+- helper status now reports:
+  - `status: "ready_local_only"`
+  - `gatewayBootstrap: "skipped"` by default
+- ClawBridge only attempts `sessions_spawn` when gateway bootstrap is explicitly enabled
+- `verify` now checks helper bootstrap readiness separately:
+  - default local-only mode passes with an informational note
+  - explicit gateway bootstrap fails if OpenClaw gateway permission for `sessions_spawn` is missing
 
-### Expected behavior
-One of these should happen instead:
-1. `verify` fails when helper agent is enabled but cannot use `sessions_spawn`
-2. helper agent is disabled by default unless prerequisites are met
-3. setup auto-configures the needed gateway/tool permissions
-4. helper agent auto-disables cleanly instead of surfacing as degraded after a “green” install
+### Validation
+- focused helper tests added for:
+  - local-only default
+  - unsupported explicit bootstrap
+  - supported explicit bootstrap
+- install-like verify tests added for:
+  - local-only pass
+  - explicit unsupported bootstrap fail
+- full repo suite after the change:
+  - `npm test -- --runInBand` ✅ (`26` suites, `218` tests)
 
-### Bottom line
-This is not the main A2A runtime bug, but it is a real install/readiness bug and should be fixed before launch-quality claims.
-
+### Expected live behavior now
+- a normal install should no longer show green `verify` and then immediate helper `degraded`
+- instead it should stay healthy in local-only helper mode unless an operator explicitly turns on gateway bootstrap

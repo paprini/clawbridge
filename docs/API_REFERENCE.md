@@ -12,8 +12,10 @@ Health check. No auth required.
   "uptime": 12345.67,
   "timestamp": "2026-03-09T20:00:00.000Z",
   "helper_agent": {
-    "status": "ready",
-    "sessionKey": "clawbridge-helper"
+    "status": "ready_local_only",
+    "sessionKey": "clawbridge-helper",
+    "gatewayBootstrap": "skipped",
+    "bootstrapNote": "Gateway bootstrap is disabled. Helper will run in local-only mode."
   },
   "calls_total": 100,
   "calls_success": 95,
@@ -41,8 +43,10 @@ Public-safe runtime status. No auth required.
   "skills": ["ping", "get_status"],
   "protocol": "0.3.0",
   "helper_agent": {
-    "status": "ready",
-    "sessionKey": "clawbridge-helper"
+    "status": "ready_local_only",
+    "sessionKey": "clawbridge-helper",
+    "gatewayBootstrap": "skipped",
+    "bootstrapNote": "Gateway bootstrap is disabled. Helper will run in local-only mode."
   }
 }
 ```
@@ -197,8 +201,10 @@ Alias map for human-friendly names and local channel names used by `chat`. Chann
 ### config/helper-agent.json (optional)
 Helper-agent bootstrap config. Used only for the local support helper, not for request routing.
 ```json
-{"enabled": true, "agentId": "clawbridge-helper", "sessionKey": "clawbridge-helper", "workspaceDir": "~/.clawbridge/helper-agent", "healInBackground": true, "visibleTo": ["main"], "alertSession": "main", "bootstrapViaGateway": true, "retryIntervalMs": 60000, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json"}}
+{"enabled": true, "agentId": "clawbridge-helper", "sessionKey": "clawbridge-helper", "workspaceDir": "~/.clawbridge/helper-agent", "healInBackground": true, "visibleTo": ["main"], "alertSession": "main", "bootstrapViaGateway": false, "retryIntervalMs": 60000, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json"}}
 ```
+
+`bootstrapViaGateway: false` is the safe default. With that default, ClawBridge still syncs helper instructions/workspace and exposes helper status, but it does not assume the OpenClaw gateway allows `sessions_spawn`. Turn it on only after the local OpenClaw gateway explicitly allows `sessions_spawn`.
 
 ---
 

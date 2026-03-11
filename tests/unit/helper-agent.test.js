@@ -9,7 +9,7 @@ fs.mkdirSync(tmpDir, { recursive: true });
 
 process.env.A2A_CONFIG_DIR = path.join(__dirname, '..', '..', 'config');
 
-const { loadHelperAgentConfig } = require('../../src/helper-agent/config');
+const { loadHelperAgentConfig, getHelperGatewayBootstrapReadiness } = require('../../src/helper-agent/config');
 const { getHelperAgentPaths, renderHelperInstructions } = require('../../src/helper-agent/instructions');
 
 describe('helper agent support', () => {
@@ -18,6 +18,14 @@ describe('helper agent support', () => {
     expect(config.enabled).toBe(true);
     expect(config.sessionKey).toBe('clawbridge-helper');
     expect(config.workspaceDir).toContain('.clawbridge');
+    expect(config.bootstrapViaGateway).toBe(false);
+  });
+
+  test('defaults helper gateway bootstrap to local-only mode', () => {
+    const readiness = getHelperGatewayBootstrapReadiness(loadHelperAgentConfig());
+    expect(readiness.requested).toBe(false);
+    expect(readiness.gatewayBootstrap).toBe('skipped');
+    expect(readiness.reason).toContain('local-only mode');
   });
 
   test('builds helper workspace paths', () => {
