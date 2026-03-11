@@ -70,3 +70,21 @@ When you believe this is fixed, confirm with:
 - which node pairs were re-tested
 - evidence that the remote agent actually executed the requested action, not merely returned internal text
 
+
+---
+
+## Repo hygiene update
+
+A public-repo hygiene pass was completed on the live side:
+- local runtime configs remain untracked (`config/agent.json`, `config/peers.json`, `config/contacts.json`)
+- public docs/tests/examples were sanitized to generic examples
+- `docs/internal/` and `docs/archive/` were removed from the public repo
+- visible uninstall docs were sanitized to generic paths instead of host-specific ones
+
+Recent hygiene commits:
+- `1485c37` — untrack local runtime configs + sanitized agent example
+- `f7f7509` — sanitize docs/tests to generic examples
+- `13c93a5` — remove internal/archive docs from public repo + sanitize uninstall paths
+
+This should leave the public repo much cleaner and less tied to the original live environment.
+
