@@ -225,6 +225,105 @@ This is useful evidence because it shows the new architecture is landing, but th
 
 ---
 
+## Technical Summary: Routing Fix in `src/skills/chat.js` (2026-03-11)
+
+Reported from Discord side for gipiti.
+
+### Changes made in `~/clawbridge/src/skills/chat.js`
+
+**1) New function added: `buildPeerAgentPrompt(message, agentDeliveryMeta)`**
+- wraps the inbound peer message with explicit context:
+  - `sourcePeerId`
+  - `requestedTarget`
+  - `remoteChannelTarget` when present
+- explicitly tells the agent:
+  - this is a ClawBridge peer-to-peer request
+  - answer the peer's actual question
+  - do **not** treat it like a message from Pato
+  - do **not** fall back to generic status-update mode
+
+**2) Problem in the `agentDeliveryMeta.activateSession === true` path**
+- previously, if the target matched, the code would reuse the existing WhatsApp-bound session
+- that caused the turn to run in session key:
+  - `agent:main:whatsapp:direct:+16504604060`
+- so the agent interpreted the peer message as if it came from Pato
+- result: wrong replies in "all good, I did X/Y" style instead of answering the peer
+
+**3) Main fix**
+- forced `useSyntheticMainSession = true` for peer-originated chats
+- forced `sessionRow = null` in that flow
+- cleared:
+  - `activationOptions.sessionId`
+  - `activationOptions.target`
+  - `activationOptions.channel`
+  - `activationOptions.replyTo`
+  - `activationOptions.replyChannel`
+  - `activationOptions.replyAccountId`
+- that forces `runOpenClawAgentTurn()` to run in the agent's synthetic main session
+  instead of reusing the WhatsApp-bound session
+
+**4) Dispatch change**
+- before:
+  - `message: original peer message`
+- now:
+  - `message: agentPrompt`
+- i.e. the wrapped prompt with explicit peer metadata
+
+**5) Validation performed**
+- simulated a peer request via `POST /a2a` with `_agentDelivery.activateSession=true`
+- test prompt:
+  - `What model are you using right now? Answer in one line.`
+- before the fix:
+  - it tended to answer as if talking to Pato / in status-update style
+- after the fix:
+  - correct answer returned: `openai-codex/gpt-5.4`
+
+### Short summary for gipiti
+- bug was **not** the model
+- it was **session routing / session reuse**
+- ClawBridge was helpfully reusing the WhatsApp-bound session
+- fix was to force synthetic main session for peer-originated agent turns
+- and inject explicit peer context into the prompt
+
+If useful, a cleaner follow-up could make this less hardcoded via config policy / flag.
+
+---
+
+## PM Topic / Request for gipiti: Retry Policy for Transient Peer Transport Failures (2026-03-11)
+
+Observed issue:
+- ClawBridge should automatically retry on transient socket/network errors such as:
+  - `UND_ERR_SOCKET`
+  - `other side closed`
+  - `fetch failed` when the peer was reachable shortly before/after
+
+Observed case:
+- `monti-telegram` failed once with socket closed / fetch failed
+- minutes later it responded normally
+- so this was not a dead peer, just a transient transport failure
+
+Requested change:
+- add retry policy for transient peer network errors in `callPeerSkill` / peer fetch calls
+- use short backoff with 1-2 retries
+- ideally distinguish between:
+  - transient socket/network errors => retry
+  - auth / permission / logical 4xx errors => no retry
+- log clearly when retrying and when giving up
+
+Short product framing:
+- this should reduce false negatives in healthy peer networks
+- the current behavior is too brittle for real multi-node operation where short-lived transport hiccups happen
+
+Acceptance / confirmation request from Pato:
+- when this is implemented, please confirm back in Discord with something concrete:
+  - GitHub commit hash, or
+  - the exact commit pushed
+- do **not** reply with only "done" / "ya está"
+- Pato wants verifiable confirmation
+
+
+---
+
 ## New architectural evidence from WhatsApp side — peer traffic must not reuse human-bound provider sessions
 
 Important finding from the WA agent while talking to other agents:
@@ -268,4 +367,32 @@ If those are mixed, the agent starts replying as if it is in a human local chat 
 Please evaluate whether ClawBridge should treat peer-originated agent traffic as belonging to a dedicated synthetic peer session model by default, rather than trying to reuse provider-bound human sessions.
 
 This looks like a major architectural clue, not just an implementation edge case.
+
+
+---
+
+## Launch-quality follow-up — add retry policy for transient peer transport errors
+
+Additional live feedback from the WA/Telegram side suggests a non-architectural but important launch-quality issue:
+
+### Observed behavior
+Some peer calls occasionally fail transiently with errors like:
+- `UND_ERR_SOCKET`
+- `fetch failed`
+- `other side closed`
+
+But the same peer may be reachable again moments later.
+So these are not always true peer-down or logic errors.
+
+### Requested improvement
+Please add a small retry policy for transient transport errors in peer calls (for example in `callPeerSkill`):
+- retry only on transient network/socket failures
+- 1–2 retries max
+- short backoff
+- do **not** retry auth / permission / logical 4xx failures
+- log clearly when retrying and when finally giving up
+
+### Why this matters
+This is not the main architecture issue, but it matters for launch quality.
+Without this, the system looks flakier than it really is under real network conditions.
 
