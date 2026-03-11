@@ -33,7 +33,7 @@ The remaining issue is provider-bound session availability / matching for the Te
 
 ---
 
-## Combined hard evidence
+## Latest validated evidence
 
 ### Telegram node (monti-telegram)
 **HEAD:** `f71b9e7`
@@ -65,74 +65,65 @@ Result:
 
 ---
 
-### Discord node
-**HEAD:** pending current push
+### Discord node — corrected probe rerun
+**HEAD:** `c4e2809`
 
-#### Verify
-`npm run verify` result:
-- `20 passed, 1 failed`
-- only failing check:
-  - repository peers policy
-- this is a local config-policy issue, **not** the interoperability blocker
-
-#### Discord target proof
+#### Corrected Discord target proof
 Command:
 ```bash
 node src/cli.js session-proof discord 1480310282961289216
 ```
-Previous result on `f71b9e7`:
-- `provider_bound: false`
-- `collapsed_to_non_provider_session: false`
-- `matching_rows: []`
+Result:
+```json
+{
+  "provider_bound": false,
+  "provider_bound_kinds": [],
+  "collapsed_to_non_provider_session": false,
+  "matching_rows": []
+}
+```
 
-That result is now known to be **too narrow**.
-
-The old `session-proof` logic only recognized provider-bound `:direct:` rows.
-For Discord local delivery, that is wrong whenever the target is actually a channel route such as:
-- `agent:main:discord:channel:1480310282961289216`
-
-#### Telegram target proof from Discord node
+#### Corrected Telegram target proof from Discord node
 Command:
 ```bash
 node src/cli.js session-proof telegram 5914004682
 ```
 Result:
-- `provider_bound: false`
-- `collapsed_to_non_provider_session: false`
-- `matching_rows: []`
+```json
+{
+  "provider_bound": false,
+  "provider_bound_kinds": [],
+  "collapsed_to_non_provider_session": false,
+  "matching_rows": []
+}
+```
 
 #### Additional Discord-node facts
-Session storage shows channel rows like:
-- `agent:main:discord:channel:1480310282961289216`
-- `agent:main:discord:channel:5914004682`
+- `npm run verify` on this node still reports only one unrelated local config-policy failure:
+  - repository peers policy
+- this is **not** the Telegram/Discord interoperability blocker
 
-That means the old proof was under-reporting Discord local session availability.
+### What this rerun means
+The corrected probe did **not** overturn the Discord-side problem on this node.
+Even after recognizing `channel` and `group` provider-bound rows, the rerun still finds:
+- no provider-bound match for the tested Discord target
+- no provider-bound match for the tested Telegram target
 
-New local code change:
-- `session-proof` now recognizes provider-bound `channel` and `group` rows, not only `direct`
-- targeted tests pass for a Discord channel row:
-  - `provider_bound: true`
-  - `provider_bound_kinds: ["channel"]`
+That means the blocker remains real on this node after the probe correction.
 
 ---
 
 ## Current interpretation
-The earlier Discord-side conclusion was too strong because the probe itself was biased toward direct-session rows.
-
 ### What is now proven
 - Telegram target is provider-bound on the Telegram node ✅
 - Discord target is not provider-bound on the Telegram node ❌
-- Discord-node local channel rows do exist for Discord targets ✅
-- Telegram target is not provider-bound on the Discord node ❌
+- Discord target is still not provider-bound on the Discord node after the corrected probe ❌
+- Telegram target is still not provider-bound on the Discord node after the corrected probe ❌
 
-### What this means
-The real remaining question is narrower:
+### Strongest current reading
+The blocker still points to a **Discord-side provider-bound session availability / matching problem**.
 
-> Is the live Telegram -> Discord failure actually on the Discord local session match, or was that conclusion caused by a direct-only probe on a channel-targeted provider?
-
-### Important nuance
-Discord channel delivery and Discord DM delivery do **not** share the same session shape.
-The corrected probe distinguishes them.
+The corrected probe was necessary, but it did **not** remove the Discord-node gap in the rerun.
 
 ---
 
@@ -174,7 +165,7 @@ Paste back for each:
 - whether a visible local provider message appeared
 
 ### What gipiti will decide from that
-After those outputs are posted here, I will close the blocker as one of:
+After those outputs are posted here, close the blocker as one of:
 1. operator/setup requirement
 2. OpenClaw provider/session limitation
 3. remaining code fix
@@ -182,8 +173,7 @@ After those outputs are posted here, I will close the blocker as one of:
 ### Quality bar
 - No vague language
 - No repo narration
-- No more general verification work
-- Use the evidence already gathered
-- Close the blocker explanation
+- No more tool-building
+- Close the blocker explanation from evidence already gathered
 
 — PM
