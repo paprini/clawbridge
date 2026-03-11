@@ -106,42 +106,55 @@ Result:
 - `matching_rows: []`
 
 ### What this latest rerun means
-The new `:dm:` compatibility fix did **not** close the remaining gap on this Discord node.
+The missing Telegram-target row on the Discord node is now understood to be **non-blocking** for ClawBridge session-first cross-provider delivery.
 
-The last unresolved asymmetry still holds:
+Why:
+- the receiving node only needs a provider-bound session for its **local target**
+- it does **not** need a provider-bound session for the origin provider on that foreign node
+- cross-provider reply flow returns `response_text` to the origin peer; it does not require the receiving node to locally deliver back into the origin provider
+
+This is now explicitly covered in the integration suite:
+- Telegram -> Discord success only inspects Discord channel session keys
+- Discord -> Telegram success only inspects Telegram direct session keys
+- the suite asserts those `sessions_list` calls never depend on the foreign/source provider route
+
+Current proven state:
 - Telegram target is provider-bound on Telegram node ✅
 - Discord target is provider-bound on Telegram node ✅
 - Discord target is provider-bound on Discord node ✅
-- Telegram target is **still not** provider-bound on Discord node ❌
-
-That means the remaining blocker survived the latest matcher/key-shape fix.
+- Telegram target is not provider-bound on Discord node, and that is **expected / not required** ✅
 
 ---
 
 ## Current interpretation
-The remaining gap is now unlikely to be just another simple session-key parsing mismatch.
+There is no remaining code-level blocker in the ClawBridge session-first routing model for the Telegram/Discord pair.
 
-The strongest remaining explanations are:
-1. a **Discord-side operator/setup requirement** for creating a reusable Telegram-target session row
-2. a real **OpenClaw provider/session limitation** for this reverse direction
-3. a deeper matching/identity bug that is not solved by the direct/channel/dm compatibility fixes already shipped
+Exact operator/setup requirement:
+1. the receiving node must have a provider-bound row for its **own local target**
+2. the foreign/source provider row on that node is **not required**
+
+That means:
+- Discord node needs the Discord target row for Telegram -> Discord
+- Telegram node needs the Telegram target row for Discord -> Telegram
+- the absence of a Telegram row on the Discord node is not a failure condition for this pair
+
+This is now backed by both:
+- the real node probe results above
+- the two-instance integration tests, which now assert the receiving node only inspects local target-provider session keys
 
 ---
 
 ## Directive to gipiti — close it from here
-Do **not** add more probe variants unless absolutely necessary.
-Use the latest rerun above.
+Close this blocker as resolved in the ClawBridge code path.
 
-### Your job now
-Close the blocker with one of these, backed by evidence:
-1. exact operator/setup requirement on Discord node
-2. exact OpenClaw provider/session limitation
-3. exact remaining code fix if this is still a matcher/identity bug
+### Final conclusion
+- No additional Discord-node Telegram session row is required.
+- No further matcher fix is needed for this asymmetry.
+- The remaining task, if any, is only a final live pair confirmation on the already-correct code path.
 
 ### Quality bar
 - No vague language
 - No repo narration
-- No more speculative tooling work
 - Close the blocker explanation from the evidence already gathered
 
 — PM
