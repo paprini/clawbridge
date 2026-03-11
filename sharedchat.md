@@ -1,71 +1,71 @@
 # Shared Chat
 
 Use this file only for the current blocker, the latest validated state, and the next required action.
+Archive everything else.
 
-## Current blocker — 2026-03-11
+## Current status — 2026-03-11
 
-The live blocker was a response-handling bug in the session-first return path.
+### Major update
+**The core system is now working.**
 
-## Root cause
+Confirmed live:
+- agents across providers/channels are activating
+- session-first remote execution is working
+- replies are coming back through the agent path
+- not just relay-style delivery anymore
 
-ClawBridge was treating any non-zero `openclaw agent` exit as a hard failure, even when stdout still contained a valid JSON result with a real remote reply payload.
+PM confirmation:
+> **IT IS WORKING. All agents from all channels are activating now.**
 
-That matches the PM evidence exactly:
+That means the previous major blocker is resolved.
 
-- surfaced error: `Remote agent session turn failed.`
-- embedded payload still contained a real reply, e.g. `🪬 Hi Monti 👋`
+---
 
-So the real issue was:
+## New smaller bug to reproduce
 
-- remote agent wake-up happened
-- remote agent reply happened
-- ClawBridge discarded that successful stdout result because the command exited non-zero
+### Symptom
+When a ClawBridge instance receives **two messages at the same time**, PM is seeing what looks like a:
+- socket error
+- failure under concurrent arrival
 
-## Fix now in repo
+### Current diagnosis
+This appears to be a **concurrency / socket-level bug** triggered by overlapping inbound messages to the same ClawBridge instance.
 
-- `runOpenClawAgentTurn()` now preserves parsed stdout JSON on command failure as `err.stdoutResult`
-- inbound session-first chat now recovers success when a failed command wrapper still contains:
-  - a real reply payload, or
-  - a success status
-- recovered turns return:
-  - `success: true`
-  - `session_mode: "session_first"`
-  - `agent_dispatch: "activated"`
-  - `response_text`
-  - `openclaw_result`
-  - `openclaw_warning`
+This is now the next issue to isolate.
 
-This keeps the real reply instead of collapsing it into `Remote agent session turn failed.`
+---
 
-## Latest validated local state
+## Directive to gipiti
 
-- `npm test -- --runInBand` → `29` suites, `235` tests, all passing
-- `npm run test:two-instance` → passing
-- new regressions cover:
-  - non-zero OpenClaw command with parseable stdout result
-  - session-first chat recovery from a failed command wrapper with real reply payload
+### Your job now
+Reproduce the concurrent-message failure.
 
-## Required live rerun
+### Reproduction target
+Create a test where the same ClawBridge instance receives **two inbound messages nearly simultaneously** and determine:
+1. whether the socket/fetch/server error is reproducible
+2. whether it is in:
+   - local HTTP server handling
+   - peer fetch/client timeout behavior
+   - OpenClaw agent turn concurrency
+   - shared state / session routing race
+   - reply-path collision
+3. whether it only happens:
+   - cross-provider
+   - same-provider
+   - same target session
+   - same peer
+   - or any concurrent pair
 
-Please rerun the same Telegram ↔ Discord cases that previously returned:
+### Deliverable
+Report:
+- exact reproduction steps
+- exact error shape / stack if reproduced
+- exact scope (when it happens / when it doesn’t)
+- exact fix or containment strategy
 
-- `Remote agent session turn failed.`
-- but still contained a real embedded reply payload
+### Quality bar
+- Keep this focused
+- No broad repo narration
+- Reproduce first, then fix
 
-What I need back:
-
-- returned JSON from the caller side
-- whether `success` is now true
-- whether `response_text` now contains the remote reply directly
-- whether `openclaw_warning` is present
-
-## Success criterion
-
-This blocker is closed when the same live case now returns:
-
-- `success: true`
-- `session_mode: "session_first"`
-- `agent_dispatch: "activated"`
-- the real reply in `response_text`
-
-and no longer collapses the turn into a failure wrapper just because the CLI exited non-zero.
+— PM
