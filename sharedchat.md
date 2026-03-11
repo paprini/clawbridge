@@ -13,148 +13,89 @@ Launch providers:
 - Discord
 - WhatsApp
 
-### Validated interoperability matrix
-#### Working controls
-- WhatsApp -> Telegram ✅
-- Telegram -> WhatsApp ✅
-- WhatsApp -> Discord ✅
-- Discord -> WhatsApp ✅
+### New live bug
+**Cross-provider messages are arriving as plain relayed text, but they are not activating the receiving local agent session.**
 
-#### Pair still under proof
-- Telegram -> Discord 🔄
-- Discord -> Telegram 🔄
+In other words:
+- delivery succeeds
+- text appears on the destination provider
+- but it behaves like raw relay text, not like a real agent-to-agent session turn
 
----
-
-## Latest validated evidence
-
-### Telegram node rerun after latest update
-**Node:** `monti-telegram`
-**HEAD:** `50e9881`
-
-#### Verify
-- `21 passed, 0 failed`
-
-#### Telegram target proof
-Command:
-```bash
-node src/cli.js session-proof telegram 5914004682
-```
-Result:
-- `provider_bound: true`
-- `provider_bound_kinds: ["direct"]`
-- `collapsed_to_non_provider_session: false`
-
-#### Discord target proof from Telegram node
-Command:
-```bash
-node src/cli.js session-proof discord 1480310282961289216
-```
-Result after latest update:
-- `provider_bound: true`
-- `provider_bound_kinds: ["channel"]`
-- `collapsed_to_non_provider_session: false`
-- matching row includes:
-  - `agent:main:discord:channel:1480310282961289216`
-
-**Meaning:** on latest code, Telegram node recognizes both the Telegram target and the tested Discord target as provider-bound.
+That means the blocker is **not solved**.
 
 ---
 
-### Discord node rerun after latest update
-**Node:** Discord/local node
-**HEAD before latest compatibility fix:** `50e9881`
+## Live evidence from Discord side
 
-#### Discord target proof
-- `provider_bound: true`
-- `provider_bound_kinds: ["channel"]`
+### Observed behavior
+PM reports the same pattern on both sides:
+- both ends receive messages
+- but they do **not** activate as sessions between agents
+- they behave like plain relay text only
 
-#### Telegram target proof from Discord node
-- `provider_bound: false`
-- `provider_bound_kinds: []`
-- `matching_rows: []`
-
-**Meaning:** after `50e9881`, only the Telegram target on the Discord node remained unresolved.
-
----
-
-### Discord node rerun after dm-key compatibility fix
-**Node:** Discord/local node
-**HEAD:** `065ace7`
-
-This rerun was performed specifically after gipiti added support for OpenClaw `:dm:` session keys.
-
-#### Corrected Discord target proof
-Command:
-```bash
-node src/cli.js session-proof discord 1480310282961289216
+### Local Discord-side log evidence
+Recent local ClawBridge log:
+```text
+[INFO] Sending chat message via gateway target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 targetAlias=null messageLength=14 channel=discord openclawDispatchAgentId=null openclawTargetSessionKey=null
+[INFO] Gateway message send result target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 channel=discord gatewayResult=[object Object]
+[AUDIT] Skill call peer=__shared__ skill=chat success=true durationMs=422
 ```
-Result:
-- `provider_bound: true`
-- `provider_bound_kinds: ["channel"]`
-- `collapsed_to_non_provider_session: false`
 
-#### Corrected Telegram target proof from Discord node
-Command:
-```bash
-node src/cli.js session-proof telegram 5914004682
+And similarly for later messages:
+```text
+openclawDispatchAgentId=null
+openclawTargetSessionKey=null
 ```
-Result:
-- `provider_bound: false`
-- `provider_bound_kinds: []`
-- `collapsed_to_non_provider_session: false`
-- `matching_rows: []`
 
-### What this latest rerun means
-The missing Telegram-target row on the Discord node is now understood to be **non-blocking** for ClawBridge session-first cross-provider delivery.
+### Why this matters
+Those log lines strongly suggest the current path is still doing:
+- gateway message send
+- local provider delivery
 
-Why:
-- the receiving node only needs a provider-bound session for its **local target**
-- it does **not** need a provider-bound session for the origin provider on that foreign node
-- cross-provider reply flow returns `response_text` to the origin peer; it does not require the receiving node to locally deliver back into the origin provider
+instead of:
+- session-first agent activation against a bound local OpenClaw session
 
-This is now explicitly covered in the integration suite:
-- Telegram -> Discord success only inspects Discord channel session keys
-- Discord -> Telegram success only inspects Telegram direct session keys
-- the suite asserts those `sessions_list` calls never depend on the foreign/source provider route
-
-Current proven state:
-- Telegram target is provider-bound on Telegram node ✅
-- Discord target is provider-bound on Telegram node ✅
-- Discord target is provider-bound on Discord node ✅
-- Telegram target is not provider-bound on Discord node, and that is **expected / not required** ✅
+That matches the live symptom exactly.
 
 ---
 
 ## Current interpretation
-There is no remaining code-level blocker in the ClawBridge session-first routing model for the Telegram/Discord pair.
+The previous conclusion that the Telegram/Discord blocker was resolved in the ClawBridge code path was premature.
 
-Exact operator/setup requirement:
-1. the receiving node must have a provider-bound row for its **own local target**
-2. the foreign/source provider row on that node is **not required**
+The real remaining bug is now clearer:
 
-That means:
-- Discord node needs the Discord target row for Telegram -> Discord
-- Telegram node needs the Telegram target row for Discord -> Telegram
-- the absence of a Telegram row on the Discord node is not a failure condition for this pair
+> Cross-provider turns can successfully deliver text to the target provider, but the receiving side is still not activating the local target agent session as intended.
 
-This is now backed by both:
-- the real node probe results above
-- the two-instance integration tests, which now assert the receiving node only inspects local target-provider session keys
+So the issue is no longer just proof/matching theory.
+It is now a **live behavior mismatch**:
+- expected: agent session activation
+- observed: plain text relay
 
 ---
 
-## Directive to gipiti — close it from here
-Close this blocker as resolved in the ClawBridge code path.
+## Directive to gipiti — reopen and fix
+This bug is **not solved**.
 
-### Final conclusion
-- No additional Discord-node Telegram session row is required.
-- No further matcher fix is needed for this asymmetry.
-- The remaining task, if any, is only a final live pair confirmation on the already-correct code path.
+### Your job now
+Use the live symptom plus the Discord-side log evidence above and determine why the path is still falling back to gateway text delivery instead of local session activation.
+
+### Concrete evidence to explain
+Why are these fields still null during the live path?
+- `openclawDispatchAgentId=null`
+- `openclawTargetSessionKey=null`
+
+If session-first activation is actually happening, these should not both be null on the path that is supposed to activate a local target session.
+
+### Required answer
+Close with one of these, backed by evidence:
+1. exact remaining code bug causing fallback to plain gateway message delivery
+2. exact operator/setup requirement still missing for session-first activation
+3. exact OpenClaw limitation causing live delivery to degrade to relay text
 
 ### Quality bar
 - No vague language
 - No repo narration
-- Close the blocker explanation from the evidence already gathered
+- Do not call this solved while live behavior is still plain-text relay
+- Fix the real activation path
 
 — PM
