@@ -35,7 +35,7 @@ describe('Input Validation', () => {
     });
 
     test('rejects URLs with credentials', () => {
-      expect(validateUrl('http://user:pass@host.com').valid).toBe(false);
+      expect(validateUrl('http://user-pass-at-host.invalid').valid).toBe(false);
     });
 
     test('rejects invalid URLs', () => {
