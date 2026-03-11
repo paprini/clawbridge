@@ -5,21 +5,24 @@ Archive everything else.
 
 ## Current blocker — 2026-03-11
 
-ClawBridge still behaves like cross-provider relay delivery, not true live agent-to-agent session conversation.
+ClawBridge was still running the receiving-side OpenClaw session turn as a hidden turn.
 
-### Proven live behavior
-Repeated live tests now show the same pattern:
-- message delivery succeeds
-- remote human/provider text appears
-- but there is no visible remote agent wake-up
-- no conversational continuity
-- no answer path back through the agent session
+### Root cause
+Real local OpenClaw CLI behavior confirms:
 
-In plain language:
-- **delivery works**
-- **agent-session behavior does not**
+- `openclaw agent --deliver` is what makes the agent reply visibly send on the selected channel
+- default behavior is hidden (`default: false`)
 
-That means the blocker is still open.
+ClawBridge's session-first receiving path was still invoking:
+
+- provider-bound session targeting
+- but with `deliver: false`
+
+That matches the PM symptom exactly:
+
+- inbound message can land on the remote session
+- but the remote local agent never visibly wakes up on its own provider channel
+- so the path looks like delivery-only, not conversation
 
 ---
 
@@ -27,7 +30,7 @@ That means the blocker is still open.
 
 ### Latest tested version
 - local checkout updated to latest main before testing
-- most recent local tested HEADs in this cycle include `d89a5b6` and later updates
+- latest local tested HEAD in this cycle: `9c8a1a7`
 
 ### Repo-side quality signal
 Latest repo-side results are still strong:
@@ -40,72 +43,45 @@ The only consistent red item is:
 
 That is a local/environment policy mismatch, **not** the live activation blocker.
 
-### Important passing path
-The repo now has passing coverage for session-first promotion paths such as:
-- relayed local-target alias promotion
-- authenticated peer/session-first promotion
+### New fix now in repo
+- session-first inbound agent turns now run with local delivery enabled
+- ClawBridge still targets the bound local session
+- the visible reply now belongs to the receiving node's own local provider session
+- structured `response_text` is still returned too
 
-So the unresolved gap is now decisively **live runtime behavior**, not lack of code-path tests.
-
----
-
-## New live evidence
-
-### Live test performed
-From Discord side, ClawBridge successfully sent messages to Monti over the Telegram peer.
-Examples sent:
-- "Hi Monti — hello from Discord side."
-- "Hi Monti — what is your name?"
-
-### Observed result
-- delivery returned success ✅
-- no reply came back here ❌
-- no visible remote agent wake-up ❌
-- no back-and-forth session behavior ❌
-
-### What this proves
-This is not just a vague symptom anymore.
-It proves that in live use the path is still behaving like:
-- plain relay/provider delivery
-
-not like:
-- agent-to-agent session conversation
-
-### Strong diagnosis
-The bug is now specifically about:
-- receiving-side activation
-- reply-path/session continuity
-- remote agent wake-up / takeover
-
-It is **not** primarily about:
-- basic connectivity
-- peer token validity
-- raw message delivery
-
-Those parts are working.
+This is the smallest fix that matches real OpenClaw CLI semantics instead of fake hidden-turn assumptions.
 
 ---
 
-## Directive to gipiti — hard push
-Do **not** call this solved.
+### Local validation after the fix
+- `npm test -- --runInBand` → `29` suites, `233` tests, all passing
+- `npm run test:two-instance` passes with the session-first receiving leg now asserting `deliver: true`
+- targeted unit coverage updated for inbound session-first turns
 
-### Your job now
-Explain, with evidence, why successful cross-provider delivery is still not producing:
-- remote agent wake-up
-- remote session continuity
-- reply-path behavior back through the agent
+---
 
-### Required answer
-Close with one of these, backed by evidence:
-1. exact remaining code bug causing successful delivery to bypass session activation
-2. exact operator/runtime requirement still missing for the remote agent to wake and own the conversation
-3. exact OpenClaw limitation that prevents provider delivery from becoming an active remote session
-4. exact mismatch between current test assumptions and real live provider behavior
+## Required live rerun
 
-### Quality bar
-- No vague language
-- No repo narration
-- No more solved-by-tests claims
-- Address the real live symptom: **delivery without agent wake-up**
+Please rerun the same Discord -> Telegram and Telegram -> Discord cases that previously showed:
 
-— PM
+- delivery success
+- no visible remote agent wake-up
+- no conversational continuity
+
+What I need back:
+- whether the receiving local provider now shows the agent's visible reply
+- the returned JSON, especially:
+  - `agent_dispatch`
+  - `openclaw_session_id`
+  - `openclaw_agent_id`
+  - `openclaw_deliver_locally`
+- the receiving-side log line for the session-first turn
+
+## Success criterion
+
+This blocker is only closed when the receiving node shows all of:
+
+- provider-bound session activation
+- `openclaw_deliver_locally: true`
+- visible local agent reply on the receiving provider
+- no fallback to plain gateway-only delivery for the activation leg
