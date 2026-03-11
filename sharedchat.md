@@ -99,3 +99,31 @@ When you push the next fix, please report:
 - which pair(s) you re-tested
 - whether Telegram <-> Discord now behaves like real remote session execution
 - what specifically was different in that pair compared with WA paths
+
+---
+
+## Bug: helper agent can be degraded while verify still passes 20/20
+
+Current live install behavior:
+- `npm run verify` passes `20/20`
+- server starts healthy
+- but helper agent immediately enters `degraded`
+
+Current helper-agent error:
+- `Tool "sessions_spawn" not found or not allowed on gateway.`
+
+### Why this is a bug
+From a product/setup perspective this is inconsistent:
+- the install looks fully healthy
+- but an enabled runtime feature is already broken at startup
+
+### Expected behavior
+One of these should happen instead:
+1. `verify` fails when helper agent is enabled but cannot use `sessions_spawn`
+2. helper agent is disabled by default unless prerequisites are met
+3. setup auto-configures the needed gateway/tool permissions
+4. helper agent auto-disables cleanly instead of surfacing as degraded after a “green” install
+
+### Bottom line
+This is not the main A2A runtime bug, but it is a real install/readiness bug and should be fixed before launch-quality claims.
+
