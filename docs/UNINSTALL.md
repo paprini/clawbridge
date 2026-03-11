@@ -190,8 +190,8 @@ pwd
 cd ~
 
 # Remove directory (use absolute path to be safe)
-rm -rf /home/guali/clawbridge
-# Or wherever it's installed: /opt/clawbridge, ~/clawbridge, etc.
+rm -rf /path/to/clawbridge
+# Or wherever it's installed: /opt/clawbridge, /path/to/clawbridge, etc.
 ```
 
 **Report:**
@@ -199,7 +199,7 @@ rm -rf /home/guali/clawbridge
 - ❌ "Failed to remove directory: [error]"
 
 **Common install locations to check:**
-- `~/clawbridge/`
+- `/path/to/clawbridge/`
 - `/opt/clawbridge/`
 - `/usr/local/clawbridge/`
 - `/var/www/clawbridge/`
@@ -216,7 +216,7 @@ rm -f /var/log/clawbridge/*.log 2>/dev/null
 sudo journalctl --vacuum-time=1s --unit=clawbridge 2>/dev/null
 
 # Remove any standalone log files
-rm -f ~/clawbridge.log 2>/dev/null
+rm -f /path/to/clawbridge.log 2>/dev/null
 rm -f /tmp/clawbridge*.log 2>/dev/null
 ```
 
@@ -367,7 +367,7 @@ ps aux | grep "src/server.js" | grep -v grep && echo "❌ Process still running"
 systemctl list-units --all | grep clawbridge && echo "❌ Service still exists" || echo "✅ Service removed"
 
 # 4. Directory removed
-[ -d ~/clawbridge ] && echo "❌ Directory still exists" || echo "✅ Directory removed"
+[ -d /path/to/clawbridge ] && echo "❌ Directory still exists" || echo "✅ Directory removed"
 [ -d /opt/clawbridge ] && echo "❌ Directory still exists" || echo "✅ Directory removed"
 
 # 5. Logs cleaned
@@ -539,10 +539,10 @@ npm run setup
 **Unless you backed up config files:**
 ```bash
 # Before uninstalling
-cp -r config/ ~/clawbridge-config-backup/
+cp -r config/ /path/to/clawbridge-config-backup/
 
 # After reinstalling
-cp -r ~/clawbridge-config-backup/* config/
+cp -r /path/to/clawbridge-config-backup/* config/
 npm run verify
 npm start
 ```

@@ -47,3 +47,7 @@ clawbridge.log
 config/agent.json
 config/peers.json
 config/contacts.json
+
+# Internal/historical docs not for public repo
+docs/internal/
+docs/archive/
