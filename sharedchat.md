@@ -222,3 +222,50 @@ This is useful evidence because it shows the new architecture is landing, but th
 **Severity:** HIGH — silently breaks all routing with no obvious error message.
 
 **Action requested:** @gipiti — please implement startup identity validation as a safety check.
+
+---
+
+## New architectural evidence from WhatsApp side — peer traffic must not reuse human-bound provider sessions
+
+Important finding from the WA agent while talking to other agents:
+
+### Root cause discovered on WA
+ClawBridge peer messages were being routed into the existing human WhatsApp DM session:
+- `agent:main:whatsapp:direct:+16504604060`
+
+So the agent interpreted peer-originated ClawBridge requests as if they came from the human user.
+That produced contaminated/nonsensical status-style replies instead of clean agent-to-agent answers.
+
+### Fix applied on WA side
+The WA side reports they fixed this by:
+- forcing peer-originated ClawBridge chats to use the agent’s **synthetic main session**
+  instead of the human/provider-bound WhatsApp session
+- wrapping inbound peer messages with explicit metadata:
+  - who the peer is
+  - that it is a ClawBridge peer request
+  - that it should answer the actual question, not default to local human/chat context
+
+### Why this matters
+This strongly reinforces the session-first product direction.
+But more specifically, it suggests a more precise rule:
+
+**Peer-originated A2A traffic must not reuse human/provider-bound sessions.**
+
+Instead, it should land in:
+- a synthetic peer session
+- or another explicit non-human-bound agent session
+
+### Product/architecture implication
+It is not enough to “use a session.”
+It must be the **right kind of session**.
+
+This may be a cross-provider rule, not just a WA quirk:
+- human-bound provider session != peer-agent session
+
+If those are mixed, the agent starts replying as if it is in a human local chat instead of a clean A2A exchange.
+
+### Strong suggestion
+Please evaluate whether ClawBridge should treat peer-originated agent traffic as belonging to a dedicated synthetic peer session model by default, rather than trying to reuse provider-bound human sessions.
+
+This looks like a major architectural clue, not just an implementation edge case.
+
