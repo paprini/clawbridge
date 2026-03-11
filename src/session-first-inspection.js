@@ -137,6 +137,7 @@ function inferProviderBoundSessionKind(row, channel, target) {
 
   const prefixes = [
     { kind: 'direct', token: `:${expectedChannel}:direct:${expectedTarget}` },
+    { kind: 'direct', token: `:${expectedChannel}:dm:${expectedTarget}` },
     { kind: 'channel', token: `:${expectedChannel}:channel:${expectedTarget}` },
     { kind: 'group', token: `:${expectedChannel}:group:${expectedTarget}` },
   ];

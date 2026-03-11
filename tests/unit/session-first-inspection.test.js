@@ -117,4 +117,36 @@ describe('session-first inspection', () => {
     expect(evidence.providerBoundRows[0].key).toBe('agent:main:discord:channel:1480310282961289216:thread:abc123');
     expect(evidence.matchingRows).toHaveLength(1);
   });
+
+  test('treats dm session keys as provider-bound direct rows', () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-session-inspect-dm-key-'));
+    const openclawConfigPath = path.join(rootDir, 'openclaw.json');
+    const sessionStorePath = path.join(rootDir, 'agents', 'main', 'sessions', 'sessions.json');
+
+    fs.mkdirSync(path.dirname(sessionStorePath), { recursive: true });
+    fs.writeFileSync(openclawConfigPath, JSON.stringify({ gateway: { auth: { token: 't' } } }, null, 2));
+    fs.writeFileSync(sessionStorePath, JSON.stringify({
+      'agent:main:telegram:dm:5914004682': {
+        sessionId: 'telegram-dm-session',
+      },
+    }, null, 2));
+
+    const routed = inspectSessionRoutingEvidence({
+      tokenPath: openclawConfigPath,
+      agentId: 'main',
+      channel: 'telegram',
+      target: '5914004682',
+    });
+    expect(routed.hasProviderBound).toBe(true);
+    expect(routed.providerBoundKinds).toEqual(['direct']);
+
+    const direct = inspectDirectSessionEvidence({
+      tokenPath: openclawConfigPath,
+      agentId: 'main',
+      channel: 'telegram',
+      target: '5914004682',
+    });
+    expect(direct.hasProviderBound).toBe(true);
+    expect(direct.providerBoundRows[0].key).toBe('agent:main:telegram:dm:5914004682');
+  });
 });

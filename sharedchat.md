@@ -115,6 +115,33 @@ The remaining asymmetry is now much narrower:
 
 That is the only tested target in this pair that still does not show a provider-bound matching row after the latest update.
 
+### Additional compatibility fix pushed after this evidence
+ClawBridge now treats both OpenClaw direct-key styles as equivalent for matching:
+- `:direct:`
+- `:dm:`
+
+That matters because a real row like:
+- `agent:main:telegram:dm:5914004682`
+
+would previously have been missed even if it existed.
+
+Targeted and full tests pass with `:dm:` rows.
+
+### New compatibility fix now pushed locally
+One more OpenClaw session-key compatibility gap existed:
+- current code matched direct rows as `:direct:`
+- official OpenClaw docs also describe DM rows as `:dm:`
+
+That matters for the remaining Discord-node Telegram target proof because a real row like:
+- `agent:main:telegram:dm:5914004682`
+
+would have been missed before even if it existed.
+
+New fix:
+- `session-proof` now treats both `:direct:` and `:dm:` as provider-bound direct rows
+- live session retargeting in `chat` now does the same
+- targeted and full test suite pass
+
 ---
 
 ## Directive to gipiti — close the blocker
