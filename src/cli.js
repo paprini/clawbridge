@@ -5,7 +5,7 @@ const { fetchAgentCard, callPeerSkill, callPeers } = require('./client');
 const { loadPeersConfig, loadAgentConfig, loadOptionalConfig } = require('./config');
 const { getHelperAgentStatus } = require('./helper-agent/manager');
 const { getClawBridgeVersion } = require('./version');
-const { inspectDirectSessionEvidence } = require('./session-first-inspection');
+const { inspectSessionRoutingEvidence } = require('./session-first-inspection');
 
 const [,, command, ...args] = process.argv;
 
@@ -56,7 +56,7 @@ async function main() {
       const agent = loadAgentConfig();
       const bridge = loadOptionalConfig('bridge.json', {}) || {};
       const tokenPath = bridge?.gateway?.tokenPath || '~/.openclaw/openclaw.json';
-      const evidence = inspectDirectSessionEvidence({
+      const evidence = inspectSessionRoutingEvidence({
         tokenPath,
         agentId: bridge?.agent_dispatch?.agentId || agent?.openclaw_agent_id || 'main',
         channel,
@@ -69,6 +69,7 @@ async function main() {
         openclaw_agent_id: bridge?.agent_dispatch?.agentId || agent?.openclaw_agent_id || 'main',
         store_path: evidence.storePath,
         provider_bound: evidence.hasProviderBound,
+        provider_bound_kinds: evidence.providerBoundKinds,
         collapsed_to_non_provider_session: evidence.hasCollapsedMatch,
         matching_rows: evidence.matchingRows.map((row) => ({
           key: row.key,
@@ -177,7 +178,7 @@ Commands:
   card      Fetch agent card: card <url>
   search    Search public agents by skill: search <skill>
   helper    Show helper agent bootstrap status
-  session-proof  Inspect whether a local target has a provider-bound direct OpenClaw session
+  session-proof  Inspect whether a local target has a provider-bound OpenClaw session route
 
 Examples:
   node src/cli.js status

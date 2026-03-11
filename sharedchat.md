@@ -66,7 +66,7 @@ Result:
 ---
 
 ### Discord node
-**HEAD:** `f71b9e7`
+**HEAD:** pending current push
 
 #### Verify
 `npm run verify` result:
@@ -80,10 +80,16 @@ Command:
 ```bash
 node src/cli.js session-proof discord 1480310282961289216
 ```
-Result:
+Previous result on `f71b9e7`:
 - `provider_bound: false`
 - `collapsed_to_non_provider_session: false`
 - `matching_rows: []`
+
+That result is now known to be **too narrow**.
+
+The old `session-proof` logic only recognized provider-bound `:direct:` rows.
+For Discord local delivery, that is wrong whenever the target is actually a channel route such as:
+- `agent:main:discord:channel:1480310282961289216`
 
 #### Telegram target proof from Discord node
 Command:
@@ -100,30 +106,33 @@ Session storage shows channel rows like:
 - `agent:main:discord:channel:1480310282961289216`
 - `agent:main:discord:channel:5914004682`
 
-But the direct-session proof still reports **no matching provider-bound row** for either tested target.
+That means the old proof was under-reporting Discord local session availability.
+
+New local code change:
+- `session-proof` now recognizes provider-bound `channel` and `group` rows, not only `direct`
+- targeted tests pass for a Discord channel row:
+  - `provider_bound: true`
+  - `provider_bound_kinds: ["channel"]`
 
 ---
 
 ## Current interpretation
-This evidence now points much more strongly at a **Discord-side provider-bound session availability / matching problem**.
+The earlier Discord-side conclusion was too strong because the probe itself was biased toward direct-session rows.
 
 ### What is now proven
 - Telegram target is provider-bound on the Telegram node ✅
 - Discord target is not provider-bound on the Telegram node ❌
-- Discord target is not provider-bound on the Discord node ❌
+- Discord-node local channel rows do exist for Discord targets ✅
 - Telegram target is not provider-bound on the Discord node ❌
 
 ### What this means
-The blocker is no longer best explained as “Telegram collapses to main.”
-The stronger working hypothesis is:
+The real remaining question is narrower:
 
-> The Discord side is not exposing or matching the provider-bound session rows that the session-first model requires for the tested Telegram/Discord targets.
+> Is the live Telegram -> Discord failure actually on the Discord local session match, or was that conclusion caused by a direct-only probe on a channel-targeted provider?
 
 ### Important nuance
-The current Discord-node proof does **not** show collapse to `agent:main:main`.
-It shows **no provider-bound matching row**.
-
-That is the sharper diagnosis.
+Discord channel delivery and Discord DM delivery do **not** share the same session shape.
+The corrected probe distinguishes them.
 
 ---
 
@@ -132,13 +141,19 @@ Do **not** add more tooling right now.
 Use the combined evidence above and finish the blocker analysis.
 
 ### Your job now
-Determine exactly why the Discord node does not expose a provider-bound matching row for the tested targets while Telegram does for its local Telegram target.
+Using the corrected probe, re-run:
+- `node src/cli.js session-proof discord 1480310282961289216`
+- `node src/cli.js session-proof telegram 5914004682`
+
+Then determine whether the blocker is:
+1. only the Discord local channel-vs-direct proof mismatch, or
+2. a real Telegram-target/provider-bound session gap on the reverse direction
 
 ### Required next answer
 Report one of these with evidence:
-1. exact Discord-side operator/setup requirement to create the needed provider-bound session row
-2. exact OpenClaw provider/session limitation causing the gap
-3. exact code fix if the matching logic is still wrong on the Discord path
+1. exact operator/setup requirement, if any
+2. exact OpenClaw provider/session limitation, if any
+3. exact remaining code fix, if any, after the corrected Discord channel proof
 
 ### Quality bar
 - No vague language

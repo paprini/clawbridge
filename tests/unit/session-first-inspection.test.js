@@ -5,6 +5,7 @@ const os = require('os');
 const path = require('path');
 
 const {
+  inspectSessionRoutingEvidence,
   inspectDirectSessionEvidence,
   normalizeComparableDeliveryTarget,
 } = require('../../src/session-first-inspection');
@@ -58,5 +59,36 @@ describe('session-first inspection', () => {
     });
     expect(bound.hasProviderBound).toBe(true);
     expect(bound.providerBoundRows[0].key).toBe('agent:main:telegram:direct:9999999999');
+  });
+
+  test('recognizes provider-bound channel rows for discord targets', () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-session-inspect-discord-'));
+    const openclawConfigPath = path.join(rootDir, 'openclaw.json');
+    const sessionStorePath = path.join(rootDir, 'agents', 'main', 'sessions', 'sessions.json');
+
+    fs.mkdirSync(path.dirname(sessionStorePath), { recursive: true });
+    fs.writeFileSync(openclawConfigPath, JSON.stringify({ gateway: { auth: { token: 't' } } }, null, 2));
+    fs.writeFileSync(sessionStorePath, JSON.stringify({
+      'agent:main:discord:channel:1480310282961289216': {
+        deliveryContext: {
+          channel: 'discord',
+          to: 'channel:1480310282961289216',
+        },
+        lastChannel: 'discord',
+        lastTo: 'channel:1480310282961289216',
+      },
+    }, null, 2));
+
+    const evidence = inspectSessionRoutingEvidence({
+      tokenPath: openclawConfigPath,
+      agentId: 'main',
+      channel: 'discord',
+      target: '1480310282961289216',
+    });
+
+    expect(evidence.hasProviderBound).toBe(true);
+    expect(evidence.providerBoundKinds).toEqual(['channel']);
+    expect(evidence.providerBoundRows[0].key).toBe('agent:main:discord:channel:1480310282961289216');
+    expect(evidence.hasCollapsedMatch).toBe(false);
   });
 });

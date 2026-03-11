@@ -116,31 +116,68 @@ function findMatchingDirectSessionRows(rows, { channel, target }) {
   });
 }
 
-function isProviderBoundDirectSessionRow(row, channel, target) {
+function inferProviderBoundSessionKind(row, channel, target) {
   const key = typeof row?.key === 'string' ? row.key.trim().toLowerCase() : '';
   if (!key) {
-    return false;
+    return null;
   }
 
   const expectedChannel = normalizeComparableDeliveryChannel(channel);
   const expectedTarget = normalizeComparableDeliveryTarget(channel, target);
   if (!expectedChannel || !expectedTarget) {
-    return false;
+    return null;
   }
 
-  return key.includes(`:${expectedChannel}:direct:${expectedTarget}`);
+  const prefixes = [
+    { kind: 'direct', token: `:${expectedChannel}:direct:${expectedTarget}` },
+    { kind: 'channel', token: `:${expectedChannel}:channel:${expectedTarget}` },
+    { kind: 'group', token: `:${expectedChannel}:group:${expectedTarget}` },
+  ];
+
+  for (const prefix of prefixes) {
+    if (key.includes(prefix.token)) {
+      return prefix.kind;
+    }
+  }
+
+  return null;
 }
 
-function inspectDirectSessionEvidence({ tokenPath, agentId, channel, target }) {
+function isProviderBoundDirectSessionRow(row, channel, target) {
+  return inferProviderBoundSessionKind(row, channel, target) === 'direct';
+}
+
+function inspectSessionRoutingEvidence({ tokenPath, agentId, channel, target }) {
   const sessionStore = loadOpenClawSessionRows(tokenPath, agentId);
   const matchingRows = findMatchingDirectSessionRows(sessionStore.sessions, { channel, target });
-  const providerBoundRows = matchingRows.filter((row) => isProviderBoundDirectSessionRow(row, channel, target));
-  const collapsedRows = matchingRows.filter((row) => !isProviderBoundDirectSessionRow(row, channel, target));
+  const providerBoundRows = matchingRows
+    .map((row) => ({
+      row,
+      kind: inferProviderBoundSessionKind(row, channel, target),
+    }))
+    .filter((entry) => entry.kind);
+  const collapsedRows = matchingRows.filter((row) => !inferProviderBoundSessionKind(row, channel, target));
 
   return {
     storePath: sessionStore.storePath,
     matchingRows,
+    providerBoundRows: providerBoundRows.map((entry) => entry.row),
+    providerBoundKinds: [...new Set(providerBoundRows.map((entry) => entry.kind))],
+    collapsedRows,
+    hasProviderBound: providerBoundRows.length > 0,
+    hasCollapsedMatch: collapsedRows.length > 0,
+  };
+}
+
+function inspectDirectSessionEvidence({ tokenPath, agentId, channel, target }) {
+  const evidence = inspectSessionRoutingEvidence({ tokenPath, agentId, channel, target });
+  const providerBoundRows = evidence.providerBoundRows.filter((row) => isProviderBoundDirectSessionRow(row, channel, target));
+  const collapsedRows = evidence.matchingRows.filter((row) => !isProviderBoundDirectSessionRow(row, channel, target));
+
+  return {
+    ...evidence,
     providerBoundRows,
+    providerBoundKinds: providerBoundRows.length > 0 ? ['direct'] : [],
     collapsedRows,
     hasProviderBound: providerBoundRows.length > 0,
     hasCollapsedMatch: collapsedRows.length > 0,
@@ -148,9 +185,11 @@ function inspectDirectSessionEvidence({ tokenPath, agentId, channel, target }) {
 }
 
 module.exports = {
+  inspectSessionRoutingEvidence,
   inspectDirectSessionEvidence,
   loadOpenClawSessionRows,
   findMatchingDirectSessionRows,
+  inferProviderBoundSessionKind,
   isProviderBoundDirectSessionRow,
   normalizeComparableDeliveryChannel,
   normalizeComparableDeliveryTarget,
