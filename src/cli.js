@@ -2,9 +2,10 @@
 'use strict';
 
 const { fetchAgentCard, callPeerSkill, callPeers } = require('./client');
-const { loadPeersConfig, loadAgentConfig } = require('./config');
+const { loadPeersConfig, loadAgentConfig, loadOptionalConfig } = require('./config');
 const { getHelperAgentStatus } = require('./helper-agent/manager');
 const { getClawBridgeVersion } = require('./version');
+const { inspectDirectSessionEvidence } = require('./session-first-inspection');
 
 const [,, command, ...args] = process.argv;
 
@@ -42,6 +43,40 @@ async function main() {
 
     case 'helper': {
       console.log(JSON.stringify(getHelperAgentStatus(), null, 2));
+      break;
+    }
+
+    case 'session-proof': {
+      const [channel, target] = args;
+      if (!channel || !target) {
+        console.error('Usage: node src/cli.js session-proof <channel> <target>');
+        process.exit(1);
+      }
+
+      const agent = loadAgentConfig();
+      const bridge = loadOptionalConfig('bridge.json', {}) || {};
+      const tokenPath = bridge?.gateway?.tokenPath || '~/.openclaw/openclaw.json';
+      const evidence = inspectDirectSessionEvidence({
+        tokenPath,
+        agentId: bridge?.agent_dispatch?.agentId || agent?.openclaw_agent_id || 'main',
+        channel,
+        target,
+      });
+
+      console.log(JSON.stringify({
+        channel,
+        target,
+        openclaw_agent_id: bridge?.agent_dispatch?.agentId || agent?.openclaw_agent_id || 'main',
+        store_path: evidence.storePath,
+        provider_bound: evidence.hasProviderBound,
+        collapsed_to_non_provider_session: evidence.hasCollapsedMatch,
+        matching_rows: evidence.matchingRows.map((row) => ({
+          key: row.key,
+          deliveryContext: row.deliveryContext || null,
+          lastChannel: row.lastChannel || null,
+          lastTo: row.lastTo || null,
+        })),
+      }, null, 2));
       break;
     }
 
@@ -142,6 +177,7 @@ Commands:
   card      Fetch agent card: card <url>
   search    Search public agents by skill: search <skill>
   helper    Show helper agent bootstrap status
+  session-proof  Inspect whether a local target has a provider-bound direct OpenClaw session
 
 Examples:
   node src/cli.js status
@@ -150,6 +186,7 @@ Examples:
   node src/cli.js card http://10.0.1.10:9100
   node src/cli.js search web_search
   node src/cli.js helper
+  node src/cli.js session-proof telegram 1234567890
 `);
   }
 }

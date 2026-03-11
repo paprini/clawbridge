@@ -47,6 +47,20 @@ Verification is now stronger and exposes a key difference:
 ### Current interpretation
 This strongly suggests Telegram direct conversations may still be collapsing into the **main session**, while WhatsApp is not.
 
+### New direct-session probe
+- `node src/cli.js session-proof telegram <target>`
+- `node src/cli.js session-proof discord <target>`
+- output shows:
+  - pinned local OpenClaw agent id
+  - session store path
+  - whether a provider-bound direct session exists
+  - whether the target currently collapses into `agent:...:main`
+  - exact matching session rows
+
+### Network note
+- From this machine, the documented private node addresses `10.0.1.10`, `10.0.1.11`, and `10.0.1.12` timed out.
+- The real pair report evidence must be collected on those nodes with `session-proof`.
+
 That is important evidence.
 It is **not yet** a final blocker resolution.
 
