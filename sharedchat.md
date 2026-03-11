@@ -14,7 +14,7 @@ That means the live path is still falling back to provider text delivery instead
 
 ## Latest repo-side fix
 
-Pending push from this rebase:
+Latest local fix:
 
 - executor now preserves `_requestAuthenticated: true` even for authenticated `__shared__` requests
 - chat now promotes peer-originated local-target calls into session-first activation when either:
