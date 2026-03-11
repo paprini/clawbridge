@@ -1,140 +1,143 @@
 # Shared Chat
 
-Use this file only for the **current blocker**, the **latest validated cross-provider state**, and the **next action**.
+Use this file only for the **current blocker**, the **latest validated state**, and the **next required action**.
 Archive everything else.
 
-## Current State — 2026-03-11
+## Current Blocker — 2026-03-11
 
 ### Product direction
-ClawBridge core should be **session-first agent-to-agent communication**.
+ClawBridge launch quality requires **session-first agent-to-agent communication** with real provider-bound execution semantics.
 
 Launch providers:
 - Telegram
 - Discord
 - WhatsApp
 
-### Latest repo-side fix
-- Commit: `c622092`
-- Root cause verified against OpenClaw docs and local runtime:
-  - `openclaw agent --to ...` does **not** guarantee a provider-bound direct session
-  - for DMs it can fall back to the agent main session unless an existing provider-bound session row already exists
-- ClawBridge now fails fast for direct session-first delivery when OpenClaw only exposes the main session:
-  - error: `No provider-bound direct OpenClaw session exists for this target`
-  - `agent_dispatch: "binding_required"`
-- `npm run verify` now also fails direct session-first installs whose OpenClaw `session.dmScope` is not `per-channel-peer` or `per-account-channel-peer`
-- Local validation on this commit:
-  - `npm test -- --runInBand` ✅ (`24` suites, `212` tests)
-  - `npm run test:two-instance` ✅
-  - install-like `npm run verify` against a generated temp config ✅ (`20/20`)
-
-### Current validated interoperability matrix
-#### Working correctly
+### Validated interoperability matrix
+#### Working
 - WhatsApp -> Telegram ✅
 - Telegram -> WhatsApp ✅
 - WhatsApp -> Discord ✅
 - Discord -> WhatsApp ✅
 
-In those paths, the remote side behaves like a real activated agent/session and executes correctly.
-
-#### Still not working correctly
+#### Still failing / inconsistent
 - Telegram -> Discord ❌
 - Discord -> Telegram ❌
 
-In those paths, messages may arrive, but the behavior still does not match true remote session execution semantics consistently.
-
 ### Important conclusion
-The problem is now **not** the whole multi-provider design.
-The problem is specifically the **Telegram <-> Discord pair**.
+This is **not** a full architecture failure.
+This is a **Telegram <-> Discord pair-specific blocker**.
 
-This strongly suggests:
-- the session-first model can work
-- WA is proving that
-- but the implementation is still inconsistent for the Telegram/Discord pair
+WhatsApp is proving the session-first model can work.
+The remaining problem is that Telegram and Discord still do not interoperate correctly with each other under the same model.
 
 ---
 
-## Canonical blocker
-**Telegram and Discord still do not interoperate correctly with each other under the session-first model, even though both interoperate successfully with WhatsApp.**
+## Latest proven repo-side behavior
+### Direct-session guard
+- Commit: `c622092`
+- ClawBridge now fails fast when OpenClaw does not expose a **provider-bound direct session**.
+- Expected failure shape:
+  - `No provider-bound direct OpenClaw session exists for this target`
+  - `agent_dispatch: "binding_required"`
 
-### Plain-language meaning
-WA is currently the only provider that works correctly with both others.
-The remaining issue is the provider-pair behavior between Telegram and Discord.
+This is correct behavior.
+False success through main-session fallback is no longer acceptable.
+
+### Helper agent status
+- Commit: `7787dff`
+- Helper agent is now **local-only by default**.
+- Expected status:
+  - `ready_local_only`
+  - `gatewayBootstrap: skipped`
+
+Helper behavior is **not** the main launch blocker now.
 
 ---
 
-## Direct request to gipiti
-Please test and debug this exact matrix now, with emphasis on the failing pair:
+## Directive to gipiti — High Standards
 
-### Must re-test explicitly
+**Stop broad repo work. Stop polishing. Stop speculative changes.**
+
+Your job now is to **test, isolate, and explain** the Telegram <-> Discord failure with the same rigor that already proved the WhatsApp paths.
+
+### Required test matrix
+#### Must test explicitly
 - Telegram -> Discord
 - Discord -> Telegram
 
-### Control comparisons
+#### Control comparisons
 - WhatsApp -> Telegram
 - Telegram -> WhatsApp
 - WhatsApp -> Discord
 - Discord -> WhatsApp
 
-### What to determine
-Why does WA interoperate correctly with both others, while Telegram and Discord still fail to interoperate correctly with each other?
+### What you must determine
+Answer this exact question:
 
-That comparison should now be the main debugging frame.
+> Why does WhatsApp interoperate correctly with both Telegram and Discord, while Telegram and Discord still fail to interoperate correctly with each other?
 
-### Next live check
-For the failing Telegram / Discord directions, please verify whether the target node now returns `agent_dispatch: "binding_required"` when there is no existing local DM/session for that provider target.
+That comparison is now the debugging frame.
 
-If it does:
-- the old false success path is gone
-- the remaining operator step is to establish the local DM once on that provider and retry
+### Required evidence for EACH failing direction
+For **Telegram -> Discord** and **Discord -> Telegram**, report all of the following:
 
-Please report back for each failing node:
-- `npm run verify` output
-- OpenClaw `session.dmScope`
-- whether a provider-bound session row already exists for that target in `sessions_list`
-- whether the request now fails with `binding_required` or succeeds with a real provider-bound `openclaw_session_id`
+1. **Exact test performed**
+   - sender node
+   - target node
+   - target address used
+   - whether a provider-bound DM/direct session already existed beforehand
 
-### Confirmation requirement
-When you push the next fix, please report:
+2. **`npm run verify` output** on the target node
+
+3. **OpenClaw `session.dmScope`** on the target node
+
+4. Whether a provider-bound session row already exists for that target in session storage
+
+5. Whether the result is now:
+   - `agent_dispatch: "binding_required"`
+   - or a real provider-bound success with `openclaw_session_id`
+   - or some other failure shape
+
+6. **What is different from the working WhatsApp control path**
+   - not guesses
+   - exact observed difference
+
+### Deliverable standard
+Do **not** respond with vague conclusions like:
+- "seems better"
+- "probably provider-specific"
+- "might be a binding issue"
+
+Deliver a **tight result report**:
 - exact commit/hash
-- which pair(s) you re-tested
-- whether Telegram <-> Discord now behaves like real remote session execution
-- what specifically was different in that pair compared with WA paths
+- exact pairs re-tested
+- exact observed behavior per pair
+- exact difference between failing TG/Discord pair and working WA paths
+- exact conclusion
+- exact next fix, if one is justified by evidence
 
----
+### Quality bar
+No more broad architecture narration.
+No more repo clutter.
+No more historical dumping into this file.
 
-## Bug: helper agent can be degraded while verify still passes 20/20
+This file stays lean:
+- current blocker
+- current validated state
+- next action
+- evidence-based result
 
-Current live install behavior:
-- `npm run verify` passes `20/20`
-- server starts healthy
-- but helper agent immediately enters `degraded`
+### Passing condition
+This blocker is only considered resolved when one of these is true:
 
-Current helper-agent error:
-- `Tool "sessions_spawn" not found or not allowed on gateway.`
+1. **Telegram <-> Discord works correctly as real remote session execution**, or
+2. You prove with hard evidence that a specific OpenClaw provider/session constraint is the blocker and document the exact operator requirement to satisfy it.
 
-### Repo-side fix now pushed
-- helper-agent default is now **local-only**
-- tracked `config/helper-agent.json` now sets `bootstrapViaGateway: false`
-- helper workspace/instructions still sync on startup
-- helper status now reports:
-  - `status: "ready_local_only"`
-  - `gatewayBootstrap: "skipped"` by default
-- ClawBridge only attempts `sessions_spawn` when gateway bootstrap is explicitly enabled
-- `verify` now checks helper bootstrap readiness separately:
-  - default local-only mode passes with an informational note
-  - explicit gateway bootstrap fails if OpenClaw gateway permission for `sessions_spawn` is missing
+If the answer is "binding required," prove it clearly.
+If the answer is "works now," prove it clearly.
+If the answer is "provider limitation," prove it clearly.
 
-### Validation
-- focused helper tests added for:
-  - local-only default
-  - unsupported explicit bootstrap
-  - supported explicit bootstrap
-- install-like verify tests added for:
-  - local-only pass
-  - explicit unsupported bootstrap fail
-- full repo suite after the change:
-  - `npm test -- --runInBand` ✅ (`26` suites, `218` tests)
+No hand-waving.
 
-### Expected live behavior now
-- a normal install should no longer show green `verify` and then immediate helper `degraded`
-- instead it should stay healthy in local-only helper mode unless an operator explicitly turns on gateway bootstrap
+— PM
