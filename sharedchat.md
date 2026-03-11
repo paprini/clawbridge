@@ -28,104 +28,123 @@ Launch providers:
 This is **not** a full architecture failure.
 This is a **Telegram <-> Discord pair-specific blocker**.
 
-WhatsApp is proving the session-first model can work.
-The remaining problem is that Telegram and Discord still do not interoperate correctly with each other under the same model.
+WhatsApp proves the session-first model can work.
+The remaining issue is provider-bound session availability / matching for the Telegram <-> Discord pair.
 
 ---
 
-## Latest hard evidence
-### Commit: `10206ab`
-Verification is now stronger and exposes a key difference:
+## Combined hard evidence
 
-- **WhatsApp** has a real provider-bound direct session row, e.g.
-  - `agent:main:whatsapp:direct:+16504604060`
-- **Telegram** for the same user identity is currently appearing on:
-  - `agent:main:main`
-  - with `deliveryContext.channel = telegram`
-  - and matching `lastTo`
+### Telegram node (monti-telegram)
+**HEAD:** `f71b9e7`
 
-### Current interpretation
-This strongly suggests Telegram direct conversations may still be collapsing into the **main session**, while WhatsApp is not.
+#### Telegram target proof
+Command:
+```bash
+node src/cli.js session-proof telegram 5914004682
+```
+Result:
+- `provider_bound: true`
+- `collapsed_to_non_provider_session: false`
 
-### New direct-session probe
-- `node src/cli.js session-proof telegram <target>`
-- `node src/cli.js session-proof discord <target>`
-- output shows:
-  - pinned local OpenClaw agent id
-  - session store path
-  - whether a provider-bound direct session exists
-  - whether the target currently collapses into `agent:...:main`
-  - exact matching session rows
+Evidence includes real provider-bound rows such as:
+- `agent:main:telegram:direct:5914004682`
+- `agent:main:telegram:direct:5914004682:thread:5914004682:2834`
 
-### Network note
-- From this machine, the documented private node addresses `10.0.1.10`, `10.0.1.11`, and `10.0.1.12` timed out.
-- The real pair report evidence must be collected on those nodes with `session-proof`.
+#### Discord target proof from Telegram node
+Command:
+```bash
+node src/cli.js session-proof discord 1480310282961289216
+```
+Result:
+- `provider_bound: false`
+- `collapsed_to_non_provider_session: false`
+- `matching_rows: []`
 
-That is important evidence.
-It is **not yet** a final blocker resolution.
+**Meaning:** Telegram local binding exists. Discord target is not provider-bound on that node.
 
 ---
 
-## Directive to gipiti — Finish the job
-Good. The verification work was useful.
-Now stop changing abstractions and use that evidence to close the blocker.
+### Discord node
+**HEAD:** `f71b9e7`
 
-### Required next action
-You must now run the real pair-by-pair result report.
+#### Verify
+`npm run verify` result:
+- `20 passed, 1 failed`
+- only failing check:
+  - repository peers policy
+- this is a local config-policy issue, **not** the interoperability blocker
 
-#### Test these failing directions explicitly
-- Telegram -> Discord
-- Discord -> Telegram
+#### Discord target proof
+Command:
+```bash
+node src/cli.js session-proof discord 1480310282961289216
+```
+Result:
+- `provider_bound: false`
+- `collapsed_to_non_provider_session: false`
+- `matching_rows: []`
 
-#### Keep these as controls
-- WhatsApp -> Telegram
-- Telegram -> WhatsApp
-- WhatsApp -> Discord
-- Discord -> WhatsApp
+#### Telegram target proof from Discord node
+Command:
+```bash
+node src/cli.js session-proof telegram 5914004682
+```
+Result:
+- `provider_bound: false`
+- `collapsed_to_non_provider_session: false`
+- `matching_rows: []`
 
-### Deliver exactly this
-For **Telegram -> Discord** and **Discord -> Telegram**, report:
+#### Additional Discord-node facts
+Session storage shows channel rows like:
+- `agent:main:discord:channel:1480310282961289216`
+- `agent:main:discord:channel:5914004682`
 
-1. **Exact test performed**
-   - sender node
-   - target node
-   - target used
-   - whether a provider-bound direct session already existed beforehand
+But the direct-session proof still reports **no matching provider-bound row** for either tested target.
 
-2. **Result shape**
-   - `binding_required`
-   - real success with provider-bound `openclaw_session_id`
-   - or another exact failure
+---
 
-3. **Target-side facts**
-   - `npm run verify` output
-   - OpenClaw `session.dmScope`
-   - whether the target session row is provider-bound or collapsed onto `agent:...:main`
+## Current interpretation
+This evidence now points much more strongly at a **Discord-side provider-bound session availability / matching problem**.
 
-4. **Exact difference from the working WhatsApp control path**
-   - observed difference only
-   - not guesses
+### What is now proven
+- Telegram target is provider-bound on the Telegram node ✅
+- Discord target is not provider-bound on the Telegram node ❌
+- Discord target is not provider-bound on the Discord node ❌
+- Telegram target is not provider-bound on the Discord node ❌
 
-5. **Final conclusion**
-   - works now
-   - binding/operator requirement
-   - provider limitation
-   - or exact next code fix justified by evidence
+### What this means
+The blocker is no longer best explained as “Telegram collapses to main.”
+The stronger working hypothesis is:
+
+> The Discord side is not exposing or matching the provider-bound session rows that the session-first model requires for the tested Telegram/Discord targets.
+
+### Important nuance
+The current Discord-node proof does **not** show collapse to `agent:main:main`.
+It shows **no provider-bound matching row**.
+
+That is the sharper diagnosis.
+
+---
+
+## Directive to gipiti — next move
+Do **not** add more tooling right now.
+Use the combined evidence above and finish the blocker analysis.
+
+### Your job now
+Determine exactly why the Discord node does not expose a provider-bound matching row for the tested targets while Telegram does for its local Telegram target.
+
+### Required next answer
+Report one of these with evidence:
+1. exact Discord-side operator/setup requirement to create the needed provider-bound session row
+2. exact OpenClaw provider/session limitation causing the gap
+3. exact code fix if the matching logic is still wrong on the Discord path
 
 ### Quality bar
-Do not respond with vague language.
-Do not respond with repo narration.
-Do not respond with another verification-only pass.
-
-This task is only complete when you provide the actual pair result report.
-
-### Passing condition
-This blocker is only resolved when one of these is true:
-1. Telegram <-> Discord works as real remote session execution, proven.
-2. You prove with hard evidence that a specific provider/session constraint is the blocker and document the exact operator requirement.
-
-No hand-waving.
-No more clutter.
-Finish the pair report.
+- No vague language
+- No repo narration
+- No more general verification work
+- Use the evidence already gathered
+- Close the blocker explanation
 
 — PM
