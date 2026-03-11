@@ -3,107 +3,129 @@
 Use this file only for the **current blocker**, the **latest validated state**, and the **next required action**.
 Archive everything else.
 
-## Current Blocker — 2026-03-11
+## Current blocker — 2026-03-11
 
 ### Product direction
-ClawBridge launch quality requires **session-first agent-to-agent communication** with real provider-bound execution semantics.
+ClawBridge launch quality requires real **session-first agent-to-agent activation** across providers, not plain text relay.
 
 Launch providers:
 - Telegram
 - Discord
 - WhatsApp
 
-### New live bug
-**Cross-provider messages can arrive as plain relayed text without activating the receiving local agent session.**
+### Current live bug
+Messages can be delivered across providers, but live behavior is still reporting cases where the destination receives plain text without clearly activating the receiving agent session.
 
-In other words:
-- delivery succeeds
-- text appears on the destination provider
-- but it behaves like raw relay text, not like a real agent-to-agent session turn
-
-That means the blocker is **not solved**.
+That means the launch blocker is **not solved** until live activation behavior is proven, not just repo-side tests.
 
 ---
 
-## Live evidence from Discord side
+## Latest validated repo-side state
 
-### Observed behavior
-PM reports the same pattern on both sides:
-- both ends receive messages
-- but they do **not** activate as sessions between agents
-- they behave like plain relay text only
+### Telegram node (from PM GDrive feedback)
+**Node:** `monti-telegram`
+**HEAD:** `d89a5b6`
 
-### Local Discord-side log evidence
-Recent local ClawBridge log:
-```text
-[INFO] Sending chat message via gateway target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 targetAlias=null messageLength=14 channel=discord openclawDispatchAgentId=null openclawTargetSessionKey=null
-[INFO] Gateway message send result target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 channel=discord gatewayResult=[object Object]
-[AUDIT] Skill call peer=__shared__ skill=chat success=true durationMs=422
-```
+#### Verify
+- `21 passed, 0 failed`
 
-And similarly for later messages:
+#### Test suite
+- `28 suites passed`
+- `1 suite failed`
+- `231 tests passed`
+- `1 test failed`
+
+#### Only failing test
+- `tests/unit/repo-policy.test.js`
+
+#### Meaning
+This is explicitly a **repo-policy / environment mismatch** because `config/peers.json` exists on a live install as active runtime config.
+It is **not** evidence of runtime/protocol failure.
+
+---
+
+### Discord node (local rerun)
+**Node:** Discord/local node
+**HEAD:** `d89a5b6`
+
+#### Verify
+- `20 passed, 1 failed`
+- only failing check:
+  - repository peers policy
+
+#### Test suite
+- `28 suites passed`
+- `1 suite failed`
+- `231 tests passed`
+- `1 test failed`
+
+#### Only failing test
+- `tests/unit/repo-policy.test.js`
+
+#### Meaning
+Same conclusion as Telegram node:
+- local/config policy mismatch only
+- not a runtime/protocol failure
+
+---
+
+## Important repo-side signal
+A new integration path is now passing on latest code:
+
+- `promotes relayed local-target aliases into session-first activation on the receiving peer` ✅
+
+This is relevant because it is directly aimed at the live bug we were chasing.
+
+Repo-side code/tests are now strong enough that the remaining uncertainty is **live behavior**, not basic internal coverage.
+
+---
+
+## Live blocker evidence still open
+PM reports the same live symptom still needs resolution:
+- both sides can receive messages
+- but some paths still look like plain relay text
+- not clearly activated agent-to-agent sessions
+
+Discord-side local logs previously showed lines like:
 ```text
 openclawDispatchAgentId=null
 openclawTargetSessionKey=null
 ```
 
-### Root cause
-The session-first branch only activated when `_agentDelivery` was present.
-
-In the live path that PM surfaced, the source side was relaying a **plain local-target alias** to the peer:
-- target/channel matched the receiving node's own `default_delivery`
-- `_relay` was present
-- but `_agentDelivery` was not
-
-That made the receiving node fall through to:
-- gateway `message` send
-- plain visible text delivery
-
-instead of:
-- local OpenClaw session activation
+That remains the most important live-side clue.
 
 ---
 
-## Current interpretation
-The code path bug is now fixed.
+## Directive to gipiti — hard push
+Stop treating repo-side green as blocker closure.
 
-New behavior:
-- if a peer relay arrives with `_relay`
-- and its target/channel matches the receiving node's own `default_delivery`
-- and the relay has **not** already returned home
+### What is now true
+- repo-side tests are strong
+- both nodes show the same single non-runtime red item: repository peers policy
+- that failure is environmental / policy only
+- it does **not** explain the live activation bug
 
-ClawBridge now promotes that inbound relay to session-first activation automatically instead of falling through to plain gateway text delivery.
+### Your job now
+Focus only on the live activation mismatch.
 
-This does **not** hijack the final return-home visible reply path, because the promotion is blocked once the relay path already includes the current local agent id.
+### Required next answer
+Explain, with evidence, why live cross-provider delivery can still appear as plain text relay instead of activated local agent session behavior, despite:
+- repo-side session-first tests passing
+- relay-to-local-target promotion test passing
+- verify passing except for repo policy
 
-### Local proof added
-Two-instance integration now covers the live-shaped case:
-- source node uses a contacts alias that relays a plain numeric/channel target to the peer
-- receiving peer auto-promotes it to session-first activation
-- no gateway `message` call is made on the receiving side
-- OpenClaw activation runs with:
-  - `deliver: false`
-  - bound session id
-  - correct reply target/channel
-
----
-
-## Directive to PM — rerun live pair now
-The fallback-to-plain-text relay bug has a concrete code fix now.
-
-Please rerun the same live pair that previously produced:
-- `openclawDispatchAgentId=null`
-- `openclawTargetSessionKey=null`
-
-Expected difference now:
-- receiving side should no longer take the gateway `message` path for that relayed local-target case
-- logs should show session-first activation fields populated
-- cross-provider message should activate the receiving local agent session instead of appearing as raw relay text
+### Required evidence
+Use actual live logs / runtime traces, not just test reasoning.
+Specifically address whether the live path is still falling back to gateway text send because:
+1. `openclawDispatchAgentId` is not being set
+2. `openclawTargetSessionKey` is not being resolved
+3. a required live alias/default-delivery/session binding is still missing
+4. or the runtime path differs from the tested integration assumptions
 
 ### Quality bar
 - No vague language
 - No repo narration
-- Use the same live scenario that previously failed
-- Confirm the fallback log pattern is gone
+- No more claiming solved from tests alone
+- Close the **live activation** blocker, not just the code-path theory
 
 — PM
