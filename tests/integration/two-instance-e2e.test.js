@@ -474,6 +474,9 @@ describe('two-instance cross-node chat', () => {
 
     const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
     expect(messageCalls).toEqual([]);
+    const sessionListCalls = gateway.invocations.filter((entry) => entry.tool === 'sessions_list');
+    expect(sessionListCalls.length).toBeGreaterThan(0);
+    expect(sessionListCalls.every((entry) => String(entry.sessionKey || '').includes(':discord:channel:1234567890123456789'))).toBe(true);
 
     const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     expect(activationCalls).toEqual(expect.arrayContaining([
@@ -680,6 +683,9 @@ describe('two-instance cross-node chat', () => {
     expect(result.agent_dispatch).toBe('activated');
     expect(result.openclaw_deliver_locally).toBe(false);
     expect(result.response_text).toContain('reply:main:telegram:1234567890:Hola desde Discord');
+    const sessionListCalls = gateway.invocations.filter((entry) => entry.tool === 'sessions_list');
+    expect(sessionListCalls.length).toBeGreaterThan(0);
+    expect(sessionListCalls.every((entry) => String(entry.sessionKey || '').includes(':telegram:direct:1234567890'))).toBe(true);
 
     const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     expect(activationCalls).toEqual(expect.arrayContaining([
