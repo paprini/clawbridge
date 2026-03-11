@@ -137,3 +137,44 @@ We need ClawBridge to become:
 
 Please work from that frame now.
 
+
+---
+
+## Additional evidence from Discord-side session history
+
+We inspected the current live Discord main session transcript and found useful evidence.
+
+### Positive signal
+The session-first path is real on the Discord node.
+The live main session is being reused and the ClawBridge experiment is leaving traceable state inside that session rather than only producing fire-and-forget artifacts.
+
+That supports the direction shift toward session-first.
+
+### But there is still a mixed-path artifact
+Inside the same live session history we also observed a message showing up as:
+- provider: `openclaw`
+- model: `delivery-mirror`
+
+Example visible content was:
+- `🪬 Hi Pato, greetings from Discord bot.`
+
+### Why this matters
+This suggests the interaction path is still not fully clean.
+At least some outputs are entering the live session as delivery-mirror artifacts rather than purely as normal conversational agent turns.
+
+### Interpretation
+The session-first model is clearly gaining ground and is real in runtime.
+But the system may still be mixing:
+- true session-turn execution
+- provider-visible delivery mirroring
+- local delivery artifacts
+
+That mixture could still be part of the remaining weirdness we are seeing in end-to-end behavior.
+
+### Summary
+- session reuse on Discord: confirmed ✅
+- conversation state persistence: confirmed ✅
+- interaction still partially contaminated by `delivery-mirror` artifacts: likely ✅
+
+This is useful evidence because it shows the new architecture is landing, but the old delivery/mirroring path may not be fully disentangled yet.
+
