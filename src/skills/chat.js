@@ -521,6 +521,7 @@ function getAgentDispatchConfig({ openclawAgentId, defaultDelivery, resolvedTarg
 
   return {
     dispatchAgentId: resolvedSessions.dispatchAgentId,
+    mainSessionKey: resolvedSessions.mainSessionKey,
     requesterSessionBehavior: normalizeRequesterSessionMode(dispatchConfig.requesterSessionKey),
     requesterSessionKey: resolvedSessions.requesterSessionKey,
     targetSessionKey: resolvedSessions.targetSessionKey,
@@ -856,6 +857,59 @@ function resolveAgentActivationOptions({ dispatchConfig, sessionRow, resolvedTar
     replyChannel,
     replyAccountId: delivery.accountId || null,
     timeoutSeconds: resolveAgentDispatchTimeoutSeconds(dispatchConfig),
+  };
+}
+
+function isDirectSessionDeliveryType(type) {
+  const normalized = normalizeDeliveryType(type, 'target');
+  return normalized !== 'channel' && normalized !== 'group';
+}
+
+function isDispatchMainSessionRow(sessionRow, dispatchConfig) {
+  if (!sessionRow?.key || !dispatchConfig?.mainSessionKey) {
+    return false;
+  }
+
+  return matchesGatewaySessionRow(sessionRow.key, dispatchConfig.mainSessionKey);
+}
+
+function getDirectSessionBindingFailure({
+  resolvedDelivery,
+  dispatchConfig,
+  sessionRow,
+  requestedTarget,
+  effectiveTarget,
+  resolvedTarget,
+  conversationId,
+  expectedTargetSessionKey,
+}) {
+  if (!isDirectSessionDeliveryType(resolvedDelivery?.type)) {
+    return null;
+  }
+
+  const sessionId = typeof sessionRow?.sessionId === 'string' && sessionRow.sessionId.trim().length > 0
+    ? sessionRow.sessionId.trim()
+    : null;
+  if (sessionId && !isDispatchMainSessionRow(sessionRow, dispatchConfig)) {
+    return null;
+  }
+
+  const deliveryChannel = resolvedDelivery?.channel || null;
+  const channelHint = deliveryChannel ? `${deliveryChannel} ` : '';
+
+  return {
+    error: 'No provider-bound direct OpenClaw session exists for this target.',
+    session_mode: 'session_first',
+    conversation_id: conversationId || null,
+    delivered_to: requestedTarget || effectiveTarget,
+    resolved_target: resolvedTarget,
+    channel: deliveryChannel || 'auto',
+    agent_dispatch: 'binding_required',
+    openclaw_session_id: null,
+    openclaw_target_session_key: dispatchConfig?.targetSessionKey || null,
+    openclaw_expected_session_key: expectedTargetSessionKey || dispatchConfig?.targetSessionKey || null,
+    details: 'OpenClaw direct agent turns fall back to the agent main session when no provider-bound direct session is available.',
+    suggestion: `Send one direct ${channelHint}message to this local agent first so OpenClaw creates the bound session, confirm session.dmScope is "per-channel-peer" or "per-account-channel-peer", then retry.`,
   };
 }
 
@@ -1207,6 +1261,7 @@ async function chat(params) {
         deliveryChannel: resolved.resolvedChannel || effectiveChannel,
         agentDeliveryMeta,
       });
+      const expectedTargetSessionKey = dispatchConfig?.targetSessionKey || null;
       let preDispatchInspection = dispatchConfig
         ? await inspectDispatchSession(dispatchConfig)
         : { row: null, sessions: [] };
@@ -1237,6 +1292,28 @@ async function chat(params) {
         resolvedTarget,
         deliveryChannel: resolved.resolvedChannel || effectiveChannel,
       });
+      const bindingFailure = getDirectSessionBindingFailure({
+        resolvedDelivery,
+        dispatchConfig,
+        sessionRow,
+        requestedTarget,
+        effectiveTarget,
+        resolvedTarget,
+        conversationId: agentDeliveryMeta.conversationId || null,
+        expectedTargetSessionKey,
+      });
+      if (bindingFailure) {
+        logger.warn('Inbound session-first direct delivery has no provider-bound session', {
+          conversationId: agentDeliveryMeta.conversationId || null,
+          target: requestedTarget || effectiveTarget,
+          resolvedTarget,
+          targetSessionKey: dispatchConfig?.targetSessionKey || null,
+          matchedSessionKey: sessionRow?.key || null,
+          matchedSessionId: sessionRow?.sessionId || null,
+          deliveryChannel: resolvedDelivery?.channel || resolved.resolvedChannel || effectiveChannel || null,
+        });
+        return bindingFailure;
+      }
       const canonicalActivationReplyTo = canonicalizeDeliveryTarget({
         type: resolvedDelivery.type,
         channel: activationOptions.replyChannel || resolvedDelivery.channel,

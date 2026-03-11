@@ -15,16 +15,22 @@ jest.mock('../../src/skills/chat', () => ({
 // Use a temp config dir without restrictive permissions
 const tmpDir = path.join(os.tmpdir(), `a2a-exec-test-${Date.now()}`);
 fs.mkdirSync(tmpDir, { recursive: true });
+const { version: packageVersion } = require('../../package.json');
 // Copy base configs without permissions.json
-fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'agent.json'), path.join(tmpDir, 'agent.json'));
+fs.writeFileSync(path.join(tmpDir, 'agent.json'), JSON.stringify({
+  id: 'executor-test-agent',
+  name: 'Executor Test Agent',
+  description: 'Executor test fixture',
+  url: 'http://127.0.0.1:9100/a2a',
+  version: packageVersion,
+}, null, 2));
 fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'skills.json'), path.join(tmpDir, 'skills.json'));
-fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'peers.json'), path.join(tmpDir, 'peers.json'));
+fs.writeFileSync(path.join(tmpDir, 'peers.json'), JSON.stringify({ peers: [] }, null, 2));
 fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({ enabled: false }));
 process.env.A2A_CONFIG_DIR = tmpDir;
 
 const { OpenClawExecutor } = require('../../src/executor');
 const { chat } = require('../../src/skills/chat');
-const { version: packageVersion } = require('../../package.json');
 const { buildMessageParts } = require('../../src/client');
 
 describe('OpenClawExecutor', () => {

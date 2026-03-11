@@ -6,20 +6,44 @@ const os = require('os');
 
 const tmpDir = path.join(os.tmpdir(), `a2a-sec-test-${Date.now()}`);
 fs.mkdirSync(tmpDir, { recursive: true });
-fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'agent.json'), path.join(tmpDir, 'agent.json'));
 fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'skills.json'), path.join(tmpDir, 'skills.json'));
-fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'peers.json'), path.join(tmpDir, 'peers.json'));
+fs.writeFileSync(path.join(tmpDir, 'agent.json'), JSON.stringify({
+  id: 'security-test-agent',
+  name: 'Security Test Agent',
+  description: 'Security test fixture',
+  url: 'http://127.0.0.1:9100/a2a',
+  version: '0.2.0',
+}, null, 2));
+fs.writeFileSync(path.join(tmpDir, 'peers.json'), JSON.stringify({ peers: [] }, null, 2));
 fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({ enabled: false }));
-process.env.A2A_CONFIG_DIR = tmpDir;
-process.env.A2A_SHARED_TOKEN = 'security_test_token';
 
 const request = require('supertest');
-const { createServer } = require('../../src/server');
+
+function loadFreshServer() {
+  delete require.cache[require.resolve('../../src/server')];
+  delete require.cache[require.resolve('../../src/auth')];
+  delete require.cache[require.resolve('../../src/config')];
+  delete require.cache[require.resolve('../../src/rate-limiter')];
+  delete require.cache[require.resolve('../../src/ddos-protection')];
+  return require('../../src/server').createServer();
+}
 
 describe('Security Tests', () => {
   let app;
-  beforeAll(() => { app = createServer(); });
-  afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+  const originalConfigDir = process.env.A2A_CONFIG_DIR;
+  const originalSharedToken = process.env.A2A_SHARED_TOKEN;
+
+  beforeEach(() => {
+    process.env.A2A_CONFIG_DIR = tmpDir;
+    process.env.A2A_SHARED_TOKEN = 'security_test_token';
+    app = loadFreshServer();
+  });
+
+  afterAll(() => {
+    process.env.A2A_CONFIG_DIR = originalConfigDir;
+    process.env.A2A_SHARED_TOKEN = originalSharedToken;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 
   describe('Auth bypass attempts', () => {
     test('rejects empty Authorization header', async () => {

@@ -54,20 +54,32 @@ function parseRequestBody(req) {
   });
 }
 
-function createFakeGatewayServer({ token }) {
+function createFakeGatewayServer({ token, collapsedDirectChannels = [] }) {
   const invocations = [];
+  const collapsedDirectChannelSet = new Set(
+    Array.isArray(collapsedDirectChannels)
+      ? collapsedDirectChannels
+        .map((entry) => (typeof entry === 'string' ? entry.trim().toLowerCase() : ''))
+        .filter(Boolean)
+      : []
+  );
 
   function buildSessionRow(sessionKey) {
     const trimmed = typeof sessionKey === 'string' ? sessionKey.trim() : '';
     const parts = trimmed.split(':').filter(Boolean);
+    const agentId = parts.length >= 2 ? parts[1] : 'main';
     const channel = parts.length >= 5 ? parts[2] : null;
     const peerKind = parts.length >= 5 ? parts[3] : null;
     const to = parts.length >= 5 ? parts.slice(4).join(':') : null;
     const accountId = peerKind === 'direct' && parts.length >= 6 ? null : null;
+    const shouldCollapseDirect = peerKind === 'direct'
+      && channel
+      && collapsedDirectChannelSet.has(String(channel).trim().toLowerCase());
+    const key = shouldCollapseDirect ? `agent:${agentId}:main` : trimmed;
 
     return {
-      key: trimmed,
-      sessionId: `sid-${Buffer.from(trimmed).toString('hex').slice(0, 12)}`,
+      key,
+      sessionId: `sid-${Buffer.from(key).toString('hex').slice(0, 12)}`,
       deliveryContext: {
         channel,
         to,
@@ -584,5 +596,183 @@ describe('two-instance cross-node chat', () => {
         replyTo: 'channel:1234567890123456789',
       }),
     ]));
+  });
+
+  test('runs a direct Telegram target as a session-first turn when a bound provider session exists', async () => {
+    rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-two-instance-direct-ok-'));
+    const { cliPath, logPath } = writeFakeOpenClawCli(rootDir);
+    const gatewayToken = 'gateway-token-test';
+    gateway = createFakeGatewayServer({ token: gatewayToken });
+    gatewayPort = await getFreePort();
+    await gateway.listen(gatewayPort);
+
+    const portA = await getFreePort();
+    const portB = await getFreePort();
+    const sharedToken = 'local-shared-test-token';
+    const pairToken = 'pair-peer-token-abcdef1234567890';
+
+    const configDirA = path.join(rootDir, 'instance-a');
+    const configDirB = path.join(rootDir, 'instance-b');
+    const gatewayConfigA = path.join(rootDir, 'openclaw-a.json');
+    const gatewayConfigB = path.join(rootDir, 'openclaw-b.json');
+    writeGatewayConfig(gatewayConfigA, gatewayToken);
+    writeGatewayConfig(gatewayConfigB, gatewayToken);
+
+    writeInstanceConfig({
+      configDir: configDirA,
+      agentId: 'example-telegram-agent',
+      name: 'Monti Telegram',
+      url: `http://127.0.0.1:${portA}/a2a`,
+      defaultDelivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
+      peer: { id: 'example-discord-agent', url: `http://127.0.0.1:${portB}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigA,
+    });
+
+    writeInstanceConfig({
+      configDir: configDirB,
+      agentId: 'example-discord-agent',
+      name: 'Example Discord Agent',
+      url: `http://127.0.0.1:${portB}/a2a`,
+      defaultDelivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
+      peer: { id: 'example-telegram-agent', url: `http://127.0.0.1:${portA}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigB,
+    });
+
+    instanceA = startInstance({ configDir: configDirA, port: portA, openclawBin: cliPath, sharedToken });
+    instanceB = startInstance({ configDir: configDirB, port: portB, openclawBin: cliPath, sharedToken });
+
+    await waitForHealth(instanceA.url, instanceA.child);
+    await waitForHealth(instanceB.url, instanceB.child);
+
+    const res = await fetch(`${instanceB.url}/a2a`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sharedToken}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 3,
+        method: 'message/send',
+        params: {
+          message: {
+            kind: 'message',
+            messageId: 'two-instance-3',
+            role: 'user',
+            parts: [
+              { kind: 'text', text: 'chat' },
+              { kind: 'text', text: JSON.stringify({ target: '@example-telegram-agent', message: 'Hola desde Discord' }) },
+            ],
+          },
+        },
+      }),
+    });
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    const result = JSON.parse(body.result.parts[0].text);
+
+    expect(result.success).toBe(true);
+    expect(result.relayed_via).toBe('example-telegram-agent');
+    expect(result.session_mode).toBe('session_first');
+    expect(result.agent_dispatch).toBe('activated');
+    expect(result.openclaw_deliver_locally).toBe(false);
+    expect(result.response_text).toContain('reply:main:telegram:1234567890:Hola desde Discord');
+
+    const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    expect(activationCalls).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sessionId: expect.stringMatching(/^sid-/),
+        channel: 'telegram',
+        deliver: false,
+        replyTo: '1234567890',
+      }),
+    ]));
+  });
+
+  test('fails fast instead of silently using the main session for direct Telegram delivery', async () => {
+    rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-two-instance-direct-fail-'));
+    const { cliPath, logPath } = writeFakeOpenClawCli(rootDir);
+    const gatewayToken = 'gateway-token-test';
+    gateway = createFakeGatewayServer({ token: gatewayToken, collapsedDirectChannels: ['telegram'] });
+    gatewayPort = await getFreePort();
+    await gateway.listen(gatewayPort);
+
+    const portA = await getFreePort();
+    const portB = await getFreePort();
+    const sharedToken = 'local-shared-test-token';
+    const pairToken = 'pair-peer-token-abcdef1234567890';
+
+    const configDirA = path.join(rootDir, 'instance-a');
+    const configDirB = path.join(rootDir, 'instance-b');
+    const gatewayConfigA = path.join(rootDir, 'openclaw-a.json');
+    const gatewayConfigB = path.join(rootDir, 'openclaw-b.json');
+    writeGatewayConfig(gatewayConfigA, gatewayToken);
+    writeGatewayConfig(gatewayConfigB, gatewayToken);
+
+    writeInstanceConfig({
+      configDir: configDirA,
+      agentId: 'example-telegram-agent',
+      name: 'Monti Telegram',
+      url: `http://127.0.0.1:${portA}/a2a`,
+      defaultDelivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
+      peer: { id: 'example-discord-agent', url: `http://127.0.0.1:${portB}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigA,
+    });
+
+    writeInstanceConfig({
+      configDir: configDirB,
+      agentId: 'example-discord-agent',
+      name: 'Example Discord Agent',
+      url: `http://127.0.0.1:${portB}/a2a`,
+      defaultDelivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
+      peer: { id: 'example-telegram-agent', url: `http://127.0.0.1:${portA}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigB,
+    });
+
+    instanceA = startInstance({ configDir: configDirA, port: portA, openclawBin: cliPath, sharedToken });
+    instanceB = startInstance({ configDir: configDirB, port: portB, openclawBin: cliPath, sharedToken });
+
+    await waitForHealth(instanceA.url, instanceA.child);
+    await waitForHealth(instanceB.url, instanceB.child);
+
+    const res = await fetch(`${instanceB.url}/a2a`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sharedToken}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 4,
+        method: 'message/send',
+        params: {
+          message: {
+            kind: 'message',
+            messageId: 'two-instance-4',
+            role: 'user',
+            parts: [
+              { kind: 'text', text: 'chat' },
+              { kind: 'text', text: JSON.stringify({ target: '@example-telegram-agent', message: 'Hola desde Discord' }) },
+            ],
+          },
+        },
+      }),
+    });
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    const result = JSON.parse(body.result.parts[0].text);
+
+    expect(result.error).toContain('No provider-bound direct OpenClaw session exists');
+    expect(result.session_mode).toBe('session_first');
+    expect(result.agent_dispatch).toBe('binding_required');
+    expect(result.openclaw_target_session_key).toBe('agent:main:main');
+    expect(result.openclaw_expected_session_key).toBe('agent:main:telegram:direct:1234567890');
+    expect(fs.existsSync(logPath)).toBe(false);
   });
 });

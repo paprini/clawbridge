@@ -7,9 +7,15 @@ const os = require('os');
 // Isolated config with permissions
 const tmpDir = path.join(os.tmpdir(), `a2a-pipeline-test-${Date.now()}`);
 fs.mkdirSync(tmpDir, { recursive: true });
-fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'agent.json'), path.join(tmpDir, 'agent.json'));
 fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'skills.json'), path.join(tmpDir, 'skills.json'));
-fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'peers.json'), path.join(tmpDir, 'peers.json'));
+fs.writeFileSync(path.join(tmpDir, 'agent.json'), JSON.stringify({
+  id: 'pipeline-test-agent',
+  name: 'Pipeline Test Agent',
+  description: 'Pipeline test fixture',
+  url: 'http://127.0.0.1:9100/a2a',
+  version: '0.2.0',
+}, null, 2));
+fs.writeFileSync(path.join(tmpDir, 'peers.json'), JSON.stringify({ peers: [] }, null, 2));
 fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({ enabled: false }));
 
 // Permissions: allow 'allowed-peer' ping+get_status, deny 'denied-peer'
@@ -28,18 +34,35 @@ fs.writeFileSync(path.join(tmpDir, 'rate-limits.json'), JSON.stringify({
   per_skill: {},
 }));
 
-process.env.A2A_CONFIG_DIR = tmpDir;
-process.env.A2A_SHARED_TOKEN = 'pipeline_test_token';
-
 const request = require('supertest');
-const { createServer } = require('../../src/server');
+
+function loadFreshServer() {
+  delete require.cache[require.resolve('../../src/server')];
+  delete require.cache[require.resolve('../../src/auth')];
+  delete require.cache[require.resolve('../../src/config')];
+  delete require.cache[require.resolve('../../src/rate-limiter')];
+  delete require.cache[require.resolve('../../src/ddos-protection')];
+  return require('../../src/server').createServer();
+}
 
 describe('Full Pipeline Integration', () => {
   let app;
-  beforeAll(() => { app = createServer(); });
-  afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
+  const originalConfigDir = process.env.A2A_CONFIG_DIR;
+  const originalSharedToken = process.env.A2A_SHARED_TOKEN;
 
-  const auth = { Authorization: 'Bearer pipeline_test_token' };
+  beforeEach(() => {
+    process.env.A2A_CONFIG_DIR = tmpDir;
+    process.env.A2A_SHARED_TOKEN = 'pipeline_test_token_1234567890abcdef';
+    app = loadFreshServer();
+  });
+
+  afterAll(() => {
+    process.env.A2A_CONFIG_DIR = originalConfigDir;
+    process.env.A2A_SHARED_TOKEN = originalSharedToken;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  const auth = { Authorization: 'Bearer pipeline_test_token_1234567890abcdef' };
 
   function sendMessage(text) {
     return request(app).post('/a2a').set(auth).set('Content-Type', 'application/json').send({

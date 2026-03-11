@@ -177,6 +177,8 @@ Fixes:
 - inspect `sessions_list` and confirm the target session has a row whose `deliveryContext` matches the real local destination; ClawBridge now reuses that row's `sessionId` when it can
 - if logs or session history show the turn landing on `agent:main:main` instead of the intended provider-bound session, update to the current ClawBridge build; explicit `sessionId` turns no longer pass `--agent`
 - if there is no matching row yet, confirm `config/agent.json -> default_delivery` points to the real local destination where that agent should answer
+- for direct Telegram / Discord / WhatsApp delivery, make the local user message that agent once first; current ClawBridge builds now fail with `agent_dispatch: "binding_required"` instead of silently reusing the main session
+- if `npm run verify` reports `session.dmScope`, change OpenClaw to `per-channel-peer` or `per-account-channel-peer` before testing cross-agent DMs
 - for Discord, make sure `config/agent.json -> default_delivery.type` matches the actual destination kind; ClawBridge now canonicalizes the final target as `user:<id>` or `channel:<id>` from that field
 - keep ClawBridge on the current version so inbound cross-agent activation runs as a session-first `openclaw agent --json` turn without local provider delivery
 - make sure `config/agent.json -> id` is unique across all ClawBridge peers; if `npm run verify` reports a peer/local id collision, rename one side before using `@agent-name`

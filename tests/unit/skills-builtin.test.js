@@ -18,7 +18,12 @@ jest.mock('../../src/config', () => ({
 
 const { callOpenClawTool, loadBridgeConfig } = require('../../src/bridge');
 const { callPeerSkill, callPeers } = require('../../src/client');
-const { invokeGatewayTool, resolveGatewayDefaultAgentId, runOpenClawAgentTurn } = require('../../src/openclaw-gateway');
+const {
+  invokeGatewayTool,
+  loadGatewayConfig,
+  resolveGatewayDefaultAgentId,
+  runOpenClawAgentTurn,
+} = require('../../src/openclaw-gateway');
 const { loadAgentConfig, loadContactsConfig, loadPeersConfig } = require('../../src/config');
 
 describe('Built-in Skills', () => {
@@ -31,6 +36,11 @@ describe('Built-in Skills', () => {
     loadAgentConfig.mockReturnValue({ id: 'local-agent', url: 'http://10.0.1.10:9100/a2a', openclaw_agent_id: null, default_delivery: null });
     loadContactsConfig.mockReturnValue({ aliases: {} });
     loadPeersConfig.mockReturnValue([]);
+    loadGatewayConfig.mockReturnValue({
+      session: {
+        dmScope: 'per-channel-peer',
+      },
+    });
     invokeGatewayTool.mockImplementation(async (toolName) => {
       if (toolName === 'sessions_list') {
         return { sessions: [] };
@@ -534,6 +544,74 @@ describe('Built-in Skills', () => {
       }));
       expect(result.success).toBe(true);
       expect(result.agent_dispatch).toBe('activated');
+    });
+
+    it('fails fast when a direct inbound turn has no matching provider-bound session', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'telegram-agent',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
+      });
+      invokeGatewayTool.mockResolvedValue({ sessions: [] });
+
+      const result = await chat({
+        message: 'Hola from Discord',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'discord-agent',
+          requestedTarget: '@telegram-agent',
+          conversationId: 'conv-no-bound-session',
+        },
+      });
+
+      expect(runOpenClawAgentTurn).not.toHaveBeenCalled();
+      expect(result.error).toContain('No provider-bound direct OpenClaw session exists');
+      expect(result.session_mode).toBe('session_first');
+      expect(result.agent_dispatch).toBe('binding_required');
+      expect(result.conversation_id).toBe('conv-no-bound-session');
+      expect(result.suggestion).toContain('Send one direct telegram message');
+    });
+
+    it('fails fast when a direct inbound turn only resolves to the agent main session', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'telegram-agent',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
+      });
+      invokeGatewayTool.mockImplementation(async (toolName) => {
+        if (toolName === 'sessions_list') {
+          return {
+            sessions: [
+              {
+                key: 'agent:main:main',
+                sessionId: 'main-session-id',
+                deliveryContext: { channel: 'telegram', to: '1234567890' },
+                lastChannel: 'telegram',
+                lastTo: '1234567890',
+              },
+            ],
+          };
+        }
+
+        return {};
+      });
+
+      const result = await chat({
+        message: 'Hola from Discord',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'discord-agent',
+          requestedTarget: '@telegram-agent',
+          conversationId: 'conv-main-fallback',
+        },
+      });
+
+      expect(runOpenClawAgentTurn).not.toHaveBeenCalled();
+      expect(result.error).toContain('No provider-bound direct OpenClaw session exists');
+      expect(result.agent_dispatch).toBe('binding_required');
+      expect(result.openclaw_session_id).toBeNull();
+      expect(result.openclaw_target_session_key).toBe('agent:main:main');
+      expect(result.openclaw_expected_session_key).toBe('agent:main:telegram:direct:1234567890');
     });
 
     it('does not switch to a different local OpenClaw agent just because another binding owns the delivery channel', async () => {

@@ -7,23 +7,44 @@ const os = require('os');
 // Use temp config dir without restrictive permissions
 const tmpDir = path.join(os.tmpdir(), `a2a-int-test-${Date.now()}`);
 fs.mkdirSync(tmpDir, { recursive: true });
-fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'agent.json'), path.join(tmpDir, 'agent.json'));
+const { version: packageVersion } = require('../../package.json');
+fs.writeFileSync(path.join(tmpDir, 'agent.json'), JSON.stringify({
+  id: 'integration-test-agent',
+  name: 'Integration Test Agent',
+  description: 'Integration test fixture',
+  url: 'http://127.0.0.1:9100/a2a',
+  version: packageVersion,
+}, null, 2));
 fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'skills.json'), path.join(tmpDir, 'skills.json'));
-fs.copyFileSync(path.join(__dirname, '..', '..', 'config', 'peers.json'), path.join(tmpDir, 'peers.json'));
+fs.writeFileSync(path.join(tmpDir, 'peers.json'), JSON.stringify({ peers: [] }, null, 2));
 fs.writeFileSync(path.join(tmpDir, 'bridge.json'), JSON.stringify({ enabled: false }));
-process.env.A2A_CONFIG_DIR = tmpDir;
-process.env.A2A_SHARED_TOKEN = 'integration_test_token';
 
 const request = require('supertest');
-const { createServer } = require('../../src/server');
-const { version: packageVersion } = require('../../package.json');
+
+function loadFreshServer() {
+  delete require.cache[require.resolve('../../src/server')];
+  delete require.cache[require.resolve('../../src/auth')];
+  delete require.cache[require.resolve('../../src/config')];
+  delete require.cache[require.resolve('../../src/rate-limiter')];
+  delete require.cache[require.resolve('../../src/ddos-protection')];
+  return require('../../src/server').createServer();
+}
 
 describe('A2A Server Integration', () => {
-  afterAll(() => fs.rmSync(tmpDir, { recursive: true, force: true }));
   let app;
+  const originalConfigDir = process.env.A2A_CONFIG_DIR;
+  const originalSharedToken = process.env.A2A_SHARED_TOKEN;
 
-  beforeAll(() => {
-    app = createServer();
+  beforeEach(() => {
+    process.env.A2A_CONFIG_DIR = tmpDir;
+    process.env.A2A_SHARED_TOKEN = 'integration_test_token_1234567890abcdef';
+    app = loadFreshServer();
+  });
+
+  afterAll(() => {
+    process.env.A2A_CONFIG_DIR = originalConfigDir;
+    process.env.A2A_SHARED_TOKEN = originalSharedToken;
+    fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
   describe('GET /health', () => {
@@ -92,7 +113,7 @@ describe('A2A Server Integration', () => {
     test('ping returns pong', async () => {
       const res = await request(app)
         .post('/a2a')
-        .set('Authorization', 'Bearer integration_test_token')
+        .set('Authorization', 'Bearer integration_test_token_1234567890abcdef')
         .set('Content-Type', 'application/json')
         .send({
           jsonrpc: '2.0',
@@ -121,7 +142,7 @@ describe('A2A Server Integration', () => {
     test('get_status returns agent info', async () => {
       const res = await request(app)
         .post('/a2a')
-        .set('Authorization', 'Bearer integration_test_token')
+        .set('Authorization', 'Bearer integration_test_token_1234567890abcdef')
         .set('Content-Type', 'application/json')
         .send({
           jsonrpc: '2.0',
@@ -148,7 +169,7 @@ describe('A2A Server Integration', () => {
     test('unknown skill returns error in response', async () => {
       const res = await request(app)
         .post('/a2a')
-        .set('Authorization', 'Bearer integration_test_token')
+        .set('Authorization', 'Bearer integration_test_token_1234567890abcdef')
         .set('Content-Type', 'application/json')
         .send({
           jsonrpc: '2.0',

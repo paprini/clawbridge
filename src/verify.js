@@ -68,6 +68,15 @@ function normalizeDeliveryType(value) {
   return normalized;
 }
 
+function normalizeDmScope(value) {
+  const normalized = typeof value === 'string' ? value.trim().toLowerCase() : '';
+  if (['per-account-channel-peer', 'per-channel-peer', 'per-peer', 'main'].includes(normalized)) {
+    return normalized;
+  }
+
+  return '';
+}
+
 function looksLikeBareNumericTarget(value) {
   return typeof value === 'string' && /^\d+$/.test(value.trim());
 }
@@ -395,6 +404,7 @@ check('agent-to-agent dispatch readiness', () => {
       .map((agent) => normalizeAgentId(agent?.id))
       .filter(Boolean)
     : ['main'];
+  const gatewayDmScope = normalizeDmScope(gatewayConfig?.session?.dmScope) || 'main';
   const agent = loadJSON('agent.json');
   const configuredDispatchAgentId = normalizeAgentId(dispatch.agentId || agent?.openclaw_agent_id);
   const bindings = Array.isArray(gatewayConfig?.bindings) ? gatewayConfig.bindings : [];
@@ -417,6 +427,9 @@ check('agent-to-agent dispatch readiness', () => {
   const defaultDeliveryKind = typeof defaultDelivery?.type === 'string' && defaultDelivery.type.trim().toLowerCase() === 'channel'
     ? 'channel'
     : 'direct';
+  if (defaultDeliveryKind === 'direct' && !['per-channel-peer', 'per-account-channel-peer'].includes(gatewayDmScope)) {
+    return `OpenClaw session.dmScope is "${gatewayConfig?.session?.dmScope || 'main'}". Direct session-first delivery needs "per-channel-peer" or "per-account-channel-peer" so Telegram/Discord/WhatsApp DMs do not collapse into the agent main session.`;
+  }
   const hasMatchingBinding = defaultDeliveryChannel && defaultDeliveryTarget
     ? bindings.some((binding) => normalizeAgentId(binding?.agentId)
         && String(binding?.match?.channel || '').trim().toLowerCase() === defaultDeliveryChannel
@@ -426,6 +439,10 @@ check('agent-to-agent dispatch readiness', () => {
 
   if (knownAgentIds.length > 1 && defaultDeliveryChannel && defaultDeliveryTarget && !hasMatchingBinding && configuredDispatchAgentId) {
     console.log('    ℹ️  No explicit OpenClaw binding matches agent.json default_delivery. ClawBridge will keep the pinned local agent identity and use delivery metadata/default delivery for the reply destination.');
+  }
+
+  if (defaultDeliveryKind === 'direct' && defaultDeliveryChannel && defaultDeliveryTarget) {
+    console.log(`    ℹ️  Direct session-first delivery on ${defaultDeliveryChannel} needs an existing local DM/session with ${defaultDeliveryTarget}. Have that user message the agent once before testing @agent from another node.`);
   }
 
   return true;

@@ -35,7 +35,7 @@ describe('Input Validation', () => {
     });
 
     test('rejects URLs with credentials', () => {
-      expect(validateUrl('http://user-pass-at-host.invalid').valid).toBe(false);
+      expect(validateUrl('http://user:pass@host.invalid').valid).toBe(false);
     });
 
     test('rejects invalid URLs', () => {
@@ -83,7 +83,7 @@ describe('Input Validation', () => {
 
   describe('sanitizeForLog', () => {
     test('redacts hex tokens', () => {
-      const input = 'token=HEX_TOKEN_PLACEHOLDER_64_CHARS';
+      const input = 'token=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef';
       expect(sanitizeForLog(input)).toContain('[REDACTED]');
     });
 

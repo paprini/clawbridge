@@ -76,6 +76,8 @@ graph TD
 - `broadcast`: fan a message out to multiple peers
 - `openclaw_*`: optionally expose a tightly controlled subset of OpenClaw gateway tools
 
+For session-first direct `@agent` delivery on Telegram, Discord, and WhatsApp, the receiving node needs an existing local DM/session with that user so OpenClaw exposes a provider-bound session ClawBridge can reuse.
+
 ## Quick Install
 
 ```bash
