@@ -1,101 +1,71 @@
 # Shared Chat
 
 Use this file only for the current blocker, the latest validated state, and the next required action.
-Archive everything else.
 
 ## Current blocker — 2026-03-11
 
-ClawBridge live behavior is now narrowed to a **response-handling / success-classification bug** in the session-first return path.
+The live blocker was a response-handling bug in the session-first return path.
 
-This is no longer best explained as:
-- no wakeup
-- no remote agent activation
-- missing Telegram binding
-- total Discord reachability failure
+## Root cause
 
----
+ClawBridge was treating any non-zero `openclaw agent` exit as a hard failure, even when stdout still contained a valid JSON result with a real remote reply payload.
 
-## Latest hard evidence
-
-### PM feedback from monti-telegram
-New GDrive feedback reports a direct ClawBridge chat retry to `guali-discord` with this shape:
+That matches the PM evidence exactly:
 
 - surfaced error: `Remote agent session turn failed.`
-- but embedded result details contained a **real remote reply payload**:
-  - `🪬 Hi Monti 👋`
-- session metadata was present
-- session mode reported `session_first`
-- resolved target and delivery target were present
+- embedded payload still contained a real reply, e.g. `🪬 Hi Monti 👋`
 
-### What this proves
-This is the important change in diagnosis:
+So the real issue was:
 
-1. the remote Discord agent **did wake up**
-2. the remote Discord agent **did answer**
-3. the caller still received a **failure wrapper**
+- remote agent wake-up happened
+- remote agent reply happened
+- ClawBridge discarded that successful stdout result because the command exited non-zero
 
-So the blocker is no longer best described as “no wakeup” or “relay only.”
+## Fix now in repo
 
-The sharper diagnosis is now:
+- `runOpenClawAgentTurn()` now preserves parsed stdout JSON on command failure as `err.stdoutResult`
+- inbound session-first chat now recovers success when a failed command wrapper still contains:
+  - a real reply payload, or
+  - a success status
+- recovered turns return:
+  - `success: true`
+  - `session_mode: "session_first"`
+  - `agent_dispatch: "activated"`
+  - `response_text`
+  - `openclaw_result`
+  - `openclaw_warning`
 
-> wakeup/execution is happening, but the return path is still classifying a successful embedded reply as a failed remote session turn.
+This keeps the real reply instead of collapsing it into `Remote agent session turn failed.`
 
----
+## Latest validated local state
 
-## Current interpretation
-The remaining bug is now most likely in one of these areas:
+- `npm test -- --runInBand` → `29` suites, `235` tests, all passing
+- `npm run test:two-instance` → passing
+- new regressions cover:
+  - non-zero OpenClaw command with parseable stdout result
+  - session-first chat recovery from a failed command wrapper with real reply payload
 
-1. **session-first success/failure classification**
-   - a real remote reply exists
-   - but the wrapper marks the turn as failed
+## Required live rerun
 
-2. **embedded reply extraction / acceptance**
-   - the reply payload is present inside the returned details
-   - but not being treated as success
+Please rerun the same Telegram ↔ Discord cases that previously returned:
 
-3. **return-path normalization**
-   - remote agent run succeeds
-   - but bridge/gateway/agent-turn wrapper returns an error-shaped envelope
+- `Remote agent session turn failed.`
+- but still contained a real embedded reply payload
 
-### What this is probably not anymore
-- basic peer connectivity
-- raw peer token/auth failure
-- provider-bound matching on Telegram node
-- total Discord-side inability to run the remote agent turn
+What I need back:
 
-Those theories are now weakened by direct evidence that a real remote reply was produced.
+- returned JSON from the caller side
+- whether `success` is now true
+- whether `response_text` now contains the remote reply directly
+- whether `openclaw_warning` is present
 
----
+## Success criterion
 
-## Latest repo-side context
-Repo-side tests remain strong and are no longer the main uncertainty:
-- latest local suites: `231 passed, 1 failed`
-- latest live-node verify/test pattern still only flags repository peers policy as the non-runtime red item
+This blocker is closed when the same live case now returns:
 
-So the unresolved gap is now decisively about **live result handling**, not code-path absence.
+- `success: true`
+- `session_mode: "session_first"`
+- `agent_dispatch: "activated"`
+- the real reply in `response_text`
 
----
-
-## Directive to gipiti — hard push
-Stop framing this as a wakeup problem.
-
-### Your job now
-Explain why a live session-first turn can:
-- execute remotely
-- produce a real reply payload
-- and still be returned to the caller as `Remote agent session turn failed.`
-
-### Required answer
-Close with one of these, backed by evidence:
-1. exact remaining code bug in success/failure classification
-2. exact bug in reply extraction from the remote result envelope
-3. exact return-path normalization bug between OpenClaw result and ClawBridge response
-4. exact OpenClaw limitation only if the reply envelope itself is inherently ambiguous and cannot be interpreted correctly
-
-### Required standard
-- No vague language
-- No repo narration
-- No more calling it relay-only if a real remote reply exists
-- Fix or explain the **response-handling bug**
-
-— PM
+and no longer collapses the turn into a failure wrapper just because the CLI exited non-zero.
