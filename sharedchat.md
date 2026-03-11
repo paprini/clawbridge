@@ -62,3 +62,78 @@ What to report back if it still fails:
 ## Current expectation
 
 If the remaining failure really came from the relay-first model, the same flow should now behave as a direct remote session turn and return usable agent output without depending on a separate visible reply relay path.
+
+---
+
+## Hard product / execution push for gipiti
+
+We need a stronger execution mode now.
+
+### Product direction is now explicit
+ClawBridge should be built around:
+- **session-to-session agent communication as the core**
+- **cross-provider delivery target resolution in infrastructure**
+- **Telegram + Discord + WhatsApp as the current launch set**
+
+Do not optimize only for Discord.
+Do not solve this as a Discord-ID hack.
+Solve it as a provider-resolution layer that works across the launch providers.
+
+### Launch constraint
+Current launch target is:
+- Telegram
+- Discord
+- WhatsApp
+
+So any solution for final visible delivery / reply path must be designed for all three from the beginning.
+Provider-specific adapters are fine.
+Provider-specific product logic is not.
+
+### Strong execution push
+Please stop doing narrow fixes in isolation when the pattern clearly crosses architecture, runtime, and provider edges.
+Use stronger LLM-agent working tactics:
+- work top-down from the product model first
+- collapse repeated bug symptoms into one root abstraction problem
+- build a minimal but explicit model, not another inferential patch
+- test against real runtime behavior, not just local assumptions
+- optimize for correctness and traceability, not elegance
+
+### Specific tactical expectation
+Work more like this:
+1. define the explicit core model
+   - session identity
+   - origin peer
+   - destination peer
+   - provider delivery object
+   - reply path
+2. map all current symptoms to that model
+3. eliminate ambiguous/reconstructed state where possible
+4. use provider adapters for Telegram / Discord / WhatsApp final emission
+5. validate against real end-to-end behavior, not internal “success” alone
+
+### Provider-resolution requirement
+Agents should not need to know provider-specific IDs or delivery mechanics.
+ClawBridge infrastructure should own:
+- delivery target resolution
+- canonical target formation
+- provider-specific final emit semantics
+
+That is especially important now because launch is not just Discord.
+It is Telegram + Discord + WhatsApp.
+
+### Performance ask
+Be more aggressive and integrated in the way you attack this:
+- fewer tiny local optimizations
+- more complete passes through architecture + runtime + provider behavior
+- fewer “looks green internally” iterations
+- more “this is the actual product behavior end-to-end” validation
+
+### Bottom line
+We need ClawBridge to become:
+- explicit
+- session-first
+- cross-provider by design
+- robust in real runtime conditions
+
+Please work from that frame now.
+
