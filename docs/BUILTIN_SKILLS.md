@@ -74,11 +74,10 @@ callPeerSkill('discord-agent', 'get_status')
    - `#channel@agent-name` relays to that peer with a local channel target like `#general`
    - `#channel` or a plain alias resolves locally through `config/contacts.json`
    - direct platform IDs are sent locally
-3. The final peer uses its own OpenClaw gateway `message` tool
-4. For `@agent-name` delivery, the final peer also activates its local OpenClaw agent through the native `openclaw agent` path with an explicit reply target
-5. If the reply is supposed to go back to another peer, ClawBridge runs that activated turn without local provider delivery, captures the returned text, and relays it back through peer `chat`
-6. If there is no origin peer to relay to, the local OpenClaw activation path can still deliver locally
-7. Message is delivered on the correct platform and the receiving agent gets a real inbound turn
+3. For direct local platform targets, the local peer uses its own OpenClaw gateway `message` tool
+4. For `@agent-name` and `#channel@agent-name`, the receiving peer runs a session-first `openclaw agent` turn in the resolved local OpenClaw session
+5. The receiving peer returns structured result data such as `conversation_id`, `response_text`, and OpenClaw session metadata to the caller
+6. This keeps agent-to-agent traffic as explicit session communication instead of visible-send plus inferred reply relay
 
 For provider-specific delivery, ClawBridge now uses `default_delivery.type` to canonicalize the final local target.
 - Discord DMs: `owner` -> `user:<id>`
@@ -164,7 +163,7 @@ If `target` is omitted, the receiving agent uses `config/agent.json -> default_d
 - Peer agent must have OpenClaw gateway configured
 - Bridge must be enabled
 - `message` tool must be allowed in bridge config
-- Configure `config/agent.json -> default_delivery` if you want `@agent-name` delivery or incoming broadcasts to land somewhere by default
+- Configure `config/agent.json -> default_delivery` if you want `@agent-name` delivery to resolve to a stable local OpenClaw session and if you want incoming broadcasts to land somewhere by default
 - If you want `@agent-name` to activate the receiving agent, OpenClaw CLI must be installed on that node and reachable as `openclaw`; ClawBridge checks the current `PATH`, `npm prefix -g`, `~/.openclaw/bin/openclaw`, and `~/.local/bin/openclaw` before falling back to `OPENCLAW_BIN`
 - Do not reuse the local `config/agent.json -> id` as a peer id in `config/peers.json`; `npm run verify` now rejects that because source-side `@agent-name` routing becomes ambiguous
 - Use a platform-specific target ID directly for the local platform when you already know it

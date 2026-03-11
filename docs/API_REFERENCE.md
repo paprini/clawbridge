@@ -159,14 +159,12 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 {"enabled": true, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json", "sessionKey": "main"}, "agent_dispatch": {"enabled": true, "sessionKey": "auto", "timeoutSeconds": 30}, "exposed_tools": ["message", "web_search"], "timeout_ms": 300000, "max_concurrent": 5}
 ```
 
-`agent_dispatch` is used for inbound `@agent-name` delivery. After the visible inbound `message` is posted, ClawBridge activates the local OpenClaw agent with the native `openclaw agent` path and explicit reply targeting.
+`agent_dispatch` is used for inbound `@agent-name` delivery. ClawBridge now treats that path as a session-first agent turn: it resolves the target OpenClaw session, runs the local `openclaw agent` turn without local provider delivery, and returns the resulting reply text as structured output.
 
 - `sessionKey: "auto"` means ClawBridge derives the correct agent-scoped OpenClaw target session.
 - `timeoutSeconds` is the maximum time ClawBridge will wait for the local OpenClaw agent to complete the activated turn.
-- Before activation, ClawBridge inspects `sessions_list` and, when OpenClaw already has a unique session row whose delivery context matches the real target, retargets visible delivery to that row and reuses its `sessionId` for the activation step.
-- The visible reply target is passed explicitly to OpenClaw, so the activation path no longer depends on best-effort `sessions_send` announce behavior or `gateway.tools.allow -> sessions_send`.
-- When ClawBridge already knows a reply must go back to another peer, it now runs `openclaw agent --json` without `--deliver`, captures the returned text, and relays that text back through normal peer `chat`. This avoids mixing a local provider reply with a cross-peer return leg.
-- When no origin peer is known, ClawBridge still allows the local OpenClaw activation path to deliver locally.
+- Before the turn runs, ClawBridge inspects `sessions_list` and, when OpenClaw already has a unique session row whose delivery context matches the real target, reuses that row's `sessionId`.
+- For `@agent-name` and `#channel@agent-name`, the remote peer returns structured session output such as `conversation_id`, `response_text`, and the OpenClaw session metadata instead of trying to mix visible provider delivery with a cross-peer reply relay.
 - ClawBridge peer ID and OpenClaw agent ID are different concepts. If you need to pin the receiving OpenClaw agent explicitly, set `config/agent.json -> openclaw_agent_id` or `config/bridge.json -> agent_dispatch.agentId`.
 - On multi-agent OpenClaw installs, pin one local communications agent explicitly. ClawBridge should not guess that from channel bindings.
 

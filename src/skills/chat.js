@@ -316,86 +316,6 @@ function sanitizePeerId(value) {
   return trimmed;
 }
 
-function normalizePeerBaseUrl(value) {
-  if (typeof value !== 'string' || value.trim().length === 0) {
-    return '';
-  }
-
-  try {
-    const url = new URL(value.trim());
-    const normalizedPath = url.pathname.replace(/\/+$/, '').replace(/\/a2a$/, '');
-    return `${url.origin}${normalizedPath}`;
-  } catch {
-    return '';
-  }
-}
-
-function findPeerIdBySourceUrl(sourceUrl) {
-  const normalizedSourceUrl = normalizePeerBaseUrl(sourceUrl);
-  if (!normalizedSourceUrl) {
-    return null;
-  }
-
-  try {
-    const peer = loadPeersConfig().find((entry) => normalizePeerBaseUrl(entry?.url) === normalizedSourceUrl);
-    if (!peer || typeof peer.id !== 'string' || peer.id.trim().length === 0) {
-      return null;
-    }
-
-    return sanitizePeerId(peer.id);
-  } catch {
-    return null;
-  }
-}
-
-function resolveReplyRelayPeerId({
-  requestPeerId,
-  sourcePeerId,
-  sourceAgentId,
-  sourceUrl,
-  localAgentId,
-  localAgentUrl,
-}) {
-  const normalizedLocalAgentId = typeof localAgentId === 'string' ? localAgentId.trim() : '';
-  const normalizedLocalAgentUrl = normalizePeerBaseUrl(localAgentUrl);
-  const normalizedSourceUrl = normalizePeerBaseUrl(sourceUrl);
-  const isExplicitRemoteSourceUrl = Boolean(
-    normalizedSourceUrl
-    && normalizedLocalAgentUrl
-    && normalizedSourceUrl !== normalizedLocalAgentUrl
-  );
-
-  const requestPeer = sanitizePeerId(requestPeerId);
-  if (requestPeer) {
-    if (requestPeer !== normalizedLocalAgentId || peerExists(requestPeer)) {
-      return requestPeer;
-    }
-  }
-
-  const explicitSourcePeer = sanitizePeerId(sourcePeerId);
-  if (explicitSourcePeer) {
-    if (explicitSourcePeer !== normalizedLocalAgentId || isExplicitRemoteSourceUrl || peerExists(explicitSourcePeer)) {
-      return explicitSourcePeer;
-    }
-  }
-
-  const sourceUrlPeer = findPeerIdBySourceUrl(sourceUrl);
-  if (sourceUrlPeer) {
-    if (sourceUrlPeer !== normalizedLocalAgentId || isExplicitRemoteSourceUrl) {
-      return sourceUrlPeer;
-    }
-  }
-
-  const fallbackSourcePeer = sanitizePeerId(sourceAgentId);
-  if (fallbackSourcePeer) {
-    if (fallbackSourcePeer !== normalizedLocalAgentId || isExplicitRemoteSourceUrl || peerExists(fallbackSourcePeer)) {
-      return fallbackSourcePeer;
-    }
-  }
-
-  return null;
-}
-
 function getRelayGuardFailure(relayMeta, agentId) {
   if (agentId && relayMeta.visited.includes(agentId)) {
     return {
@@ -1003,88 +923,6 @@ function extractOpenClawReplyText(dispatchResult) {
   return fragments.join('\n').trim() || null;
 }
 
-async function relayActivationReplyToSourcePeer({
-  sourcePeerId,
-  sourceDelivery,
-  sourceReplyTarget,
-  sourceReplyChannel,
-  message,
-  relayMeta,
-  agentId,
-  conversationId,
-}) {
-  if (typeof sourcePeerId !== 'string' || sourcePeerId.trim().length === 0) {
-    return { status: 'not_requested' };
-  }
-
-  const normalizedSourcePeerId = sourcePeerId.trim();
-  const relayMessage = typeof message === 'string' ? message.trim() : '';
-  if (!relayMessage) {
-    return { status: 'skipped_no_text' };
-  }
-
-  try {
-    const relayParams = {
-      message: relayMessage,
-      _relay: buildRelayMeta(relayMeta, agentId),
-    };
-    const normalizedSourceDelivery = normalizeDeliveryDescriptor(sourceDelivery, typeof sourceReplyChannel === 'string'
-      ? sourceReplyChannel.trim()
-      : null) || normalizeDeliveryDescriptor({
-      target: sourceReplyTarget,
-      channel: sourceReplyChannel,
-    });
-
-    if (normalizedSourceDelivery) {
-      relayParams.target = normalizedSourceDelivery.target;
-      relayParams._sourceDelivery = normalizedSourceDelivery;
-      if (normalizedSourceDelivery.channel) {
-        relayParams.channel = normalizedSourceDelivery.channel;
-      }
-    } else {
-      if (typeof sourceReplyTarget === 'string' && sourceReplyTarget.trim().length > 0) {
-        relayParams.target = sourceReplyTarget.trim();
-      }
-
-      if (typeof sourceReplyChannel === 'string' && sourceReplyChannel.trim().length > 0) {
-        relayParams.channel = sourceReplyChannel.trim();
-      }
-    }
-
-    logger.info('Relaying activated agent reply to source peer', {
-      sourcePeerId: normalizedSourcePeerId,
-      conversationId: conversationId || null,
-      sourceReplyTarget: relayParams.target || null,
-      sourceReplyChannel: relayParams.channel || null,
-      sourceReplyType: relayParams._sourceDelivery?.type || null,
-      relayHops: relayParams._relay?.hops || 0,
-      messageLength: relayMessage.length,
-    });
-
-    const result = await callPeerSkill(normalizedSourcePeerId, 'chat', relayParams);
-
-    if (result && typeof result === 'object' && !Array.isArray(result) && typeof result.error === 'string' && result.error.trim().length > 0) {
-      return {
-        status: 'error',
-        peerId: normalizedSourcePeerId,
-        error: result.error,
-      };
-    }
-
-    return {
-      status: 'delivered',
-      peerId: normalizedSourcePeerId,
-      result,
-    };
-  } catch (err) {
-    return {
-      status: 'error',
-      peerId: normalizedSourcePeerId,
-      error: err.message,
-    };
-  }
-}
-
 function resolveTarget(target, channel) {
   const contacts = loadContactsConfig();
   const aliases = contacts?.aliases && typeof contacts.aliases === 'object'
@@ -1351,11 +1189,6 @@ async function chat(params) {
     }
   }
 
-  const bridgeError = getChatBridgeError();
-  if (bridgeError) {
-    return bridgeError;
-  }
-
   if (!looksLikeDirectTargetId(resolvedTarget)) {
     return {
       error: 'No target found.',
@@ -1365,73 +1198,35 @@ async function chat(params) {
     };
   }
 
-  try {
-    let dispatchConfig = agentDeliveryMeta?.activateSession
-      ? getAgentDispatchConfig({
-          openclawAgentId,
-          defaultDelivery,
-          resolvedTarget,
-          deliveryChannel: resolved.resolvedChannel || effectiveChannel,
-          agentDeliveryMeta,
-        })
-      : null;
-    let preDispatchInspection = dispatchConfig
-      ? await inspectDispatchSession(dispatchConfig)
-      : { row: null, sessions: [] };
-
-    if (dispatchConfig) {
-      const retargeted = maybeRetargetDispatchSession({
-        dispatchConfig,
-        inspection: preDispatchInspection,
+  if (agentDeliveryMeta?.activateSession) {
+    try {
+      let dispatchConfig = getAgentDispatchConfig({
+        openclawAgentId,
+        defaultDelivery,
         resolvedTarget,
         deliveryChannel: resolved.resolvedChannel || effectiveChannel,
+        agentDeliveryMeta,
       });
-      dispatchConfig = retargeted.dispatchConfig;
-      if (retargeted.retargeted) {
-        preDispatchInspection = {
-          row: retargeted.sessionRow,
-          sessions: retargeted.sessions,
-        };
+      let preDispatchInspection = dispatchConfig
+        ? await inspectDispatchSession(dispatchConfig)
+        : { row: null, sessions: [] };
+
+      if (dispatchConfig) {
+        const retargeted = maybeRetargetDispatchSession({
+          dispatchConfig,
+          inspection: preDispatchInspection,
+          resolvedTarget,
+          deliveryChannel: resolved.resolvedChannel || effectiveChannel,
+        });
+        dispatchConfig = retargeted.dispatchConfig;
+        if (retargeted.retargeted) {
+          preDispatchInspection = {
+            row: retargeted.sessionRow,
+            sessions: retargeted.sessions,
+          };
+        }
       }
-    }
 
-    // The gateway expects a platform-specific target identifier.
-    const messageArgs = {
-      action: 'send',
-      to: canonicalResolvedTarget,
-      target: canonicalResolvedTarget,
-      message
-    };
-
-    // Add optional channel if provided
-    if (resolved.resolvedChannel || effectiveChannel) {
-      messageArgs.channel = resolved.resolvedChannel || effectiveChannel;
-    }
-
-    logger.info('Sending chat message via gateway', {
-      target: requestedTarget || effectiveTarget,
-      resolvedTarget,
-      canonicalTarget: canonicalResolvedTarget,
-      targetAlias: resolved.alias,
-      messageLength: message.length,
-      channel: resolved.resolvedChannel || effectiveChannel || 'auto',
-      openclawDispatchAgentId: dispatchConfig?.dispatchAgentId || null,
-      openclawTargetSessionKey: dispatchConfig?.targetSessionKey || null,
-    });
-
-    const messageResult = dispatchConfig?.targetSessionKey
-      ? await callOpenClawTool('message', messageArgs, { sessionKey: dispatchConfig.targetSessionKey })
-      : await callOpenClawTool('message', messageArgs);
-
-    logger.info('Gateway message send result', {
-      target: requestedTarget || effectiveTarget,
-      resolvedTarget,
-      canonicalTarget: canonicalResolvedTarget,
-      channel: resolved.resolvedChannel || effectiveChannel || 'auto',
-      gatewayResult: messageResult || null,
-    });
-
-    if (agentDeliveryMeta?.activateSession) {
       const inspection = dispatchConfig
         ? await inspectDispatchSession(dispatchConfig)
         : { row: null, sessions: [] };
@@ -1453,112 +1248,105 @@ async function chat(params) {
         target: activationOptions.target,
       });
 
-      try {
-        const replyRelayPeerId = resolveReplyRelayPeerId({
-          requestPeerId,
-          sourcePeerId: agentDeliveryMeta.sourcePeerId,
-          sourceAgentId: agentDeliveryMeta.sourceAgentId,
-          sourceUrl: agentDeliveryMeta.sourceUrl,
-          localAgentId: agentId,
-          localAgentUrl: agentUrl,
-        });
-        const openclawDeliverLocally = !replyRelayPeerId;
+      logger.info('Executing inbound agent chat as session turn', {
+        conversationId: agentDeliveryMeta.conversationId || null,
+        sourcePeerId: agentDeliveryMeta.sourcePeerId || requestPeerId || null,
+        sourceAgentId: agentDeliveryMeta.sourceAgentId || null,
+        target: requestedTarget || effectiveTarget,
+        resolvedTarget,
+        dispatchAgentId: activationOptions.agentId,
+        targetSessionId: activationOptions.sessionId,
+        targetSessionKey: dispatchConfig?.targetSessionKey || null,
+      });
 
-        logger.info('Resolved inbound agent reply mode', {
-          conversationId: agentDeliveryMeta.conversationId || null,
-          requestPeerId: requestPeerId || null,
-          sourcePeerId: agentDeliveryMeta.sourcePeerId || null,
-          sourceAgentId: agentDeliveryMeta.sourceAgentId || null,
-          sourceUrl: agentDeliveryMeta.sourceUrl || null,
-          sourceReplyTarget: agentDeliveryMeta.sourceReplyTarget || null,
-          sourceReplyChannel: agentDeliveryMeta.sourceReplyChannel || null,
-          sourceReplyType: agentDeliveryMeta.sourceDelivery?.type || null,
-          replyRelayPeerId: replyRelayPeerId || null,
-          openclawDeliverLocally,
-          dispatchAgentId: activationOptions.agentId,
-          targetSessionId: activationOptions.sessionId,
-          target: requestedTarget || effectiveTarget,
-          resolvedTarget,
-        });
+      const dispatchResult = await runOpenClawAgentTurn({
+        message,
+        ...activationOptions,
+        target: canonicalActivationTarget,
+        replyTo: canonicalActivationReplyTo,
+        deliver: false,
+      });
+      const responseText = extractOpenClawReplyText(dispatchResult);
 
-        const dispatchResult = await runOpenClawAgentTurn({
-          message,
-          ...activationOptions,
-          target: canonicalActivationTarget,
-          replyTo: canonicalActivationReplyTo,
-          deliver: openclawDeliverLocally,
-        });
-        const replyRelay = await relayActivationReplyToSourcePeer({
-          sourcePeerId: replyRelayPeerId,
-          sourceDelivery: agentDeliveryMeta.sourceDelivery,
-          sourceReplyTarget: agentDeliveryMeta.sourceReplyTarget,
-          sourceReplyChannel: agentDeliveryMeta.sourceReplyChannel,
-          message: extractOpenClawReplyText(dispatchResult),
-          relayMeta,
-          agentId,
-          conversationId: agentDeliveryMeta.conversationId,
-        });
+      return {
+        success: true,
+        session_mode: 'session_first',
+        conversation_id: agentDeliveryMeta.conversationId || null,
+        delivered_to: requestedTarget || effectiveTarget,
+        resolved_target: resolvedTarget,
+        channel: resolved.resolvedChannel || effectiveChannel || 'auto',
+        message_length: message.length,
+        agent_dispatch: 'activated',
+        openclaw_session_id: activationOptions.sessionId,
+        openclaw_agent_id: activationOptions.agentId,
+        openclaw_reply_channel: activationOptions.replyChannel,
+        openclaw_reply_to: canonicalActivationReplyTo,
+        openclaw_deliver_locally: false,
+        openclaw_result: dispatchResult?.result?.status || dispatchResult?.status || null,
+        response_text: responseText,
+        timestamp: new Date().toISOString()
+      };
+    } catch (err) {
+      logger.error('Inbound session-first agent turn failed', {
+        error: err.message,
+        conversationId: agentDeliveryMeta.conversationId || null,
+        sourcePeerId: agentDeliveryMeta.sourcePeerId || requestPeerId || null,
+        sourceAgentId: agentDeliveryMeta.sourceAgentId || null,
+        target: requestedTarget || effectiveTarget,
+        resolvedTarget,
+      });
 
-        if (replyRelay.status === 'error') {
-          logger.error('Inbound agent reply relay failed', {
-            error: replyRelay.error,
-            sourcePeerId: replyRelay.peerId,
-            conversationId: agentDeliveryMeta.conversationId || null,
-            target: requestedTarget || effectiveTarget,
-            resolvedTarget,
-          });
-        } else if (replyRelay.status === 'delivered') {
-          logger.info('Inbound agent reply relayed back to source peer', {
-            sourcePeerId: replyRelay.peerId,
-            conversationId: agentDeliveryMeta.conversationId || null,
-            target: requestedTarget || effectiveTarget,
-            resolvedTarget,
-          });
-        }
-
-        return {
-          success: true,
-          conversation_id: agentDeliveryMeta.conversationId || null,
-          delivered_to: requestedTarget || effectiveTarget,
-          resolved_target: resolvedTarget,
-          channel: resolved.resolvedChannel || effectiveChannel || 'auto',
-          message_length: message.length,
-          agent_dispatch: 'activated',
-          openclaw_session_id: activationOptions.sessionId,
-          openclaw_agent_id: activationOptions.agentId,
-          openclaw_reply_channel: activationOptions.replyChannel,
-          openclaw_reply_to: canonicalActivationReplyTo,
-          openclaw_deliver_locally: openclawDeliverLocally,
-          openclaw_result: dispatchResult?.result?.status || dispatchResult?.status || null,
-          reply_relay: replyRelay.status,
-          reply_relay_peer: replyRelay.peerId || null,
-          ...(replyRelay.status === 'error'
-            ? { reply_relay_error: replyRelay.error }
-            : {}),
-          timestamp: new Date().toISOString()
-        };
-      } catch (err) {
-        logger.error('Inbound agent dispatch failed', {
-          error: err.message,
-          target: requestedTarget || effectiveTarget,
-          resolvedTarget,
-          sourceAgentId: agentDeliveryMeta.sourceAgentId || null,
-          dispatchAgentId: dispatchConfig?.dispatchAgentId || null,
-          targetSessionKey: dispatchConfig?.targetSessionKey || null,
-          targetSessionId: activationOptions.sessionId,
-        });
-
-        return {
-          error: 'Message was delivered, but receiving agent activation failed.',
-          delivered_to: requestedTarget || effectiveTarget,
-          resolved_target: resolvedTarget,
-          transport_delivered: true,
-          agent_dispatch: 'error',
-          details: err.message,
-          suggestion: 'Confirm the local OpenClaw CLI is installed, agent.json.openclaw_agent_id or bridge.agent_dispatch.agentId matches the receiving OpenClaw agent, and the target session or default delivery is valid.',
-        };
-      }
+      return {
+        error: 'Remote agent session turn failed.',
+        conversation_id: agentDeliveryMeta.conversationId || null,
+        delivered_to: requestedTarget || effectiveTarget,
+        resolved_target: resolvedTarget,
+        session_mode: 'session_first',
+        details: err.message,
+        suggestion: 'Confirm the target OpenClaw session exists, the pinned local agent is correct, and the remote node can run openclaw agent turns.',
+      };
     }
+  }
+
+  const bridgeError = getChatBridgeError();
+  if (bridgeError) {
+    return bridgeError;
+  }
+
+  try {
+    // The gateway expects a platform-specific target identifier.
+    const messageArgs = {
+      action: 'send',
+      to: canonicalResolvedTarget,
+      target: canonicalResolvedTarget,
+      message
+    };
+
+    // Add optional channel if provided
+    if (resolved.resolvedChannel || effectiveChannel) {
+      messageArgs.channel = resolved.resolvedChannel || effectiveChannel;
+    }
+
+    logger.info('Sending chat message via gateway', {
+      target: requestedTarget || effectiveTarget,
+      resolvedTarget,
+      canonicalTarget: canonicalResolvedTarget,
+      targetAlias: resolved.alias,
+      messageLength: message.length,
+      channel: resolved.resolvedChannel || effectiveChannel || 'auto',
+      openclawDispatchAgentId: null,
+      openclawTargetSessionKey: null,
+    });
+
+    const messageResult = await callOpenClawTool('message', messageArgs);
+
+    logger.info('Gateway message send result', {
+      target: requestedTarget || effectiveTarget,
+      resolvedTarget,
+      canonicalTarget: canonicalResolvedTarget,
+      channel: resolved.resolvedChannel || effectiveChannel || 'auto',
+      gatewayResult: messageResult || null,
+    });
 
     return {
       success: true,

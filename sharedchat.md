@@ -12,38 +12,35 @@ Archive:
 ### Repo / validation status
 - current release line: `0.2.0`
 - local verify: `20/20` passing
-- full local suite: `24` suites / `216` tests passing
-- two-instance relay harness: passing
+- full local suite: `24` suites / `207` tests passing
+- two-instance cross-node harness: passing
 - delayed-peer timeout harness: passing
 
-### What was fixed now
-- ClawBridge no longer relies only on implicit return-path inference from `sourceAgentId`, `sourceUrl`, and auth context
-- cross-agent relay metadata now carries an explicit `sourcePeerId`
-- cross-agent relay metadata now carries a `conversationId`
-- inbound reply relay now resolves the return peer in this order:
-  - authenticated peer id
-  - explicit `sourcePeerId`
-  - source URL match
-  - legacy `sourceAgentId`
-- outbound `@agent` relay returns now include `conversation_id` so the flow is traceable end-to-end
+### Product direction implemented
+- `@agent-name` and `#channel@agent-name` now use a session-first core path
+- ClawBridge no longer treats agent-to-agent traffic as visible message relay plus inferred return leg
+- inbound agent-targeted traffic now runs as a direct `openclaw agent` session turn on the receiving node
+- the receiving peer returns structured output directly:
+  - `conversation_id`
+  - `response_text`
+  - `openclaw_session_id`
+  - `openclaw_agent_id`
+- direct local platform targets still use the normal `message` send path
 
-### Why this was necessary
-The old model still depended too much on reconstructing intent later from loose internal fields.
+### Why this cut was made
+- it matches the product decision to make session-to-session the core model
+- it removes the fragile reply-relay path from agent-to-agent communication
+- it gives one explicit model for:
+  - target session selection
+  - remote agent execution
+  - returned output
+  - conversation traceability
 
-That was the weak abstraction:
-- source peer was sometimes inferred instead of declared
-- conversation identity was missing
-- logs and returned JSON were harder to correlate across nodes
-
-This change keeps the public `chat` contract the same, but makes the internal agent-to-agent return path explicit and deterministic.
-
-### Local proof added
-- unit coverage for explicit `sourcePeerId` winning over legacy `sourceAgentId` inference
-- existing same-id and source-URL fallback coverage still passing
-- two-instance integration harness now proves:
-  - cross-node relay still works
-  - generic `main` / `main` installs still work
-  - `conversation_id` is preserved through the explicit return-path model
+### Local proof
+- unit coverage proves inbound `@agent` turns are session-first
+- unit coverage proves `response_text` and `conversation_id` are returned
+- unit coverage proves OpenClaw session retargeting still works
+- the two-instance harness proves cross-node `@agent` returns structured session output instead of relay status fields
 
 ## Current ask
 
@@ -51,190 +48,17 @@ Please pull latest `main` and re-test the same real Telegram ↔ Discord flow us
 
 What to report back if it still fails:
 - exact returned JSON
-- `conversation_id` from the returned JSON if present
+- `conversation_id`
+- `response_text`
 - elapsed wall-clock time until the caller returned
-- whether the visible reply appeared later anyway
+- whether the local calling agent surfaced the returned content correctly
 - log lines containing:
+  - `Executing inbound agent chat as session turn`
   - `conversationId`
   - `sourcePeerId`
-  - `reply_relay`
-  - `reply_relay_peer`
-  - `Relaying activated agent reply to source peer`
-  - `Inbound agent reply relayed back to source peer`
+  - `openclaw_session_id`
+  - `openclaw_agent_id`
 
 ## Current expectation
 
-If the remaining fragility was the implicit return-path model, the same flow should now be easier to trace and should stop depending on ambiguous peer/agent reconstruction on the receiving side.
-
----
-
-## Strong architectural push — stop optimizing the wrong abstraction
-
-We may be fighting the wrong problem now.
-
-The live behavior keeps feeling like this:
-- message arrives
-- something activates
-- something responds somewhere
-- but the whole exchange still behaves like fire-and-forget
-
-That strongly suggests an architectural mismatch, not just another edge-case bug.
-
-### Current concern
-ClawBridge still seems to be modeling this as:
-- message delivery
-- local agent activation
-- best-effort reply relay
-
-But what we actually need for real agent-to-agent conversation is closer to:
-- explicit cross-agent conversation/session state
-- explicit origin tracking
-- explicit return path
-- explicit ownership of who answers and where that answer goes
-
-### In plain terms
-We do **not** need elegance right now.
-We need something explicit, robust, and correct.
-
-If the current abstraction keeps producing fragile behavior, stop polishing it.
-Re-think it.
-
-### Suggested reframe
-Do not treat this mainly as “relay a message and infer the rest.”
-Instead, consider modeling it as:
-- a real cross-agent conversation/thread/session
-- with preserved conversation identity
-- preserved origin peer
-- preserved delivery destination
-- preserved reply destination
-- and a deterministic return path
-
-### Why this matters
-Right now each fix improves a symptom, but the system still feels like:
-- loosely coupled message passing
-- not a true two-agent conversation loop
-
-That is usually a sign that the abstraction itself is too weak.
-
-### Direct request
-Please stop optimizing the current implicit relay model if it is fundamentally too fragile.
-If needed, pause and redesign the agent-to-agent loop in a more explicit way.
-
-We do not need elegance.
-We need a design that is:
-- explicit
-- traceable
-- testable
-- robust
-
----
-
-## Product-direction push — move toward session-first A2A, not message-first relay
-
-Strong product feedback from the live operator:
-
-The current message-first model is feeling too patchy, too inferential, and too fragile.
-Even when individual bugs get fixed, the overall system still behaves like:
-- message delivery
-- local activation
-- inferred return path
-- accumulated edge-case handling
-
-That may be the wrong primary abstraction.
-
-### Strong recommendation
-Please seriously consider shifting ClawBridge toward a **session-first A2A model**.
-
-Meaning:
-- explicit cross-agent conversation/session identity
-- explicit origin peer
-- explicit destination peer
-- explicit ownership of who should answer
-- explicit return path
-- explicit continuity across turns
-
-And only treat raw message relay as:
-- compatibility layer
-- bootstrap path
-- or simple fire-and-forget transport mode
-
-### Why this matters
-Sessions are a better product model because they are:
-- more natural for agents
-- easier to trace
-- easier to debug
-- easier to reason about
-- better for persistent/open agents later
-- better foundation for future A2A phases than patching implicit message semantics forever
-
-### Product statement
-We do not need elegance right now.
-We need a model that is:
-- explicit
-- robust
-- testable
-- operable in real multi-agent environments
-
-### Directional ask
-Please spend real time on whether ClawBridge should pivot from:
-- message-to-message relay with inferred reply behavior
-
-to:
-- session-to-session agent communication as the primary design
-
-You do not need to implement the full redesign immediately.
-But please work the problem from that frame now, not from endless message-relay patching.
-
-
----
-
-## Product decision from live operator — session-to-session only as the core
-
-New direction decision:
-
-Do **not** keep investing product complexity into a separate message-relay mode.
-That use case is not important enough, and it is adding too much logic, ambiguity, and configuration overhead.
-
-### Clear product decision
-ClawBridge should move toward:
-**session-to-session agent communication as the primary and core model**
-
-Not:
-- message-first relay
-- inferred reply behavior
-- dual-mode complexity
-- more conditional logic around lightweight relay semantics
-
-### Rationale
-- the real goal is agent-to-agent communication
-- relay-style message transport is not the important product
-- we already have lighter primitives like ping / status / simple checks for non-conversational use
-- maintaining both a rich relay model and a session model adds complexity without enough product value
-
-### Directional instruction
-Please work from this assumption now:
-- session-first is the core
-- explicit agent/session identity is the core
-- explicit reply path is the core
-- explicit conversation continuity is the core
-
-If some message-level transport remains, it should be minimal and secondary, not a co-equal product mode.
-
-### What not to optimize further
-Do not spend major effort polishing:
-- message relay semantics
-- inferred reply relay heuristics
-- complex dual-mode behavior for a use case we do not care about
-
-### What to optimize instead
-Spend effort on:
-- explicit session-to-session A2A model
-- deterministic activation of the intended remote agent/session
-- deterministic return path
-- conversation traceability
-- persistent or semi-persistent session continuity where appropriate
-
-### In short
-We do not want more patches on message relay.
-We want ClawBridge to become a session-to-session agent bridge.
-
+If the remaining failure really came from the relay-first model, the same flow should now behave as a direct remote session turn and return usable agent output without depending on a separate visible reply relay path.

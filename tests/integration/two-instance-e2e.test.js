@@ -451,30 +451,13 @@ describe('two-instance cross-node chat', () => {
     expect(result.success).toBe(true);
     expect(result.conversation_id).toEqual(expect.any(String));
     expect(result.relayed_via).toBe('guali-discord');
+    expect(result.session_mode).toBe('session_first');
     expect(result.agent_dispatch).toBe('activated');
     expect(result.openclaw_deliver_locally).toBe(false);
-    expect(result.reply_relay).toBe('delivered');
-    expect(result.reply_relay_peer).toBe('monti-telegram');
+    expect(result.response_text).toContain('reply:main:discord:channel:1480310282961289216:Hola desde Telegram');
 
     const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
-    expect(messageCalls).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        args: expect.objectContaining({
-          to: 'channel:1480310282961289216',
-          target: 'channel:1480310282961289216',
-          channel: 'discord',
-          message: 'Hola desde Telegram',
-        }),
-      }),
-      expect.objectContaining({
-        args: expect.objectContaining({
-          to: '5914004682',
-          target: '5914004682',
-          channel: 'telegram',
-          message: expect.stringContaining('reply:main:discord:channel:1480310282961289216:Hola desde Telegram'),
-        }),
-      }),
-    ]));
+    expect(messageCalls).toEqual([]);
 
     const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     expect(activationCalls).toEqual(expect.arrayContaining([
@@ -580,30 +563,13 @@ describe('two-instance cross-node chat', () => {
 
     expect(result.success).toBe(true);
     expect(result.conversation_id).toBe('conv-generic-main');
+    expect(result.session_mode).toBe('session_first');
     expect(result.agent_dispatch).toBe('activated');
     expect(result.openclaw_deliver_locally).toBe(false);
-    expect(result.reply_relay).toBe('delivered');
-    expect(result.reply_relay_peer).toBe('main');
+    expect(result.response_text).toContain('reply:main:discord:channel:1480310282961289216:Hola desde Telegram');
 
     const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
-    expect(messageCalls).toEqual(expect.arrayContaining([
-      expect.objectContaining({
-        args: expect.objectContaining({
-          to: 'channel:1480310282961289216',
-          target: 'channel:1480310282961289216',
-          channel: 'discord',
-          message: 'Hola desde Telegram',
-        }),
-      }),
-      expect.objectContaining({
-        args: expect.objectContaining({
-          to: '5914004682',
-          target: '5914004682',
-          channel: 'telegram',
-          message: expect.stringContaining('reply:main:discord:channel:1480310282961289216:Hola desde Telegram'),
-        }),
-      }),
-    ]));
+    expect(messageCalls).toEqual([]);
 
     const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
     expect(activationCalls).toEqual(expect.arrayContaining([

@@ -159,14 +159,13 @@ Fixes:
 Symptoms: the message appears in Telegram / Discord / WhatsApp, but the receiving OpenClaw agent does not reply or continue the conversation
 
 Causes:
-- visible delivery succeeded, but inbound agent dispatch did not happen
+- the remote session turn did not start
 - OpenClaw CLI is missing or not reachable as `openclaw`
 - `bridge.agent_dispatch` is still disabled after setup
 - `bridge.agent_dispatch.sessionKey` was forced to a wrong literal session instead of `auto`
 - ClawBridge is targeting the wrong local OpenClaw agent because `config/agent.json.id` was assumed to be the OpenClaw agent ID
 - ClawBridge could not find or reuse the right OpenClaw `sessionId` for the target destination
-- the local OpenClaw agent activated, but its own delivery target was misconfigured
-- the node is on an older ClawBridge build that still asks the remote agent to deliver locally instead of relaying the reply text back to the source peer
+- the node is on an older ClawBridge build that still treats `@agent` as visible message relay instead of a session-first agent turn
 - the local `agent.json.id` collides with a configured peer id, so `@agent-name` routing is ambiguous before the relay even starts
 
 Fixes:
@@ -177,7 +176,7 @@ Fixes:
 - inspect `sessions_list` and confirm the target session has a row whose `deliveryContext` matches the real local destination; ClawBridge now reuses that row's `sessionId` when it can
 - if there is no matching row yet, confirm `config/agent.json -> default_delivery` points to the real local destination where that agent should answer
 - for Discord, make sure `config/agent.json -> default_delivery.type` matches the actual destination kind; ClawBridge now canonicalizes the final target as `user:<id>` or `channel:<id>` from that field
-- keep ClawBridge on the current version so inbound cross-agent activation runs `openclaw agent --json` without `--deliver` when the reply must be relayed back to another peer
+- keep ClawBridge on the current version so inbound cross-agent activation runs as a session-first `openclaw agent --json` turn without local provider delivery
 - make sure `config/agent.json -> id` is unique across all ClawBridge peers; if `npm run verify` reports a peer/local id collision, rename one side before using `@agent-name`
 - run `npm run verify`
 

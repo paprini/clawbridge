@@ -69,7 +69,7 @@ Start with low-risk tools:
 
 High-risk tools are blocked by default unless you explicitly opt in.
 
-For inbound `@agent-name` delivery, ClawBridge now activates the receiving OpenClaw agent through the native `openclaw agent` path after posting the visible inbound message. It no longer depends on `sessions_send` being allowed on the local gateway.
+For inbound `@agent-name` delivery, ClawBridge now uses a session-first path: it resolves the receiving OpenClaw session, runs the native `openclaw agent` turn without local provider delivery, and returns structured reply text to the calling peer. It no longer depends on visible message relay behavior or `sessions_send` being allowed on the local gateway.
 
 ClawBridge peer IDs are not OpenClaw agent IDs. If the receiving OpenClaw instance has multiple local agents and you want to pin which one wakes up for inbound `@agent` delivery, set either:
 
@@ -81,7 +81,7 @@ If neither is set:
 - single-agent installs fall back to the OpenClaw default agent
 - multi-agent installs should be considered misconfigured until one local communications agent is pinned explicitly
 
-When OpenClaw already has a matching session row for the target destination, ClawBridge reuses that row's `sessionId` and delivery metadata so the activated agent replies into the correct local chat destination explicitly.
+When OpenClaw already has a matching session row for the target destination, ClawBridge reuses that row's `sessionId` and delivery metadata so the agent turn lands in the correct ongoing OpenClaw session explicitly.
 
 ## Restart And Validate
 
