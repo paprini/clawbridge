@@ -13,119 +13,130 @@ Launch providers:
 - Discord
 - WhatsApp
 
-### Current live bug
-Messages can be delivered across providers, but live behavior is still reporting cases where the destination receives plain text without clearly activating the receiving agent session.
+### Live behavior diagnosis
+We now have a clearer live diagnosis:
 
-That means the launch blocker is **not solved** until live activation behavior is proven, not just repo-side tests.
+- cross-peer delivery works
+- remote text appears on the destination provider
+- but there is **no real back-and-forth**
+- no visible receiving-agent activation
+- no conversational continuity
+
+In practice, current live behavior is acting like:
+- **relay-style messaging**
+
+not like:
+- **session-first agent-to-agent communication**
+
+This means the blocker is **not solved**.
 
 ---
 
-## Latest validated repo-side state
+## Latest repo-side state
+
+### Latest tested version
+- **HEAD:** `d89a5b6`
 
 ### Telegram node (from PM GDrive feedback)
-**Node:** `monti-telegram`
-**HEAD:** `d89a5b6`
+- `npm run verify` → `21 passed, 0 failed`
+- `npm test -- --runInBand` → `231 passed, 1 failed`
+- only failing test: `tests/unit/repo-policy.test.js`
+- failure is explicitly a repo-policy / environment mismatch, not runtime failure
 
-#### Verify
-- `21 passed, 0 failed`
+### Discord node (local)
+- `npm run verify` → `20 passed, 1 failed`
+- `npm test -- --runInBand` → `231 passed, 1 failed`
+- only failing item is the same repository peers policy mismatch
 
-#### Test suite
-- `28 suites passed`
-- `1 suite failed`
-- `231 tests passed`
-- `1 test failed`
-
-#### Only failing test
-- `tests/unit/repo-policy.test.js`
-
-#### Meaning
-This is explicitly a **repo-policy / environment mismatch** because `config/peers.json` exists on a live install as active runtime config.
-It is **not** evidence of runtime/protocol failure.
-
----
-
-### Discord node (local rerun)
-**Node:** Discord/local node
-**HEAD:** `d89a5b6`
-
-#### Verify
-- `20 passed, 1 failed`
-- only failing check:
-  - repository peers policy
-
-#### Test suite
-- `28 suites passed`
-- `1 suite failed`
-- `231 tests passed`
-- `1 test failed`
-
-#### Only failing test
-- `tests/unit/repo-policy.test.js`
-
-#### Meaning
-Same conclusion as Telegram node:
-- local/config policy mismatch only
-- not a runtime/protocol failure
-
----
-
-## Important repo-side signal
-A new integration path is now passing on latest code:
-
+### Important passing repo-side signal
+This integration path now passes:
 - `promotes relayed local-target aliases into session-first activation on the receiving peer` ✅
 
-This is relevant because it is directly aimed at the live bug we were chasing.
-
-Repo-side code/tests are now strong enough that the remaining uncertainty is **live behavior**, not basic internal coverage.
+So repo-side logic is stronger now.
+That still does **not** prove the live activation path is correct.
 
 ---
 
-## Live blocker evidence still open
-PM reports the same live symptom still needs resolution:
-- both sides can receive messages
-- but some paths still look like plain relay text
-- not clearly activated agent-to-agent sessions
+## Live evidence from Discord side
 
-Discord-side local logs previously showed lines like:
+### Observed symptom
+PM confirms the same live symptom repeatedly:
+- both sides receive messages
+- but neither side behaves like an activated agent session
+- there is no real interaction loop
+- it looks like relay text only
+
+### Discord-side log evidence
+Recent local ClawBridge log on the Discord node:
+
 ```text
-openclawDispatchAgentId=null
-openclawTargetSessionKey=null
+[INFO] Sending chat message via gateway target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 targetAlias=null messageLength=14 channel=discord openclawDispatchAgentId=null openclawTargetSessionKey=null
+[INFO] Gateway message send result target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 channel=discord gatewayResult=[object Object]
+[AUDIT] Skill call peer=__shared__ skill=chat success=true durationMs=422
+
+[INFO] Sending chat message via gateway target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 targetAlias=null messageLength=118 channel=discord openclawDispatchAgentId=null openclawTargetSessionKey=null
+[INFO] Gateway message send result target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 channel=discord gatewayResult=[object Object]
+[AUDIT] Skill call peer=__shared__ skill=chat success=true durationMs=383
+
+[INFO] Sending chat message via gateway target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 targetAlias=null messageLength=69 channel=discord openclawDispatchAgentId=null openclawTargetSessionKey=null
+[INFO] Gateway message send result target=1480310282961289216 resolvedTarget=1480310282961289216 canonicalTarget=channel:1480310282961289216 channel=discord gatewayResult=[object Object]
+[AUDIT] Skill call peer=__shared__ skill=chat success=true durationMs=454
 ```
 
-That remains the most important live-side clue.
+### Why this matters
+The most important fields in those logs are still:
+- `openclawDispatchAgentId=null`
+- `openclawTargetSessionKey=null`
+
+That strongly suggests the live path is still doing:
+- gateway message send
+- plain provider text delivery
+
+instead of:
+- session-first local target-session activation
+
+That matches the live symptom exactly.
+
+---
+
+## Current interpretation
+The previous conclusion that the blocker was solved in the ClawBridge code path was premature.
+
+The real remaining bug is now clearer:
+
+> Cross-provider turns can deliver text successfully, but the receiving side is still not reliably activating the local target agent session.
+
+So the blocker is now explicitly:
+- **live activation / conversational continuity**
+- not just proof logic
+- not just session-key matching theory
 
 ---
 
 ## Directive to gipiti — hard push
-Stop treating repo-side green as blocker closure.
-
-### What is now true
-- repo-side tests are strong
-- both nodes show the same single non-runtime red item: repository peers policy
-- that failure is environmental / policy only
-- it does **not** explain the live activation bug
+Do **not** call this solved.
 
 ### Your job now
-Focus only on the live activation mismatch.
+Explain, with evidence, why live cross-provider delivery is still degrading to relay-style text behavior instead of activated local agent session behavior.
 
-### Required next answer
-Explain, with evidence, why live cross-provider delivery can still appear as plain text relay instead of activated local agent session behavior, despite:
-- repo-side session-first tests passing
-- relay-to-local-target promotion test passing
-- verify passing except for repo policy
+### Concrete evidence you must address
+Why are these still null in the live path?
+- `openclawDispatchAgentId=null`
+- `openclawTargetSessionKey=null`
 
-### Required evidence
-Use actual live logs / runtime traces, not just test reasoning.
-Specifically address whether the live path is still falling back to gateway text send because:
-1. `openclawDispatchAgentId` is not being set
-2. `openclawTargetSessionKey` is not being resolved
-3. a required live alias/default-delivery/session binding is still missing
-4. or the runtime path differs from the tested integration assumptions
+If session-first activation is truly happening live, these should not both stay null on the path that is supposed to activate a receiving local session.
+
+### Required answer
+Close with one of these, backed by evidence:
+1. exact remaining code bug causing fallback to plain gateway message delivery
+2. exact operator/setup requirement still missing for live session-first activation
+3. exact OpenClaw limitation causing live delivery to degrade to relay text
+4. exact mismatch between the tested integration assumptions and the real live runtime path
 
 ### Quality bar
 - No vague language
 - No repo narration
 - No more claiming solved from tests alone
-- Close the **live activation** blocker, not just the code-path theory
+- Fix or explain the **live activation path**, not just the code-path theory
 
 — PM
