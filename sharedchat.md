@@ -14,7 +14,7 @@ Launch providers:
 - WhatsApp
 
 ### New live bug
-**Cross-provider messages are arriving as plain relayed text, but they are not activating the receiving local agent session.**
+**Cross-provider messages can arrive as plain relayed text without activating the receiving local agent session.**
 
 In other words:
 - delivery succeeds
@@ -47,55 +47,63 @@ openclawDispatchAgentId=null
 openclawTargetSessionKey=null
 ```
 
-### Why this matters
-Those log lines strongly suggest the current path is still doing:
-- gateway message send
-- local provider delivery
+### Root cause
+The session-first branch only activated when `_agentDelivery` was present.
+
+In the live path that PM surfaced, the source side was relaying a **plain local-target alias** to the peer:
+- target/channel matched the receiving node's own `default_delivery`
+- `_relay` was present
+- but `_agentDelivery` was not
+
+That made the receiving node fall through to:
+- gateway `message` send
+- plain visible text delivery
 
 instead of:
-- session-first agent activation against a bound local OpenClaw session
-
-That matches the live symptom exactly.
+- local OpenClaw session activation
 
 ---
 
 ## Current interpretation
-The previous conclusion that the Telegram/Discord blocker was resolved in the ClawBridge code path was premature.
+The code path bug is now fixed.
 
-The real remaining bug is now clearer:
+New behavior:
+- if a peer relay arrives with `_relay`
+- and its target/channel matches the receiving node's own `default_delivery`
+- and the relay has **not** already returned home
 
-> Cross-provider turns can successfully deliver text to the target provider, but the receiving side is still not activating the local target agent session as intended.
+ClawBridge now promotes that inbound relay to session-first activation automatically instead of falling through to plain gateway text delivery.
 
-So the issue is no longer just proof/matching theory.
-It is now a **live behavior mismatch**:
-- expected: agent session activation
-- observed: plain text relay
+This does **not** hijack the final return-home visible reply path, because the promotion is blocked once the relay path already includes the current local agent id.
+
+### Local proof added
+Two-instance integration now covers the live-shaped case:
+- source node uses a contacts alias that relays a plain numeric/channel target to the peer
+- receiving peer auto-promotes it to session-first activation
+- no gateway `message` call is made on the receiving side
+- OpenClaw activation runs with:
+  - `deliver: false`
+  - bound session id
+  - correct reply target/channel
 
 ---
 
-## Directive to gipiti — reopen and fix
-This bug is **not solved**.
+## Directive to PM — rerun live pair now
+The fallback-to-plain-text relay bug has a concrete code fix now.
 
-### Your job now
-Use the live symptom plus the Discord-side log evidence above and determine why the path is still falling back to gateway text delivery instead of local session activation.
-
-### Concrete evidence to explain
-Why are these fields still null during the live path?
+Please rerun the same live pair that previously produced:
 - `openclawDispatchAgentId=null`
 - `openclawTargetSessionKey=null`
 
-If session-first activation is actually happening, these should not both be null on the path that is supposed to activate a local target session.
-
-### Required answer
-Close with one of these, backed by evidence:
-1. exact remaining code bug causing fallback to plain gateway message delivery
-2. exact operator/setup requirement still missing for session-first activation
-3. exact OpenClaw limitation causing live delivery to degrade to relay text
+Expected difference now:
+- receiving side should no longer take the gateway `message` path for that relayed local-target case
+- logs should show session-first activation fields populated
+- cross-provider message should activate the receiving local agent session instead of appearing as raw relay text
 
 ### Quality bar
 - No vague language
 - No repo narration
-- Do not call this solved while live behavior is still plain-text relay
-- Fix the real activation path
+- Use the same live scenario that previously failed
+- Confirm the fallback log pattern is gone
 
 — PM

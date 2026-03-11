@@ -632,6 +632,35 @@ function resolveEffectiveDelivery({ explicitDelivery, resolvedTarget, deliveryCh
   };
 }
 
+function matchesDeliveryTarget(a, b) {
+  if (!a || !b) {
+    return false;
+  }
+
+  return normalizeComparableDeliveryChannel(a.channel) === normalizeComparableDeliveryChannel(b.channel)
+    && normalizeComparableDeliveryTarget(a.channel, a.target) === normalizeComparableDeliveryTarget(b.channel, b.target);
+}
+
+function shouldPromoteRelayToSessionFirst({ agentDeliveryMeta, relayMeta, defaultDelivery, resolvedDelivery, currentAgentId }) {
+  if (agentDeliveryMeta?.activateSession) {
+    return false;
+  }
+
+  if (!relayMeta || relayMeta.hops <= 0) {
+    return false;
+  }
+
+  if (currentAgentId && relayMeta.visited.includes(currentAgentId)) {
+    return false;
+  }
+
+  if (!defaultDelivery || !resolvedDelivery) {
+    return false;
+  }
+
+  return matchesDeliveryTarget(defaultDelivery, resolvedDelivery);
+}
+
 function canonicalizeDiscordTarget(target, deliveryType) {
   const trimmed = typeof target === 'string' ? target.trim() : '';
   if (!trimmed) {
@@ -1219,6 +1248,31 @@ async function chat(params) {
     agentDeliveryMeta,
   });
   const canonicalResolvedTarget = canonicalizeDeliveryTarget(resolvedDelivery);
+
+  if (shouldPromoteRelayToSessionFirst({
+    agentDeliveryMeta,
+    relayMeta,
+    defaultDelivery,
+    resolvedDelivery,
+    currentAgentId: agentId,
+  })) {
+    agentDeliveryMeta = buildAgentDeliveryMeta({
+      sourcePeerId: requestPeerId,
+      sourceAgentId: requestPeerId,
+      sourceUrl: null,
+      requestedTarget: requestedTarget || effectiveTarget,
+      sourceDelivery: explicitSourceDelivery,
+      sourceReplyTarget: explicitSourceDelivery?.target || null,
+      sourceReplyChannel: explicitSourceDelivery?.channel || null,
+    });
+
+    logger.info('Promoting relayed local-target chat to session-first activation', {
+      requestPeerId: requestPeerId || null,
+      target: requestedTarget || effectiveTarget,
+      resolvedTarget,
+      channel: resolvedDelivery.channel || null,
+    });
+  }
 
   if (resolved.relayPeerId && resolved.relayPeerId !== agentId) {
     const relayGuard = getRelayGuardFailure(relayMeta, agentId);

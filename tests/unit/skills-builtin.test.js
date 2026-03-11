@@ -632,6 +632,52 @@ describe('Built-in Skills', () => {
       expect(result.agent_dispatch).toBe('activated');
     });
 
+    it('promotes relayed local-target delivery to session-first activation', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'discord-agent',
+        openclaw_agent_id: 'main',
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
+      });
+      invokeGatewayTool.mockImplementation(async (toolName) => {
+        if (toolName === 'sessions_list') {
+          return {
+            sessions: [
+              {
+                key: 'agent:main:discord:channel:1234567890123456789',
+                sessionId: 'discord-session-id',
+              },
+            ],
+          };
+        }
+
+        return {};
+      });
+
+      const result = await chat({
+        target: '1234567890123456789',
+        channel: 'discord',
+        message: 'Hola from Telegram',
+        _relay: {
+          hops: 1,
+          visited: ['telegram-agent'],
+        },
+      });
+
+      expect(callOpenClawTool).not.toHaveBeenCalled();
+      expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
+        sessionId: 'discord-session-id',
+        agentId: 'main',
+        target: 'channel:1234567890123456789',
+        channel: 'discord',
+        deliver: false,
+        replyTo: 'channel:1234567890123456789',
+        replyChannel: 'discord',
+      }));
+      expect(result.success).toBe(true);
+      expect(result.session_mode).toBe('session_first');
+      expect(result.agent_dispatch).toBe('activated');
+    });
+
     it('fails fast when a direct inbound turn has no matching provider-bound session', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'telegram-agent',

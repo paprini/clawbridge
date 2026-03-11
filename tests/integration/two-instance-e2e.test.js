@@ -243,6 +243,7 @@ function writeInstanceConfig({
   peer,
   gatewayUrl,
   gatewayTokenPath,
+  contacts,
 }) {
   mkdirp(configDir);
   writeJson(path.join(configDir, 'agent.json'), {
@@ -281,7 +282,7 @@ function writeInstanceConfig({
     timeout_ms: 300000,
     max_concurrent: 5,
   });
-  writeJson(path.join(configDir, 'contacts.json'), { aliases: {} });
+  writeJson(path.join(configDir, 'contacts.json'), { aliases: contacts || {} });
 }
 
 async function waitForHealth(url, child) {
@@ -780,5 +781,110 @@ describe('two-instance cross-node chat', () => {
     expect(result.openclaw_target_session_key).toBe('agent:main:main');
     expect(result.openclaw_expected_session_key).toBe('agent:main:telegram:direct:1234567890');
     expect(fs.existsSync(logPath)).toBe(false);
+  });
+
+  test('promotes relayed local-target aliases into session-first activation on the receiving peer', async () => {
+    rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-two-instance-promote-'));
+    const { cliPath, logPath } = writeFakeOpenClawCli(rootDir);
+    const gatewayToken = 'gateway-token-test';
+    gateway = createFakeGatewayServer({ token: gatewayToken });
+    gatewayPort = await getFreePort();
+    await gateway.listen(gatewayPort);
+
+    const portA = await getFreePort();
+    const portB = await getFreePort();
+    const sharedToken = 'local-shared-test-token';
+    const pairToken = 'pair-peer-token-abcdef1234567890';
+
+    const configDirA = path.join(rootDir, 'instance-a');
+    const configDirB = path.join(rootDir, 'instance-b');
+    const gatewayConfigA = path.join(rootDir, 'openclaw-a.json');
+    const gatewayConfigB = path.join(rootDir, 'openclaw-b.json');
+    writeGatewayConfig(gatewayConfigA, gatewayToken);
+    writeGatewayConfig(gatewayConfigB, gatewayToken);
+
+    writeInstanceConfig({
+      configDir: configDirA,
+      agentId: 'example-telegram-agent',
+      name: 'Monti Telegram',
+      url: `http://127.0.0.1:${portA}/a2a`,
+      defaultDelivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
+      peer: { id: 'example-discord-agent', url: `http://127.0.0.1:${portB}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigA,
+      contacts: {
+        discord_master: {
+          peerId: 'example-discord-agent',
+          target: '1234567890123456789',
+          channel: 'discord',
+          type: 'channel',
+        },
+      },
+    });
+
+    writeInstanceConfig({
+      configDir: configDirB,
+      agentId: 'example-discord-agent',
+      name: 'Example Discord Agent',
+      url: `http://127.0.0.1:${portB}/a2a`,
+      defaultDelivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
+      peer: { id: 'example-telegram-agent', url: `http://127.0.0.1:${portA}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigB,
+    });
+
+    instanceA = startInstance({ configDir: configDirA, port: portA, openclawBin: cliPath, sharedToken });
+    instanceB = startInstance({ configDir: configDirB, port: portB, openclawBin: cliPath, sharedToken });
+
+    await waitForHealth(instanceA.url, instanceA.child);
+    await waitForHealth(instanceB.url, instanceB.child);
+
+    const res = await fetch(`${instanceA.url}/a2a`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sharedToken}`,
+      },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 5,
+        method: 'message/send',
+        params: {
+          message: {
+            kind: 'message',
+            messageId: 'two-instance-5',
+            role: 'user',
+            parts: [
+              { kind: 'text', text: 'chat' },
+              { kind: 'text', text: JSON.stringify({ target: 'discord_master', message: 'Hola via alias relay' }) },
+            ],
+          },
+        },
+      }),
+    });
+
+    const body = await res.json();
+    expect(res.status).toBe(200);
+    const result = JSON.parse(body.result.parts[0].text);
+
+    expect(result.success).toBe(true);
+    expect(result.relayed_via).toBe('example-discord-agent');
+    expect(result.session_mode).toBe('session_first');
+    expect(result.agent_dispatch).toBe('activated');
+    expect(result.openclaw_deliver_locally).toBe(false);
+    expect(result.response_text).toContain('reply:main:discord:channel:1234567890123456789:Hola via alias relay');
+
+    const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
+    expect(messageCalls).toEqual([]);
+
+    const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    expect(activationCalls).toEqual(expect.arrayContaining([
+      expect.objectContaining({
+        sessionId: expect.stringMatching(/^sid-/),
+        channel: 'discord',
+        deliver: false,
+        replyTo: 'channel:1234567890123456789',
+      }),
+    ]));
   });
 });
