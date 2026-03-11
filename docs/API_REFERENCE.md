@@ -163,15 +163,17 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 {"enabled": true, "gateway": {"url": "http://127.0.0.1:18789", "tokenPath": "~/.openclaw/openclaw.json", "sessionKey": "main"}, "agent_dispatch": {"enabled": true, "sessionKey": "auto", "timeoutSeconds": 30}, "exposed_tools": ["message", "web_search"], "timeout_ms": 300000, "max_concurrent": 5}
 ```
 
-`agent_dispatch` is used for inbound `@agent-name` delivery. ClawBridge now treats that path as a session-first agent turn: it resolves the target OpenClaw session, runs the local `openclaw agent` turn without local provider delivery, and returns the resulting reply text as structured output.
+`agent_dispatch` is used for inbound `@agent-name` delivery. ClawBridge now treats that path as a session-first agent turn: it resolves the target OpenClaw session, runs the local `openclaw agent` turn with local provider delivery enabled, and returns the resulting reply text as structured output.
 
 - `sessionKey: "auto"` means ClawBridge derives the correct agent-scoped OpenClaw target session.
 - `timeoutSeconds` is the maximum time ClawBridge will wait for the local OpenClaw agent to complete the activated turn.
+- ClawBridge serializes concurrent `openclaw agent` turns per local target session so overlapping inbound messages to the same receiving session do not collide.
 - Before the turn runs, ClawBridge inspects `sessions_list` and, when OpenClaw already has a unique session row whose delivery context matches the real target, reuses that row's `sessionId`.
 - When ClawBridge reuses an explicit OpenClaw `sessionId`, it intentionally does not pass `--agent` to `openclaw agent`. Real OpenClaw CLI behavior will otherwise re-route the turn back to the agent's main session.
 - For direct Telegram / Discord / WhatsApp delivery, ClawBridge now requires a real provider-bound session row. If OpenClaw only exposes the agent main session, ClawBridge returns `agent_dispatch: "binding_required"` instead of silently running the wrong conversation.
 - `npm run verify` now rejects direct session-first installs whose OpenClaw config or actual local session store still collapses DMs into the main session.
-- For `@agent-name` and `#channel@agent-name`, the remote peer returns structured session output such as `conversation_id`, `response_text`, and the OpenClaw session metadata instead of trying to mix visible provider delivery with a cross-peer reply relay.
+- For `@agent-name` and `#channel@agent-name`, the remote peer returns structured session output such as `conversation_id`, `response_text`, `openclaw_result`, `openclaw_warning`, and the OpenClaw session metadata.
+- If the OpenClaw CLI exits non-zero but still emits a valid JSON reply payload on stdout, current ClawBridge builds now recover that as a successful session-first turn instead of collapsing it into `Remote agent session turn failed.`
 - ClawBridge peer ID and OpenClaw agent ID are different concepts. If you need to pin the receiving OpenClaw agent explicitly, set `config/agent.json -> openclaw_agent_id` or `config/bridge.json -> agent_dispatch.agentId`.
 - On multi-agent OpenClaw installs, pin one local communications agent explicitly. ClawBridge should not guess that from channel bindings.
 

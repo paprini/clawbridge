@@ -69,7 +69,7 @@ Start with low-risk tools:
 
 High-risk tools are blocked by default unless you explicitly opt in.
 
-For inbound `@agent-name` delivery, ClawBridge now uses a session-first path: it resolves the receiving OpenClaw session, runs the native `openclaw agent` turn without local provider delivery, and returns structured reply text to the calling peer. It no longer depends on visible message relay behavior or `sessions_send` being allowed on the local gateway.
+For inbound `@agent-name` delivery, ClawBridge now uses a session-first path: it resolves the receiving OpenClaw session, runs the native `openclaw agent` turn with local provider delivery enabled, and returns structured reply text to the calling peer. It no longer depends on visible message relay behavior or `sessions_send` being allowed on the local gateway.
 
 For direct Telegram / Discord / WhatsApp targets, that path now requires a real provider-bound session row. If OpenClaw only exposes the agent main session for the DM, current ClawBridge builds fail with `agent_dispatch: "binding_required"` instead of silently running the wrong conversation. In practice that means:
 
@@ -88,6 +88,8 @@ If neither is set:
 - multi-agent installs should be considered misconfigured until one local communications agent is pinned explicitly
 
 When OpenClaw already has a matching session row for the target destination, ClawBridge reuses that row's `sessionId` and delivery metadata so the agent turn lands in the correct ongoing OpenClaw session explicitly.
+
+Current builds also serialize concurrent local `openclaw agent` turns per target session. That prevents overlapping inbound messages to the same receiving session from colliding under one ClawBridge instance.
 
 ## Restart And Validate
 

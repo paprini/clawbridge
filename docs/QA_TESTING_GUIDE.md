@@ -162,6 +162,7 @@ cat config/agent.json
 #   "description": "A2A agent: discord-agent",
 #   "url": "http://10.0.1.10:9100/a2a",
 #   "version": "<installed-clawbridge-version>",
+#   "openclaw_agent_id": "main",
 #   "default_delivery": {
 #     "type": "channel",
 #     "target": "#general",
@@ -191,6 +192,7 @@ cat config/skills.json
 ```
 
 **Important for live messaging tests:**
+- `openclaw_agent_id` should be pinned to the one local OpenClaw agent that ClawBridge should wake up for inbound `@agent-name` delivery
 - `default_delivery` must be configured if this agent should receive `@agent-name` messages
 - `broadcast` also relies on each receiving peer having a valid `default_delivery`
 - if `default_delivery.target` uses a symbolic channel like `#general`, map that channel in `config/contacts.json`
@@ -404,6 +406,69 @@ curl -X POST \
 4. Parse `result.parts[0].text` as JSON and check the expected fields
 
 **Expected:** All 12 calls succeed (200 OK, valid response)
+
+---
+
+### Test Case 4.5: Concurrent Inbound Session Turns
+
+**Goal:** confirm one ClawBridge instance can receive two near-simultaneous `chat` turns without socket/session collision
+
+**Run two requests at nearly the same time to the same target instance:**
+```bash
+curl -X POST \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  http://10.0.1.12:9100/a2a \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 101,
+    "method": "message/send",
+    "params": {
+      "message": {
+        "kind": "message",
+        "messageId": "qa-concurrent-1",
+        "role": "user",
+        "parts": [
+          { "kind": "text", "text": "chat" },
+          { "kind": "text", "text": "{\"target\":\"@telegram-agent\",\"message\":\"Concurrent hello 1\"}" }
+        ]
+      }
+    }
+  }' &
+
+curl -X POST \
+  -H "Authorization: Bearer <TOKEN>" \
+  -H "Content-Type: application/json" \
+  http://10.0.1.12:9100/a2a \
+  -d '{
+    "jsonrpc": "2.0",
+    "id": 102,
+    "method": "message/send",
+    "params": {
+      "message": {
+        "kind": "message",
+        "messageId": "qa-concurrent-2",
+        "role": "user",
+        "parts": [
+          { "kind": "text", "text": "chat" },
+          { "kind": "text", "text": "{\"target\":\"@telegram-agent\",\"message\":\"Concurrent hello 2\"}" }
+        ]
+      }
+    }
+  }' &
+
+wait
+```
+
+**Expected:**
+- both calls return valid JSON-RPC success
+- no socket-style overlap error appears in the receiving ClawBridge logs
+- the receiving node handles the two turns sequentially on the same local session instead of colliding
+
+**On failure:**
+- capture both returned JSON payloads
+- capture receiving-node logs around `Executing inbound agent chat as session turn`
+- note whether both calls targeted the same local `@agent-name` / session
 
 ---
 

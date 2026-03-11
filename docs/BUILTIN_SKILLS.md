@@ -75,11 +75,12 @@ callPeerSkill('discord-agent', 'get_status')
    - `#channel` or a plain alias resolves locally through `config/contacts.json`
    - direct platform IDs are sent locally
 3. For direct local platform targets, the local peer uses its own OpenClaw gateway `message` tool
-4. For `@agent-name` and `#channel@agent-name`, the receiving peer runs a session-first `openclaw agent` turn in the resolved local OpenClaw session
-5. The receiving peer returns structured result data such as `conversation_id`, `response_text`, and OpenClaw session metadata to the caller
+4. For `@agent-name` and `#channel@agent-name`, the receiving peer runs a session-first `openclaw agent --deliver` turn in the resolved local OpenClaw session
+5. The receiving peer returns structured result data such as `conversation_id`, `response_text`, `openclaw_result`, optional `openclaw_warning`, and OpenClaw session metadata to the caller
 6. This keeps agent-to-agent traffic as explicit session communication instead of visible-send plus inferred reply relay
 7. When a concrete OpenClaw `sessionId` is reused, ClawBridge preserves that exact session and does not add `--agent`, because the OpenClaw CLI can otherwise fall back to the agent's main session
 8. For direct Telegram / Discord / WhatsApp delivery, the receiving peer must already have a provider-bound DM/session for that local target. If OpenClaw only exposes the main session, ClawBridge now fails with `agent_dispatch: "binding_required"` instead of pretending the right conversation ran
+9. Concurrent inbound turns to the same receiving session are serialized by ClawBridge so overlapping messages do not collide on one local OpenClaw session
 
 For provider-specific delivery, ClawBridge now uses `default_delivery.type` to canonicalize the final local target.
 - Discord DMs: `owner` -> `user:<id>`

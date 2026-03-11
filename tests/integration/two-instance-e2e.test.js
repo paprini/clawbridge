@@ -175,11 +175,15 @@ function createFakeGatewayServer({ token, collapsedDirectChannels = [] }) {
   };
 }
 
-function writeFakeOpenClawCli(rootDir) {
+function writeFakeOpenClawCli(rootDir, options = {}) {
   const logPath = path.join(rootDir, 'fake-openclaw.log');
+  const lockDir = path.join(rootDir, 'fake-openclaw-locks');
   const cliPath = path.join(rootDir, 'fake-openclaw.js');
+  const delayMs = Number.isFinite(options.delayMs) ? Math.max(0, options.delayMs) : 0;
+  const failOnConcurrentSession = options.failOnConcurrentSession === true;
 const script = `#!/usr/bin/env node
 const fs = require('fs');
+const path = require('path');
 const args = process.argv.slice(2);
 function getArg(flag) {
   const index = args.indexOf(flag);
@@ -196,22 +200,39 @@ const payload = {
   replyChannel: getArg('--reply-channel'),
   message: getArg('--message'),
 };
+const lockDir = ${JSON.stringify(lockDir)};
+const lockKey = payload.sessionId || [payload.agent || 'main', payload.channel || 'none', payload.to || 'none'].join('__');
+const lockPath = path.join(lockDir, Buffer.from(lockKey).toString('hex') + '.lock');
 if (payload.sessionId && payload.agent) {
   process.stderr.write('explicit session turns must not include --agent');
   process.exit(2);
 }
-fs.appendFileSync(${JSON.stringify(logPath)}, JSON.stringify(payload) + '\\n');
-process.stdout.write(JSON.stringify({
-  status: 'ok',
-  result: {
+fs.mkdirSync(lockDir, { recursive: true });
+const shouldFailOnConcurrentSession = ${failOnConcurrentSession ? 'true' : 'false'};
+if (shouldFailOnConcurrentSession && fs.existsSync(lockPath)) {
+  process.stderr.write('socket error: overlapping agent turn on session');
+  process.exit(3);
+}
+fs.writeFileSync(lockPath, String(process.pid));
+const finish = () => {
+  try { fs.unlinkSync(lockPath); } catch {}
+};
+setTimeout(() => {
+  fs.appendFileSync(${JSON.stringify(logPath)}, JSON.stringify(payload) + '\\n');
+  process.stdout.write(JSON.stringify({
     status: 'ok',
-    payloads: [
-      {
-        text: 'reply:' + (payload.agent || 'main') + ':' + (payload.replyChannel || 'none') + ':' + (payload.replyTo || payload.to || 'none') + ':' + payload.message,
-      },
-    ],
-  },
-}));
+    result: {
+      status: 'ok',
+      payloads: [
+        {
+          text: 'reply:' + (payload.agent || 'main') + ':' + (payload.replyChannel || 'none') + ':' + (payload.replyTo || payload.to || 'none') + ':' + payload.message,
+        },
+      ],
+    },
+  }));
+  finish();
+}, ${delayMs});
+process.on('exit', finish);
 `;
   fs.writeFileSync(cliPath, script);
   fs.chmodSync(cliPath, 0o755);
@@ -886,5 +907,100 @@ describe('two-instance cross-node chat', () => {
         replyTo: 'channel:1234567890123456789',
       }),
     ]));
+  });
+
+  test('serializes concurrent inbound session turns to the same local target session', async () => {
+    rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-two-instance-concurrent-'));
+    const { cliPath, logPath } = writeFakeOpenClawCli(rootDir, {
+      delayMs: 150,
+      failOnConcurrentSession: true,
+    });
+    const gatewayToken = 'gateway-token-test';
+    gateway = createFakeGatewayServer({ token: gatewayToken });
+    gatewayPort = await getFreePort();
+    await gateway.listen(gatewayPort);
+
+    const portA = await getFreePort();
+    const portB = await getFreePort();
+    const sharedToken = 'local-shared-test-token';
+    const pairToken = 'pair-peer-token-abcdef1234567890';
+
+    const configDirA = path.join(rootDir, 'instance-a');
+    const configDirB = path.join(rootDir, 'instance-b');
+    const gatewayConfigA = path.join(rootDir, 'openclaw-a.json');
+    const gatewayConfigB = path.join(rootDir, 'openclaw-b.json');
+    writeGatewayConfig(gatewayConfigA, gatewayToken);
+    writeGatewayConfig(gatewayConfigB, gatewayToken);
+
+    writeInstanceConfig({
+      configDir: configDirA,
+      agentId: 'example-telegram-agent',
+      name: 'Monti Telegram',
+      url: `http://127.0.0.1:${portA}/a2a`,
+      defaultDelivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
+      peer: { id: 'example-discord-agent', url: `http://127.0.0.1:${portB}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigA,
+    });
+
+    writeInstanceConfig({
+      configDir: configDirB,
+      agentId: 'example-discord-agent',
+      name: 'Example Discord Agent',
+      url: `http://127.0.0.1:${portB}/a2a`,
+      defaultDelivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
+      peer: { id: 'example-telegram-agent', url: `http://127.0.0.1:${portA}`, token: pairToken },
+      gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
+      gatewayTokenPath: gatewayConfigB,
+    });
+
+    instanceA = startInstance({ configDir: configDirA, port: portA, openclawBin: cliPath, sharedToken });
+    instanceB = startInstance({ configDir: configDirB, port: portB, openclawBin: cliPath, sharedToken });
+
+    await waitForHealth(instanceA.url, instanceA.child);
+    await waitForHealth(instanceB.url, instanceB.child);
+
+    const requestBodies = ['Concurrent hello 1', 'Concurrent hello 2'].map((text, index) => ({
+      jsonrpc: '2.0',
+      id: 100 + index,
+      method: 'message/send',
+      params: {
+        message: {
+          kind: 'message',
+          messageId: `two-instance-concurrent-${index + 1}`,
+          role: 'user',
+          parts: [
+            { kind: 'text', text: 'chat' },
+            { kind: 'text', text: JSON.stringify({ target: '@example-discord-agent', message: text }) },
+          ],
+        },
+      },
+    }));
+
+    const [res1, res2] = await Promise.all(requestBodies.map((body) => fetch(`${instanceA.url}/a2a`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${sharedToken}`,
+      },
+      body: JSON.stringify(body),
+    })));
+
+    const [body1, body2] = await Promise.all([res1.json(), res2.json()]);
+    const [result1, result2] = [body1, body2].map((body) => JSON.parse(body.result.parts[0].text));
+
+    expect(res1.status).toBe(200);
+    expect(res2.status).toBe(200);
+    expect(result1.success).toBe(true);
+    expect(result2.success).toBe(true);
+    expect(result1.agent_dispatch).toBe('activated');
+    expect(result2.agent_dispatch).toBe('activated');
+    expect(result1.response_text).toContain('Concurrent hello 1');
+    expect(result2.response_text).toContain('Concurrent hello 2');
+
+    const activationCalls = fs.readFileSync(logPath, 'utf8').trim().split('\n').filter(Boolean).map((line) => JSON.parse(line));
+    expect(activationCalls).toHaveLength(2);
+    expect(new Set(activationCalls.map((entry) => entry.sessionId)).size).toBe(1);
+    expect(instanceB.getLogs()).not.toContain('socket error: overlapping agent turn on session');
   });
 });

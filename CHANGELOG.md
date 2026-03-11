@@ -9,7 +9,10 @@ The project uses Semantic Versioning:
 
 ## [Unreleased]
 
-- No unreleased changes yet.
+- Fixed session-first reply handling so ClawBridge now recovers successful OpenClaw reply payloads even when the `openclaw agent` command exits non-zero with valid JSON on stdout.
+- Fixed session-first local delivery so the receiving node now visibly delivers the local agent reply on its own provider session.
+- Added per-session serialization for concurrent inbound OpenClaw agent turns to prevent overlapping messages from colliding on the same local session.
+- Added concurrency reproduction coverage and reply-recovery regressions in the integration/unit suite.
 
 ## [0.2.0] - 2026-03-10
 

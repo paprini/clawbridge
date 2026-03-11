@@ -180,9 +180,26 @@ Fixes:
 - for direct Telegram / Discord / WhatsApp delivery, make the local user message that agent once first; if OpenClaw still stores that conversation on `agent:...:main` instead of a provider-bound `...:direct:...` session, current ClawBridge builds now fail with `agent_dispatch: "binding_required"` instead of silently reusing the main session
 - if `npm run verify` reports `session.dmScope`, change OpenClaw to `per-channel-peer` or `per-account-channel-peer` before testing cross-agent DMs
 - for Discord, make sure `config/agent.json -> default_delivery.type` matches the actual destination kind; ClawBridge now canonicalizes the final target as `user:<id>` or `channel:<id>` from that field
-- keep ClawBridge on the current version so inbound cross-agent activation runs as a session-first `openclaw agent --json` turn without local provider delivery
+- keep ClawBridge on the current version so inbound cross-agent activation runs as a session-first `openclaw agent --json --deliver` turn on the bound local provider session
 - make sure `config/agent.json -> id` is unique across all ClawBridge peers; if `npm run verify` reports a peer/local id collision, rename one side before using `@agent-name`
 - run `npm run verify`
+
+## Concurrent Messages Cause Socket Or Session Errors
+
+Symptoms: two inbound messages hit the same ClawBridge instance at nearly the same time and one of them fails with a socket-like or OpenClaw CLI overlap error
+
+Causes:
+- two local `openclaw agent` turns overlapped on the same provider-bound session
+- an older ClawBridge build launched both turns concurrently with no per-session serialization
+
+Fixes:
+- update to the current ClawBridge build; inbound session-first turns are now serialized per local target session
+- retest with two near-simultaneous messages to the same `@agent` target
+- if you still reproduce it, capture both returned JSON payloads and the receiving node logs around `Executing inbound agent chat as session turn`
+
+Expected current behavior:
+- both requests can still succeed
+- the second request waits for the first local session turn instead of colliding with it
 
 ## Config Not Found
 

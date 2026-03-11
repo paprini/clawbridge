@@ -9,6 +9,7 @@ const { promisify } = require('util');
 const execFileAsync = promisify(execFile);
 let cachedOpenClawCommandKey = null;
 let cachedOpenClawCommand = null;
+const agentTurnLocks = new Map();
 
 function expandHome(filePath) {
   return typeof filePath === 'string' ? filePath.replace(/^~/, os.homedir()) : filePath;
@@ -380,6 +381,45 @@ function tryParseOpenClawJsonOutput(stdout) {
   }
 }
 
+function buildAgentTurnLockKey({ sessionId, agentId, channel, target }) {
+  if (typeof sessionId === 'string' && sessionId.trim().length > 0) {
+    return `session:${sessionId.trim()}`;
+  }
+
+  const parts = [
+    typeof agentId === 'string' ? agentId.trim() : '',
+    typeof channel === 'string' ? channel.trim() : '',
+    typeof target === 'string' ? target.trim() : '',
+  ];
+  const normalized = parts.filter(Boolean).join('|');
+  return normalized ? `route:${normalized}` : null;
+}
+
+async function withSerializedAgentTurn(lockKey, fn) {
+  if (!lockKey) {
+    return fn();
+  }
+
+  const previous = agentTurnLocks.get(lockKey) || Promise.resolve();
+  let releaseCurrent;
+  const current = new Promise((resolve) => {
+    releaseCurrent = resolve;
+  });
+  const currentTail = previous.catch(() => {}).then(() => current);
+  agentTurnLocks.set(lockKey, currentTail);
+
+  await previous.catch(() => {});
+
+  try {
+    return await fn();
+  } finally {
+    releaseCurrent();
+    if (agentTurnLocks.get(lockKey) === currentTail) {
+      agentTurnLocks.delete(lockKey);
+    }
+  }
+}
+
 async function runOpenClawAgentTurn({
   message,
   agentId,
@@ -443,29 +483,33 @@ async function runOpenClawAgentTurn({
 
   const command = resolveOpenClawCommand();
 
-  try {
-    const result = await execFileAsync(command, args, {
-      timeout: normalizedTimeoutSeconds ? (normalizedTimeoutSeconds + 30) * 1000 : 330000,
-      maxBuffer: 1024 * 1024,
-    });
+  const lockKey = buildAgentTurnLockKey({ sessionId, agentId, channel, target });
 
-    return parseOpenClawJsonOutput(result.stdout);
-  } catch (err) {
-    const stdout = typeof err?.stdout === 'string' ? err.stdout.trim() : '';
-    const stderr = typeof err?.stderr === 'string' ? err.stderr.trim() : '';
-    const stdoutResult = tryParseOpenClawJsonOutput(stdout);
-    const details = [stderr, stdout].filter(Boolean).join(' | ');
-    const notFound = err?.code === 'ENOENT'
-      ? `OpenClaw CLI not found at "${command}". Set OPENCLAW_BIN or install the binary in PATH.`
-      : null;
-    const messageText = details || notFound || err.message || 'OpenClaw agent activation failed';
-    const wrapped = new Error(messageText);
-    wrapped.stdout = stdout;
-    wrapped.stderr = stderr;
-    wrapped.stdoutResult = stdoutResult;
-    wrapped.exitCode = err?.code ?? null;
-    throw wrapped;
-  }
+  return withSerializedAgentTurn(lockKey, async () => {
+    try {
+      const result = await execFileAsync(command, args, {
+        timeout: normalizedTimeoutSeconds ? (normalizedTimeoutSeconds + 30) * 1000 : 330000,
+        maxBuffer: 1024 * 1024,
+      });
+
+      return parseOpenClawJsonOutput(result.stdout);
+    } catch (err) {
+      const stdout = typeof err?.stdout === 'string' ? err.stdout.trim() : '';
+      const stderr = typeof err?.stderr === 'string' ? err.stderr.trim() : '';
+      const stdoutResult = tryParseOpenClawJsonOutput(stdout);
+      const details = [stderr, stdout].filter(Boolean).join(' | ');
+      const notFound = err?.code === 'ENOENT'
+        ? `OpenClaw CLI not found at "${command}". Set OPENCLAW_BIN or install the binary in PATH.`
+        : null;
+      const messageText = details || notFound || err.message || 'OpenClaw agent activation failed';
+      const wrapped = new Error(messageText);
+      wrapped.stdout = stdout;
+      wrapped.stderr = stderr;
+      wrapped.stdoutResult = stdoutResult;
+      wrapped.exitCode = err?.code ?? null;
+      throw wrapped;
+    }
+  });
 }
 
 function isOpenClawCliAvailable() {
@@ -524,4 +568,5 @@ module.exports = {
   resolveOpenClawCommand,
   runOpenClawAgentTurn,
   unwrapGatewayToolResult,
+  withSerializedAgentTurn,
 };
