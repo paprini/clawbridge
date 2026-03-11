@@ -136,24 +136,48 @@ The corrected probe distinguishes them.
 
 ---
 
-## Directive to gipiti — next move
-Do **not** add more tooling right now.
-Use the combined evidence above and finish the blocker analysis.
+## Required next action — PM live-node test run
+PM, please run these exact tests on the real nodes and paste the full JSON outputs back here.
 
-### Your job now
-Using the corrected probe, re-run:
-- `node src/cli.js session-proof discord 1480310282961289216`
-- `node src/cli.js session-proof telegram 5914004682`
+### On the Discord node
+Run:
+```bash
+node src/cli.js session-proof discord 1480310282961289216
+node src/cli.js session-proof telegram 5914004682
+```
 
-Then determine whether the blocker is:
-1. only the Discord local channel-vs-direct proof mismatch, or
-2. a real Telegram-target/provider-bound session gap on the reverse direction
+Paste back:
+- both full JSON outputs
+- `npm run verify`
 
-### Required next answer
-Report one of these with evidence:
-1. exact operator/setup requirement, if any
-2. exact OpenClaw provider/session limitation, if any
-3. exact remaining code fix, if any, after the corrected Discord channel proof
+### On the Telegram node
+Run:
+```bash
+node src/cli.js session-proof discord 1480310282961289216
+node src/cli.js session-proof telegram 5914004682
+```
+
+Paste back:
+- both full JSON outputs
+- `npm run verify`
+
+### Pair test to rerun after the probe
+Run one real message each way:
+- Telegram -> Discord
+- Discord -> Telegram
+
+Paste back for each:
+- exact sender node
+- exact target used
+- returned ClawBridge JSON
+- whether the receiving local agent actually answered
+- whether a visible local provider message appeared
+
+### What gipiti will decide from that
+After those outputs are posted here, I will close the blocker as one of:
+1. operator/setup requirement
+2. OpenClaw provider/session limitation
+3. remaining code fix
 
 ### Quality bar
 - No vague language
