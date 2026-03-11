@@ -1,90 +1,75 @@
 # Shared Chat
 
-Use this file only for the **current blocker**, the **latest validated live behavior**, and the **next action**.
+Use this file only for the **current blocker**, the **latest validated cross-provider state**, and the **next action**.
 Archive everything else.
-
-Archive:
-- `docs/archive/sharedchat-history-2026-03-09.md`
 
 ## Current State — 2026-03-11
 
 ### Product direction
-ClawBridge should be treated as **session-first agent-to-agent communication**, not message-relay-first.
-Launch scope remains:
+ClawBridge core should be **session-first agent-to-agent communication**.
+
+Launch providers:
 - Telegram
 - Discord
 - WhatsApp
 
-### Latest validated reality from live nodes
-So far, only **WhatsApp** looks like it is truly activating the remote agent in a meaningful way when receiving peer-originated messages.
+### Current validated interoperability matrix
+#### Working correctly
+- WhatsApp -> Telegram ✅
+- Telegram -> WhatsApp ✅
+- WhatsApp -> Discord ✅
+- Discord -> WhatsApp ✅
 
-Current practical summary:
-- **WhatsApp**: seems to activate on inbound peer traffic and is the only node currently showing signs of real execution
-- **Discord**: may return internal/session-first output, but does not appear to complete real remote bound-channel execution reliably
-- **Telegram**: may return internal/session-first output, but does not appear to complete real remote bound-channel execution reliably
+In those paths, the remote side behaves like a real activated agent/session and executes correctly.
 
-### Important distinction
-What we are seeing on Discord/Telegram is not enough:
-- they can receive messages
-- they can sometimes answer back with `response_text`
-- but they do **not** seem to execute the requested action as a real remote agent turn in the bound session/channel
+#### Still not working correctly
+- Telegram -> Discord ❌
+- Discord -> Telegram ❌
 
-So the current bug is **not** just reply wording or relay cosmetics.
-It is a deeper bug in:
+In those paths, messages may arrive, but the behavior still does not match true remote session execution semantics consistently.
 
-## Canonical blocker
-**Session-first inbound traffic is still stopping at internal response/message reception instead of completing real remote bound-session agent execution on Discord and Telegram.**
+### Important conclusion
+The problem is now **not** the whole multi-provider design.
+The problem is specifically the **Telegram <-> Discord pair**.
 
-### In plain terms
-Current observed pattern on Discord/Telegram:
-1. peer message arrives
-2. session-first path activates something / returns internal output
-3. but the remote agent does not reliably behave like a truly executing bound agent
-4. requested actions are not consistently carried out as real remote work
-
-### Current strongest contrast
-- WA: looks closest to real execution
-- Discord / Telegram: still look like “message received + internal answer” more than “real remote agent executed the task”
-
-### Architectural hint from WA
-WA found a very important clue:
-peer-originated A2A traffic must not reuse human/provider-bound sessions.
-That appears to be part of why WA improved.
-
-### What we need from gipiti now
-Please stop broad churn and focus on this exact product-level question:
-
-**How do we guarantee that peer-originated session-first traffic executes as a real remote bound-agent turn, not just an internal response artifact?**
-
-Specifically:
-1. reproduce the Discord and Telegram failure modes directly
-2. compare them against the stronger WA behavior
-3. identify why WA is closer to true execution
-4. make Discord and Telegram match that execution semantics
-5. push a real fix with a real commit/hash
-
-### Delivery requirement for confirmation
-When you believe this is fixed, confirm with:
-- exact commit/hash
-- what changed
-- which node pairs were re-tested
-- evidence that the remote agent actually executed the requested action, not merely returned internal text
-
+This strongly suggests:
+- the session-first model can work
+- WA is proving that
+- but the implementation is still inconsistent for the Telegram/Discord pair
 
 ---
 
-## Repo hygiene update
+## Canonical blocker
+**Telegram and Discord still do not interoperate correctly with each other under the session-first model, even though both interoperate successfully with WhatsApp.**
 
-A public-repo hygiene pass was completed on the live side:
-- local runtime configs remain untracked (`config/agent.json`, `config/peers.json`, `config/contacts.json`)
-- public docs/tests/examples were sanitized to generic examples
-- `docs/internal/` and `docs/archive/` were removed from the public repo
-- visible uninstall docs were sanitized to generic paths instead of host-specific ones
+### Plain-language meaning
+WA is currently the only provider that works correctly with both others.
+The remaining issue is the provider-pair behavior between Telegram and Discord.
 
-Recent hygiene commits:
-- `1485c37` — untrack local runtime configs + sanitized agent example
-- `f7f7509` — sanitize docs/tests to generic examples
-- `13c93a5` — remove internal/archive docs from public repo + sanitize uninstall paths
+---
 
-This should leave the public repo much cleaner and less tied to the original live environment.
+## Direct request to gipiti
+Please test and debug this exact matrix now, with emphasis on the failing pair:
+
+### Must re-test explicitly
+- Telegram -> Discord
+- Discord -> Telegram
+
+### Control comparisons
+- WhatsApp -> Telegram
+- Telegram -> WhatsApp
+- WhatsApp -> Discord
+- Discord -> WhatsApp
+
+### What to determine
+Why does WA interoperate correctly with both others, while Telegram and Discord still fail to interoperate correctly with each other?
+
+That comparison should now be the main debugging frame.
+
+### Confirmation requirement
+When you push the next fix, please report:
+- exact commit/hash
+- which pair(s) you re-tested
+- whether Telegram <-> Discord now behaves like real remote session execution
+- what specifically was different in that pair compared with WA paths
 
