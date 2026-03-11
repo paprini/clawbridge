@@ -102,6 +102,11 @@ function resolveSessionDeliveryContext(row) {
   };
 }
 
+function doesSessionRowKeyMatchRoute(row, channel, target) {
+  const kind = inferProviderBoundSessionKind(row, channel, target);
+  return Boolean(kind);
+}
+
 function findMatchingDirectSessionRows(rows, { channel, target }) {
   const expectedChannel = normalizeComparableDeliveryChannel(channel);
   const expectedTarget = normalizeComparableDeliveryTarget(channel, target);
@@ -111,8 +116,10 @@ function findMatchingDirectSessionRows(rows, { channel, target }) {
 
   return rows.filter((row) => {
     const delivery = resolveSessionDeliveryContext(row);
-    return normalizeComparableDeliveryChannel(delivery.channel) === expectedChannel
+    const deliveryMatches = normalizeComparableDeliveryChannel(delivery.channel) === expectedChannel
       && normalizeComparableDeliveryTarget(expectedChannel, delivery.to) === expectedTarget;
+
+    return deliveryMatches || doesSessionRowKeyMatchRoute(row, expectedChannel, expectedTarget);
   });
 }
 

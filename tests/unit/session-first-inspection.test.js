@@ -91,4 +91,30 @@ describe('session-first inspection', () => {
     expect(evidence.providerBoundRows[0].key).toBe('agent:main:discord:channel:1480310282961289216');
     expect(evidence.hasCollapsedMatch).toBe(false);
   });
+
+  test('matches provider-bound channel rows by key when deliveryContext is missing', () => {
+    const rootDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-session-inspect-discord-key-'));
+    const openclawConfigPath = path.join(rootDir, 'openclaw.json');
+    const sessionStorePath = path.join(rootDir, 'agents', 'main', 'sessions', 'sessions.json');
+
+    fs.mkdirSync(path.dirname(sessionStorePath), { recursive: true });
+    fs.writeFileSync(openclawConfigPath, JSON.stringify({ gateway: { auth: { token: 't' } } }, null, 2));
+    fs.writeFileSync(sessionStorePath, JSON.stringify({
+      'agent:main:discord:channel:1480310282961289216:thread:abc123': {
+        sessionId: 'thread-session',
+      },
+    }, null, 2));
+
+    const evidence = inspectSessionRoutingEvidence({
+      tokenPath: openclawConfigPath,
+      agentId: 'main',
+      channel: 'discord',
+      target: '1480310282961289216',
+    });
+
+    expect(evidence.hasProviderBound).toBe(true);
+    expect(evidence.providerBoundKinds).toEqual(['channel']);
+    expect(evidence.providerBoundRows[0].key).toBe('agent:main:discord:channel:1480310282961289216:thread:abc123');
+    expect(evidence.matchingRows).toHaveLength(1);
+  });
 });

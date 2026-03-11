@@ -111,6 +111,20 @@ Even after recognizing `channel` and `group` provider-bound rows, the rerun stil
 
 That means the blocker remains real on this node after the probe correction.
 
+### New code fix after reviewing the Discord evidence
+The corrected probe still had one more blind spot:
+- it relied on `deliveryContext.to` / `lastTo`
+- but real Discord provider-bound rows can still be identifiable only by the **session key**
+- that includes rows like:
+  - `agent:main:discord:channel:<id>:thread:<threadId>`
+  - or key-only channel rows without a populated `deliveryContext.to`
+
+New fix now pushed locally:
+- probe and session retargeting both match provider-bound rows by **session key** as well as delivery metadata
+- targeted and full test suite pass with key-only Discord thread/channel rows
+
+This matters because the earlier Discord rerun may still have under-reported a real channel/thread route if the route lived only in the key.
+
 ---
 
 ## Current interpretation
@@ -121,13 +135,13 @@ That means the blocker remains real on this node after the probe correction.
 - Telegram target is still not provider-bound on the Discord node after the corrected probe ❌
 
 ### Strongest current reading
-The blocker still points to a **Discord-side provider-bound session availability / matching problem**.
+The blocker is still on the Discord side, but the remaining question is now even narrower:
 
-The corrected probe was necessary, but it did **not** remove the Discord-node gap in the rerun.
+> does the Discord node still show no provider-bound match after key-based channel/thread matching, or was the gap caused by rows that existed only in the session key?
 
 ---
 
-## Required next action — PM live-node test run
+## Required next action — PM live-node rerun
 PM, please run these exact tests on the real nodes and paste the full JSON outputs back here.
 
 ### On the Discord node

@@ -104,4 +104,50 @@ describe('cli session-proof', () => {
     expect(parsed.collapsed_to_non_provider_session).toBe(false);
     expect(parsed.matching_rows[0].key).toBe('agent:main:discord:channel:1480310282961289216');
   });
+
+  test('reports provider-bound channel-session evidence from a key-only thread row', () => {
+    const configDir = fs.mkdtempSync(path.join(os.tmpdir(), 'clawbridge-cli-session-proof-thread-'));
+    const openclawRoot = path.join(configDir, '.openclaw');
+    const openclawConfigPath = path.join(openclawRoot, 'openclaw.json');
+
+    writeJson(path.join(configDir, 'agent.json'), {
+      id: 'demo',
+      name: 'Demo Agent',
+      url: 'http://localhost:9100/a2a',
+      openclaw_agent_id: 'main',
+      default_delivery: {
+        type: 'channel',
+        target: '1480310282961289216',
+        channel: 'discord',
+      },
+    });
+    writeJson(path.join(configDir, 'peers.json'), { peers: [] });
+    writeJson(path.join(configDir, 'skills.json'), { exposed_skills: [{ name: 'ping', public: true }] });
+    writeJson(path.join(configDir, 'bridge.json'), {
+      gateway: {
+        tokenPath: openclawConfigPath,
+      },
+    });
+    writeJson(openclawConfigPath, { gateway: { auth: { token: 'test' } } });
+    writeJson(path.join(openclawRoot, 'agents', 'main', 'sessions', 'sessions.json'), {
+      'agent:main:discord:channel:1480310282961289216:thread:abc123': {
+        sessionId: 'thread-session',
+      },
+    });
+
+    const result = spawnSync(process.execPath, ['src/cli.js', 'session-proof', 'discord', '1480310282961289216'], {
+      cwd: path.join(__dirname, '..', '..'),
+      env: {
+        ...process.env,
+        A2A_CONFIG_DIR: configDir,
+      },
+      encoding: 'utf8',
+    });
+
+    expect(result.status).toBe(0);
+    const parsed = JSON.parse(result.stdout);
+    expect(parsed.provider_bound).toBe(true);
+    expect(parsed.provider_bound_kinds).toEqual(['channel']);
+    expect(parsed.matching_rows[0].key).toBe('agent:main:discord:channel:1480310282961289216:thread:abc123');
+  });
 });

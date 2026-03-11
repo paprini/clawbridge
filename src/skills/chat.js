@@ -716,6 +716,29 @@ function resolveSessionDeliveryTarget(row) {
   };
 }
 
+function inferSessionRouteKindFromKey(rowKey, deliveryChannel, resolvedTarget) {
+  const normalizedRowKey = normalizeSessionComparisonValue(rowKey);
+  const expectedChannel = normalizeComparableDeliveryChannel(deliveryChannel);
+  const expectedTarget = normalizeComparableDeliveryTarget(expectedChannel, resolvedTarget);
+  if (!normalizedRowKey || !expectedChannel || !expectedTarget) {
+    return null;
+  }
+
+  const patterns = [
+    { kind: 'direct', token: `:${expectedChannel}:direct:${expectedTarget}` },
+    { kind: 'channel', token: `:${expectedChannel}:channel:${expectedTarget}` },
+    { kind: 'group', token: `:${expectedChannel}:group:${expectedTarget}` },
+  ];
+
+  for (const pattern of patterns) {
+    if (normalizedRowKey.includes(pattern.token)) {
+      return pattern.kind;
+    }
+  }
+
+  return null;
+}
+
 async function inspectDispatchSession(dispatchConfig) {
   if (!dispatchConfig?.targetSessionKey) {
     return { row: null, sessions: [] };
@@ -753,8 +776,10 @@ function findMatchingDeliverySessionRows(sessions, { resolvedTarget, deliveryCha
 
   return sessions.filter((row) => {
     const delivery = resolveSessionDeliveryTarget(row);
-    return normalizeComparableDeliveryChannel(delivery.channel) === expectedChannel
+    const deliveryMatches = normalizeComparableDeliveryChannel(delivery.channel) === expectedChannel
       && normalizeComparableDeliveryTarget(expectedChannel, delivery.to) === expectedTarget;
+
+    return deliveryMatches || Boolean(inferSessionRouteKindFromKey(row?.key, expectedChannel, expectedTarget));
   });
 }
 
