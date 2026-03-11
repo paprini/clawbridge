@@ -293,6 +293,31 @@ describe('openclaw gateway helpers', () => {
     expect(calledArgs).not.toContain('--agent');
   });
 
+  test('preserves parsed stdout results when the OpenClaw command exits non-zero', async () => {
+    execFile.mockImplementation((command, args, options, callback) => {
+      const err = new Error('Command failed');
+      err.code = 1;
+      err.stdout = JSON.stringify({ result: { status: 'ok', payloads: [{ text: 'reply from agent' }] } });
+      err.stderr = 'delivery warning';
+      callback(err);
+    });
+
+    await expect(runOpenClawAgentTurn({
+      message: 'Recover reply payload',
+      agentId: 'main',
+      sessionId: 'relay-session',
+      channel: 'discord',
+      replyTo: '1234567890123456789',
+      replyChannel: 'discord',
+      deliver: true,
+      timeoutSeconds: 30,
+    })).rejects.toMatchObject({
+      message: expect.stringContaining('delivery warning'),
+      stdoutResult: { result: { status: 'ok', payloads: [{ text: 'reply from agent' }] } },
+      exitCode: 1,
+    });
+  });
+
   test('detects OpenClaw CLI availability', () => {
     expect(resolveOpenClawCommand()).toBe(fakeOpenClawPath);
     expect(getOpenClawCommand()).toBe(fakeOpenClawPath);

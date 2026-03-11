@@ -1040,6 +1040,44 @@ function extractOpenClawReplyText(dispatchResult) {
   return fragments.join('\n').trim() || null;
 }
 
+function extractOpenClawResultStatus(dispatchResult) {
+  const candidates = [
+    dispatchResult?.result?.status,
+    dispatchResult?.status,
+    dispatchResult?.ok === true ? 'ok' : null,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+}
+
+function recoverSuccessfulTurnFromError(err) {
+  const stdoutResult = err?.stdoutResult;
+  if (!stdoutResult || typeof stdoutResult !== 'object' || Array.isArray(stdoutResult)) {
+    return null;
+  }
+
+  const responseText = extractOpenClawReplyText(stdoutResult);
+  const status = extractOpenClawResultStatus(stdoutResult);
+  if (!responseText && !status) {
+    return null;
+  }
+
+  return {
+    dispatchResult: stdoutResult,
+    responseText: responseText || null,
+    status: status || null,
+    warning: typeof err?.message === 'string' && err.message.trim().length > 0
+      ? err.message.trim()
+      : null,
+  };
+}
+
 function resolveTarget(target, channel) {
   const contacts = loadContactsConfig();
   const aliases = contacts?.aliases && typeof contacts.aliases === 'object'
@@ -1343,6 +1381,8 @@ async function chat(params) {
   }
 
   if (agentDeliveryMeta?.activateSession) {
+    let activationOptions = null;
+    let canonicalActivationReplyTo = null;
     try {
       let dispatchConfig = getAgentDispatchConfig({
         openclawAgentId,
@@ -1376,7 +1416,7 @@ async function chat(params) {
         ? await inspectDispatchSession(dispatchConfig)
         : { row: null, sessions: [] };
       const sessionRow = inspection.row || preDispatchInspection.row || null;
-      const activationOptions = resolveAgentActivationOptions({
+      activationOptions = resolveAgentActivationOptions({
         dispatchConfig,
         sessionRow,
         resolvedTarget,
@@ -1404,7 +1444,7 @@ async function chat(params) {
         });
         return bindingFailure;
       }
-      const canonicalActivationReplyTo = canonicalizeDeliveryTarget({
+      canonicalActivationReplyTo = canonicalizeDeliveryTarget({
         type: resolvedDelivery.type,
         channel: activationOptions.replyChannel || resolvedDelivery.channel,
         target: activationOptions.replyTo,
@@ -1454,6 +1494,37 @@ async function chat(params) {
         timestamp: new Date().toISOString()
       };
     } catch (err) {
+      const recoveredTurn = recoverSuccessfulTurnFromError(err);
+      if (recoveredTurn) {
+        logger.warn('Inbound session-first agent turn returned a reply despite command failure', {
+          warning: recoveredTurn.warning,
+          conversationId: agentDeliveryMeta.conversationId || null,
+          sourcePeerId: agentDeliveryMeta.sourcePeerId || requestPeerId || null,
+          target: requestedTarget || effectiveTarget,
+          resolvedTarget,
+        });
+
+        return {
+          success: true,
+          session_mode: 'session_first',
+          conversation_id: agentDeliveryMeta.conversationId || null,
+          delivered_to: requestedTarget || effectiveTarget,
+          resolved_target: resolvedTarget,
+          channel: resolved.resolvedChannel || effectiveChannel || 'auto',
+          message_length: message.length,
+          agent_dispatch: 'activated',
+          openclaw_session_id: activationOptions.sessionId,
+          openclaw_agent_id: activationOptions.agentId,
+          openclaw_reply_channel: activationOptions.replyChannel,
+          openclaw_reply_to: canonicalActivationReplyTo,
+          openclaw_deliver_locally: true,
+          openclaw_result: recoveredTurn.status,
+          openclaw_warning: recoveredTurn.warning,
+          response_text: recoveredTurn.responseText,
+          timestamp: new Date().toISOString()
+        };
+      }
+
       logger.error('Inbound session-first agent turn failed', {
         error: err.message,
         conversationId: agentDeliveryMeta.conversationId || null,

@@ -467,6 +467,42 @@ describe('Built-in Skills', () => {
       expect(result.details).toContain('OpenClaw CLI unavailable');
     });
 
+    it('recovers a successful session-first reply from a failed command wrapper', async () => {
+      loadAgentConfig.mockReturnValue({
+        id: 'discord-agent',
+        openclaw_agent_id: 'discord-agent',
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
+      });
+      const err = new Error('delivery warning | {"result":{"status":"ok","payloads":[{"text":"🪬 Hi Monti 👋"}]}}');
+      err.stdoutResult = {
+        result: {
+          status: 'ok',
+          payloads: [
+            { text: '🪬 Hi Monti 👋' },
+          ],
+        },
+      };
+      runOpenClawAgentTurn.mockRejectedValue(err);
+
+      const result = await chat({
+        message: 'Hola from Telegram',
+        _agentDelivery: {
+          activateSession: true,
+          sourceAgentId: 'example-telegram-agent',
+          requestedTarget: '@discord-agent',
+          conversationId: 'conv-recover',
+        },
+      });
+
+      expect(result.success).toBe(true);
+      expect(result.session_mode).toBe('session_first');
+      expect(result.agent_dispatch).toBe('activated');
+      expect(result.conversation_id).toBe('conv-recover');
+      expect(result.response_text).toBe('🪬 Hi Monti 👋');
+      expect(result.openclaw_result).toBe('ok');
+      expect(result.openclaw_warning).toContain('delivery warning');
+    });
+
     it('uses openclaw_agent_id instead of the ClawBridge peer id for session-first turns', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'example-discord-agent',

@@ -372,6 +372,14 @@ function parseOpenClawJsonOutput(stdout) {
   }
 }
 
+function tryParseOpenClawJsonOutput(stdout) {
+  try {
+    return parseOpenClawJsonOutput(stdout);
+  } catch {
+    return null;
+  }
+}
+
 async function runOpenClawAgentTurn({
   message,
   agentId,
@@ -445,12 +453,18 @@ async function runOpenClawAgentTurn({
   } catch (err) {
     const stdout = typeof err?.stdout === 'string' ? err.stdout.trim() : '';
     const stderr = typeof err?.stderr === 'string' ? err.stderr.trim() : '';
+    const stdoutResult = tryParseOpenClawJsonOutput(stdout);
     const details = [stderr, stdout].filter(Boolean).join(' | ');
     const notFound = err?.code === 'ENOENT'
       ? `OpenClaw CLI not found at "${command}". Set OPENCLAW_BIN or install the binary in PATH.`
       : null;
     const messageText = details || notFound || err.message || 'OpenClaw agent activation failed';
-    throw new Error(messageText);
+    const wrapped = new Error(messageText);
+    wrapped.stdout = stdout;
+    wrapped.stderr = stderr;
+    wrapped.stdoutResult = stdoutResult;
+    wrapped.exitCode = err?.code ?? null;
+    throw wrapped;
   }
 }
 
@@ -506,6 +520,7 @@ module.exports = {
   resolveGatewayDefaultAgentId,
   normalizeGatewayAgentId,
   parseOpenClawJsonOutput,
+  tryParseOpenClawJsonOutput,
   resolveOpenClawCommand,
   runOpenClawAgentTurn,
   unwrapGatewayToolResult,
