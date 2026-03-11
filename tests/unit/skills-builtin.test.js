@@ -277,7 +277,7 @@ describe('Built-in Skills', () => {
         agentId: 'discord-agent',
         target: 'channel:1234567890123456789',
         channel: 'discord',
-        deliver: false,
+        deliver: true,
         replyTo: 'channel:1234567890123456789',
         replyChannel: 'discord',
         timeoutSeconds: 30,
@@ -285,7 +285,7 @@ describe('Built-in Skills', () => {
       expect(result.success).toBe(true);
       expect(result.session_mode).toBe('session_first');
       expect(result.agent_dispatch).toBe('activated');
-      expect(result.openclaw_deliver_locally).toBe(false);
+      expect(result.openclaw_deliver_locally).toBe(true);
     });
 
     it('returns a clear error for unknown @agent targets', async () => {
@@ -392,7 +392,7 @@ describe('Built-in Skills', () => {
         agentId: 'discord-agent',
         target: 'channel:1234567890123456789',
         channel: 'discord',
-        deliver: false,
+        deliver: true,
         replyTo: 'channel:1234567890123456789',
         replyChannel: 'discord',
         timeoutSeconds: 30,
@@ -400,7 +400,7 @@ describe('Built-in Skills', () => {
       expect(result.success).toBe(true);
       expect(result.session_mode).toBe('session_first');
       expect(result.agent_dispatch).toBe('activated');
-      expect(result.openclaw_deliver_locally).toBe(false);
+      expect(result.openclaw_deliver_locally).toBe(true);
       expect(result.response_text).toBeNull();
     });
 
@@ -486,7 +486,7 @@ describe('Built-in Skills', () => {
       expect(callOpenClawTool).not.toHaveBeenCalled();
       expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
         agentId: 'main',
-        deliver: false,
+        deliver: true,
         replyTo: 'channel:1234567890123456789',
       }));
       expect(result.agent_dispatch).toBe('activated');
@@ -537,7 +537,7 @@ describe('Built-in Skills', () => {
         agentId: 'main',
         target: '1234567890',
         channel: 'telegram',
-        deliver: false,
+        deliver: true,
         replyTo: '1234567890',
         replyChannel: 'telegram',
         timeoutSeconds: 30,
@@ -581,7 +581,7 @@ describe('Built-in Skills', () => {
         agentId: 'main',
         target: 'channel:1234567890123456789',
         channel: 'discord',
-        deliver: false,
+        deliver: true,
         replyTo: 'channel:1234567890123456789',
         replyChannel: 'discord',
       }));
@@ -624,7 +624,7 @@ describe('Built-in Skills', () => {
         agentId: 'main',
         target: '5914004682',
         channel: 'telegram',
-        deliver: false,
+        deliver: true,
         replyTo: '5914004682',
         replyChannel: 'telegram',
       }));
@@ -669,7 +669,7 @@ describe('Built-in Skills', () => {
         agentId: 'main',
         target: 'channel:1234567890123456789',
         channel: 'discord',
-        deliver: false,
+        deliver: true,
         replyTo: 'channel:1234567890123456789',
         replyChannel: 'discord',
       }));
@@ -783,7 +783,7 @@ describe('Built-in Skills', () => {
       expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
         agentId: 'main',
         sessionId: null,
-        deliver: false,
+        deliver: true,
         replyTo: 'channel:1234567890123456789',
         replyChannel: 'discord',
       }));

@@ -470,7 +470,7 @@ describe('two-instance cross-node chat', () => {
     expect(result.relayed_via).toBe('example-discord-agent');
     expect(result.session_mode).toBe('session_first');
     expect(result.agent_dispatch).toBe('activated');
-    expect(result.openclaw_deliver_locally).toBe(false);
+    expect(result.openclaw_deliver_locally).toBe(true);
     expect(result.response_text).toContain('reply:main:discord:channel:1234567890123456789:Hola desde Telegram');
 
     const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
@@ -484,7 +484,7 @@ describe('two-instance cross-node chat', () => {
       expect.objectContaining({
         sessionId: expect.stringMatching(/^sid-/),
         channel: 'discord',
-        deliver: false,
+        deliver: true,
         replyTo: 'channel:1234567890123456789',
       }),
     ]));
@@ -585,7 +585,7 @@ describe('two-instance cross-node chat', () => {
     expect(result.conversation_id).toBe('conv-generic-main');
     expect(result.session_mode).toBe('session_first');
     expect(result.agent_dispatch).toBe('activated');
-    expect(result.openclaw_deliver_locally).toBe(false);
+    expect(result.openclaw_deliver_locally).toBe(true);
     expect(result.response_text).toContain('reply:main:discord:channel:1234567890123456789:Hola desde Telegram');
 
     const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
@@ -596,7 +596,7 @@ describe('two-instance cross-node chat', () => {
       expect.objectContaining({
         sessionId: expect.stringMatching(/^sid-/),
         channel: 'discord',
-        deliver: false,
+        deliver: true,
         replyTo: 'channel:1234567890123456789',
       }),
     ]));
@@ -682,7 +682,7 @@ describe('two-instance cross-node chat', () => {
     expect(result.relayed_via).toBe('example-telegram-agent');
     expect(result.session_mode).toBe('session_first');
     expect(result.agent_dispatch).toBe('activated');
-    expect(result.openclaw_deliver_locally).toBe(false);
+    expect(result.openclaw_deliver_locally).toBe(true);
     expect(result.response_text).toContain('reply:main:telegram:1234567890:Hola desde Discord');
     const sessionListCalls = gateway.invocations.filter((entry) => entry.tool === 'sessions_list');
     expect(sessionListCalls.length).toBeGreaterThan(0);
@@ -693,7 +693,7 @@ describe('two-instance cross-node chat', () => {
       expect.objectContaining({
         sessionId: expect.stringMatching(/^sid-/),
         channel: 'telegram',
-        deliver: false,
+        deliver: true,
         replyTo: '1234567890',
       }),
     ]));
@@ -871,7 +871,7 @@ describe('two-instance cross-node chat', () => {
     expect(result.relayed_via).toBe('example-discord-agent');
     expect(result.session_mode).toBe('session_first');
     expect(result.agent_dispatch).toBe('activated');
-    expect(result.openclaw_deliver_locally).toBe(false);
+    expect(result.openclaw_deliver_locally).toBe(true);
     expect(result.response_text).toContain('reply:main:discord:channel:1234567890123456789:Hola via alias relay');
 
     const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
@@ -882,7 +882,7 @@ describe('two-instance cross-node chat', () => {
       expect.objectContaining({
         sessionId: expect.stringMatching(/^sid-/),
         channel: 'discord',
-        deliver: false,
+        deliver: true,
         replyTo: 'channel:1234567890123456789',
       }),
     ]));

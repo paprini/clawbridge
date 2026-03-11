@@ -1431,7 +1431,7 @@ async function chat(params) {
         ...activationOptions,
         target: canonicalActivationTarget,
         replyTo: canonicalActivationReplyTo,
-        deliver: false,
+        deliver: true,
       });
       const responseText = extractOpenClawReplyText(dispatchResult);
 
@@ -1448,7 +1448,7 @@ async function chat(params) {
         openclaw_agent_id: activationOptions.agentId,
         openclaw_reply_channel: activationOptions.replyChannel,
         openclaw_reply_to: canonicalActivationReplyTo,
-        openclaw_deliver_locally: false,
+        openclaw_deliver_locally: true,
         openclaw_result: dispatchResult?.result?.status || dispatchResult?.status || null,
         response_text: responseText,
         timestamp: new Date().toISOString()
