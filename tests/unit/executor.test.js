@@ -181,7 +181,11 @@ describe('OpenClawExecutor', () => {
 
     await executor.execute(ctx, bus);
 
-    expect(chat).toHaveBeenCalledWith({ target: '#general', message: 'hello' });
+    expect(chat).toHaveBeenCalledWith({
+      target: '#general',
+      message: 'hello',
+      _requestAuthenticated: true,
+    });
     const result = JSON.parse(bus.getEvents()[0].parts[0].text);
     expect(result.error).toBeUndefined();
     expect(result.success).toBe(true);
@@ -209,6 +213,7 @@ describe('OpenClawExecutor', () => {
         requestedTarget: '@example-discord-agent',
       },
       _requestPeerId: 'example-telegram-agent',
+      _requestAuthenticated: true,
     });
     const result = JSON.parse(bus.getEvents()[0].parts[0].text);
     expect(result.success).toBe(true);
@@ -226,6 +231,27 @@ describe('OpenClawExecutor', () => {
     expect(chat).toHaveBeenCalledWith({
       message: 'hello',
       _requestPeerId: 'example-telegram-agent',
+      _requestAuthenticated: true,
+    });
+    const result = JSON.parse(bus.getEvents()[0].parts[0].text);
+    expect(result.success).toBe(true);
+  });
+
+  test('marks shared-token chat requests as authenticated for session-first promotion', async () => {
+    const ctx = makeContext('chat');
+    ctx.userMessage.parts = [
+      { kind: 'text', text: 'chat' },
+      { kind: 'text', text: '{"target":"1234567890123456789","channel":"discord","message":"hello"}' },
+    ];
+    const bus = makeEventBus();
+
+    await executor.execute(ctx, bus);
+
+    expect(chat).toHaveBeenCalledWith({
+      target: '1234567890123456789',
+      channel: 'discord',
+      message: 'hello',
+      _requestAuthenticated: true,
     });
     const result = JSON.parse(bus.getEvents()[0].parts[0].text);
     expect(result.success).toBe(true);

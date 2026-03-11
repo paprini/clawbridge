@@ -211,17 +211,33 @@ class OpenClawExecutor {
 
   _withRequestPeer(params, peer) {
     const requestPeerId = typeof peer === 'string' ? peer.trim() : '';
+    const isAuthenticatedRequest = Boolean(requestPeerId && !['unknown', 'anonymous'].includes(requestPeerId));
     if (!requestPeerId || ['__shared__', 'anonymous', 'unknown'].includes(requestPeerId)) {
-      return params;
+      if (!isAuthenticatedRequest) {
+        return params;
+      }
+
+      if (!params || typeof params !== 'object' || Array.isArray(params)) {
+        return { _requestAuthenticated: true };
+      }
+
+      return {
+        ...params,
+        _requestAuthenticated: true,
+      };
     }
 
     if (!params || typeof params !== 'object' || Array.isArray(params)) {
-      return { _requestPeerId: requestPeerId };
+      return {
+        _requestPeerId: requestPeerId,
+        _requestAuthenticated: true,
+      };
     }
 
     return {
       ...params,
       _requestPeerId: requestPeerId,
+      _requestAuthenticated: true,
     };
   }
 

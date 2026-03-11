@@ -641,12 +641,20 @@ function matchesDeliveryTarget(a, b) {
     && normalizeComparableDeliveryTarget(a.channel, a.target) === normalizeComparableDeliveryTarget(b.channel, b.target);
 }
 
-function shouldPromoteRelayToSessionFirst({ agentDeliveryMeta, relayMeta, defaultDelivery, resolvedDelivery, currentAgentId }) {
+function shouldPromoteRelayToSessionFirst({
+  agentDeliveryMeta,
+  relayMeta,
+  defaultDelivery,
+  resolvedDelivery,
+  currentAgentId,
+  requestAuthenticated,
+}) {
   if (agentDeliveryMeta?.activateSession) {
     return false;
   }
 
-  if (!relayMeta || relayMeta.hops <= 0) {
+  const isRelayLike = Boolean((relayMeta && relayMeta.hops > 0) || requestAuthenticated === true);
+  if (!isRelayLike) {
     return false;
   }
 
@@ -1095,6 +1103,7 @@ async function chat(params) {
   let agentDeliveryMeta = normalizeAgentDeliveryMeta(params._agentDelivery);
   const explicitSourceDelivery = normalizeDeliveryDescriptor(params._sourceDelivery, requestedChannel);
   const requestPeerId = sanitizePeerId(params._requestPeerId);
+  const requestAuthenticated = params._requestAuthenticated === true;
 
   if (target !== undefined && typeof target !== 'string') {
     return {
@@ -1255,6 +1264,7 @@ async function chat(params) {
     defaultDelivery,
     resolvedDelivery,
     currentAgentId: agentId,
+    requestAuthenticated,
   })) {
     agentDeliveryMeta = buildAgentDeliveryMeta({
       sourcePeerId: requestPeerId,
