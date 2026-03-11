@@ -168,7 +168,7 @@ If `target` is omitted, the receiving agent uses `config/agent.json -> default_d
 - Configure `config/agent.json -> default_delivery` if you want `@agent-name` delivery to resolve to a stable local OpenClaw session and if you want incoming broadcasts to land somewhere by default
 - If you want `@agent-name` to activate the receiving agent, OpenClaw CLI must be installed on that node and reachable as `openclaw`; ClawBridge checks the current `PATH`, `npm prefix -g`, `~/.openclaw/bin/openclaw`, and `~/.local/bin/openclaw` before falling back to `OPENCLAW_BIN`
 - For direct DM delivery on Telegram / Discord / WhatsApp, the local user should message that agent once first so OpenClaw creates the provider-bound session that ClawBridge can reuse
-- Keep OpenClaw `session.dmScope` on `per-channel-peer` or `per-account-channel-peer` for session-first direct delivery; `npm run verify` now fails configs that still collapse DMs into the main session
+- Keep OpenClaw `session.dmScope` on `per-channel-peer` or `per-account-channel-peer` for session-first direct delivery; `npm run verify` now also inspects the local session store and fails if the target DM still collapses into the main session instead of a provider-bound direct session
 - Do not reuse the local `config/agent.json -> id` as a peer id in `config/peers.json`; `npm run verify` now rejects that because source-side `@agent-name` routing becomes ambiguous
 - Use a platform-specific target ID directly for the local platform when you already know it
 - For local `#channel` names or cross-platform human aliases, define aliases in `config/contacts.json`

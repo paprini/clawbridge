@@ -74,6 +74,7 @@ For inbound `@agent-name` delivery, ClawBridge now uses a session-first path: it
 For direct Telegram / Discord / WhatsApp targets, that path now requires a real provider-bound session row. If OpenClaw only exposes the agent main session for the DM, current ClawBridge builds fail with `agent_dispatch: "binding_required"` instead of silently running the wrong conversation. In practice that means:
 
 - keep OpenClaw `session.dmScope` on `per-channel-peer` or `per-account-channel-peer`
+- verify that the target DM actually appears as a provider-bound `...:direct:...` session row; if OpenClaw still stores it on `agent:...:main`, ClawBridge will now fail fast with `binding_required`
 - have the local user message that agent once on the target provider before testing cross-node `@agent`
 
 ClawBridge peer IDs are not OpenClaw agent IDs. If the receiving OpenClaw instance has multiple local agents and you want to pin which one wakes up for inbound `@agent` delivery, set either:

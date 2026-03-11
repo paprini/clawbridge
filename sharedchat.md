@@ -44,6 +44,21 @@ The remaining problem is that Telegram and Discord still do not interoperate cor
 This is correct behavior.
 False success through main-session fallback is no longer acceptable.
 
+### New direct-session evidence
+- Commit: pending current push
+- `verify` now distinguishes:
+  - no provider-bound direct session yet
+  - provider-bound direct session exists
+  - provider/session collapse where the direct target is still stored on `agent:...:main`
+- Local OpenClaw evidence on this machine:
+  - WhatsApp has a real provider-bound direct session row:
+    - `agent:main:whatsapp:direct:+16504604060`
+  - Telegram direct conversation for the same user identity currently appears on:
+    - `agent:main:main`
+    - with `deliveryContext.channel = telegram`
+    - with matching `lastTo`
+- That is now surfaced by install-time verification instead of only a generic `dmScope` hint.
+
 ### Helper agent status
 - Commit: `7787dff`
 - Helper agent is now **local-only by default**.
