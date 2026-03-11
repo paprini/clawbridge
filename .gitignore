@@ -42,3 +42,8 @@ tmp/
 # Keep the committed file empty; store real peer entries in an external A2A_CONFIG_DIR.
 clawbridge.pid
 clawbridge.log
+
+# Local runtime config (keep examples tracked)
+config/agent.json
+config/peers.json
+config/contacts.json

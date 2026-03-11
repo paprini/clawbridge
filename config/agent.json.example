@@ -1,0 +1,13 @@
+{
+  "id": "my-agent",
+  "name": "My Agent",
+  "description": "What this agent does",
+  "url": "http://YOUR_IP:9100/a2a",
+  "version": "0.2.0",
+  "openclaw_agent_id": "main",
+  "default_delivery": {
+    "type": "channel",
+    "target": "REPLACE_ME",
+    "channel": "discord"
+  }
+}
