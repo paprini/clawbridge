@@ -11,7 +11,7 @@ Instance-to-Instance:
 Problem: Too coarse-grained. Whole instances talk.
 ```
 
-### RIGHT (What Pato Wants):
+### RIGHT (What Example User Wants):
 ```
 Agent-to-Agent:
 ├── PM@discord ←→ PM@whatsapp
@@ -41,12 +41,12 @@ Found instances:
 Found agents:
 
 On discord-bot (10.0.1.10):
-├── 🎯 musicate-pm
-├── 🎼 musicate-maestro
-├── 🏗️ musicate-architect
-├── ✅ musicate-qa
-├── ⚖️ musicate-legal
-└── 📈 musicate-growth
+├── 🎯 example-project-pm
+├── 🎼 example-project-maestro
+├── 🏗️ example-project-architect
+├── ✅ example-project-qa
+├── ⚖️ example-project-legal
+└── 📈 example-project-growth
 
 On whatsapp-bot (10.0.1.11):
 ├── 💬 guali-main
@@ -105,7 +105,7 @@ Public Agents (A2A Registry):
 │   Skills: review_contract, check_compliance
 │   Price: $20/review
 │
-├── 🎵 music-analyst-ai (musicate.ai)
+├── 🎵 music-analyst-ai (example-project.ai)
 │   Skills: analyze_song, detect_chords
 │   Price: Free (community)
 │
@@ -127,7 +127,7 @@ Want to hire an agent? Select one.
 ```
 You: Make Maestro available publicly
 
-Setup Agent: Got it. Publishing musicate-maestro as public agent...
+Setup Agent: Got it. Publishing example-project-maestro as public agent...
              
              What skills should be available to external users?
              
@@ -147,7 +147,7 @@ You: Yes
 
 Setup Agent: ✅ Published!
              
-             Public URL: https://musicate-maestro.a2a.openclaw.ai
+             Public URL: https://example-project-maestro.a2a.openclaw.ai
              Agent Card: [shows what skills are public]
              
              Pricing:
@@ -176,9 +176,9 @@ Setup Agent: ✅ Published!
 
 **NEW (agent-level):**
 ```json
-// Agent Card for musicate-pm (specific agent)
+// Agent Card for example-project-pm (specific agent)
 {
-  "id": "musicate-pm",
+  "id": "example-project-pm",
   "instance": "discord-bot",
   "type": "project-manager",
   "skills": [
@@ -194,12 +194,12 @@ Setup Agent: ✅ Published!
     }
   ],
   "network": "private",
-  "url": "http://10.0.1.10:9100/agents/musicate-pm"
+  "url": "http://10.0.1.10:9100/agents/example-project-pm"
 }
 
-// Agent Card for musicate-maestro (different agent, same instance)
+// Agent Card for example-project-maestro (different agent, same instance)
 {
-  "id": "musicate-maestro",
+  "id": "example-project-maestro",
   "instance": "discord-bot",
   "type": "music-expert",
   "skills": [
@@ -217,7 +217,7 @@ Setup Agent: ✅ Published!
     }
   ],
   "network": "hybrid",
-  "url": "http://10.0.1.10:9100/agents/musicate-maestro"
+  "url": "http://10.0.1.10:9100/agents/example-project-maestro"
 }
 ```
 
@@ -236,13 +236,13 @@ Setup Agent: ✅ Published!
 │  📍 Local Network (10.0.1.0/24)              │
 │                                              │
 │  Instance: discord-bot (10.0.1.10)          │
-│  ├── 🎯 musicate-pm                          │
+│  ├── 🎯 example-project-pm                          │
 │  │   Skills: coordinate, status, search     │
 │  │   [Connect]                              │
-│  ├── 🎼 musicate-maestro                     │
+│  ├── 🎼 example-project-maestro                     │
 │  │   Skills: analyze_song, validate         │
 │  │   [Connect]                              │
-│  └── 🏗️ musicate-architect                  │
+│  └── 🏗️ example-project-architect                  │
 │      Skills: review_code, design            │
 │      [Connect]                              │
 │                                              │
@@ -283,9 +283,9 @@ Setup Agent: ✅ Published!
 ```javascript
 // In PM@discord
 a2a_call({
-  agent: 'musicate-pm@whatsapp',  // Specific agent, not whole instance
+  agent: 'example-project-pm@whatsapp',  // Specific agent, not whole instance
   skill: 'get_status',
-  params: { project: 'musicate' }
+  params: { project: 'example-project' }
 });
 
 // Response from PM@whatsapp
@@ -349,7 +349,7 @@ const agents = a2a_discover({
     reviews: 1234
   },
   {
-    agent: 'musicate-legal@telegram',  // Your own Legal agent!
+    agent: 'example-project-legal@telegram',  // Your own Legal agent!
     price: 0,  // Internal, free
     rating: null
   }
@@ -357,7 +357,7 @@ const agents = a2a_discover({
 
 // Choose the free internal one
 a2a_call({
-  agent: 'musicate-legal@telegram',
+  agent: 'example-project-legal@telegram',
   skill: 'review_contract',
   params: { contract: '...' }
 });
@@ -410,7 +410,7 @@ app.post('/agents/:agentId/tasks', async (req, res) => {
 ```javascript
 // In PM agent's startup
 await a2a.registerAgent({
-  id: 'musicate-pm',
+  id: 'example-project-pm',
   type: 'project-manager',
   skills: [
     {
@@ -426,7 +426,7 @@ await a2a.registerAgent({
   ],
   network: 'private',
   metadata: {
-    project: 'musicate',
+    project: 'example-project',
     role: 'pm'
   }
 });
@@ -441,7 +441,7 @@ await a2a.registerAgent({
 ```
 You: Make Maestro available publicly
 
-Agent: Publishing musicate-maestro...
+Agent: Publishing example-project-maestro...
        
        Skills to expose:
        ✅ analyze_song (safe)
@@ -463,8 +463,8 @@ Agent: Publishing musicate-maestro...
        
        ✅ Published to A2A Registry
        
-       URL: https://musicate-maestro.a2a.openclaw.ai
-       Dashboard: https://dashboard.a2a.openclaw.ai/agents/musicate-maestro
+       URL: https://example-project-maestro.a2a.openclaw.ai
+       Dashboard: https://dashboard.a2a.openclaw.ai/agents/example-project-maestro
        
        You'll earn revenue when others use your agent!
 ```
@@ -526,11 +526,11 @@ PM@discord: [Hires logo-designer-ai]
 │                                                │
 │  My Network:                                   │
 │                                                │
-│  🎯 musicate-pm@discord                        │
+│  🎯 example-project-pm@discord                        │
 │     Project management, coordination           │
 │     [Connected]                                │
 │                                                │
-│  🎼 musicate-maestro@discord                   │
+│  🎼 example-project-maestro@discord                   │
 │     Music analysis, chord detection            │
 │     [Connected] [Make Public]                  │
 │                                                │
@@ -558,8 +558,8 @@ PM@discord: [Hires logo-designer-ai]
 **Q1: Connect agents, not instances?**
 
 **A: YES! Each agent gets its own Agent Card.**
-- musicate-pm@discord talks to musicate-pm@whatsapp
-- musicate-maestro@discord talks to musicate-legal@telegram
+- example-project-pm@discord talks to example-project-pm@whatsapp
+- example-project-maestro@discord talks to example-project-legal@telegram
 - Fine-grained, purposeful communication
 
 ---

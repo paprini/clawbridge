@@ -398,22 +398,22 @@ describe('two-instance cross-node chat', () => {
 
     writeInstanceConfig({
       configDir: configDirA,
-      agentId: 'monti-telegram',
+      agentId: 'example-telegram-agent',
       name: 'Monti Telegram',
       url: `http://127.0.0.1:${portA}/a2a`,
-      defaultDelivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
-      peer: { id: 'guali-discord', url: `http://127.0.0.1:${portB}`, token: pairToken },
+      defaultDelivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
+      peer: { id: 'example-discord-agent', url: `http://127.0.0.1:${portB}`, token: pairToken },
       gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
       gatewayTokenPath: gatewayConfigA,
     });
 
     writeInstanceConfig({
       configDir: configDirB,
-      agentId: 'guali-discord',
-      name: 'Guali Discord',
+      agentId: 'example-discord-agent',
+      name: 'Example Discord Agent',
       url: `http://127.0.0.1:${portB}/a2a`,
-      defaultDelivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
-      peer: { id: 'monti-telegram', url: `http://127.0.0.1:${portA}`, token: pairToken },
+      defaultDelivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
+      peer: { id: 'example-telegram-agent', url: `http://127.0.0.1:${portA}`, token: pairToken },
       gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
       gatewayTokenPath: gatewayConfigB,
     });
@@ -441,7 +441,7 @@ describe('two-instance cross-node chat', () => {
             role: 'user',
             parts: [
               { kind: 'text', text: 'chat' },
-              { kind: 'text', text: JSON.stringify({ target: '@guali-discord', message: 'Hola desde Telegram' }) },
+              { kind: 'text', text: JSON.stringify({ target: '@example-discord-agent', message: 'Hola desde Telegram' }) },
             ],
           },
         },
@@ -454,11 +454,11 @@ describe('two-instance cross-node chat', () => {
 
     expect(result.success).toBe(true);
     expect(result.conversation_id).toEqual(expect.any(String));
-    expect(result.relayed_via).toBe('guali-discord');
+    expect(result.relayed_via).toBe('example-discord-agent');
     expect(result.session_mode).toBe('session_first');
     expect(result.agent_dispatch).toBe('activated');
     expect(result.openclaw_deliver_locally).toBe(false);
-    expect(result.response_text).toContain('reply:main:discord:channel:1480310282961289216:Hola desde Telegram');
+    expect(result.response_text).toContain('reply:main:discord:channel:1234567890123456789:Hola desde Telegram');
 
     const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
     expect(messageCalls).toEqual([]);
@@ -469,7 +469,7 @@ describe('two-instance cross-node chat', () => {
         sessionId: expect.stringMatching(/^sid-/),
         channel: 'discord',
         deliver: false,
-        replyTo: 'channel:1480310282961289216',
+        replyTo: 'channel:1234567890123456789',
       }),
     ]));
   });
@@ -499,7 +499,7 @@ describe('two-instance cross-node chat', () => {
       agentId: 'main',
       name: 'Monti Telegram',
       url: `http://127.0.0.1:${portA}/a2a`,
-      defaultDelivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
+      defaultDelivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
       peer: { id: 'main', url: `http://127.0.0.1:${portB}`, token: pairToken },
       gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
       gatewayTokenPath: gatewayConfigA,
@@ -508,9 +508,9 @@ describe('two-instance cross-node chat', () => {
     writeInstanceConfig({
       configDir: configDirB,
       agentId: 'main',
-      name: 'Guali Discord',
+      name: 'Example Discord Agent',
       url: `http://127.0.0.1:${portB}/a2a`,
-      defaultDelivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+      defaultDelivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
       peer: { id: 'main', url: `http://127.0.0.1:${portA}`, token: pairToken },
       gatewayUrl: `http://127.0.0.1:${gatewayPort}`,
       gatewayTokenPath: gatewayConfigB,
@@ -548,7 +548,7 @@ describe('two-instance cross-node chat', () => {
                     sourcePeerId: 'main',
                     sourceAgentId: 'main',
                     sourceUrl: `http://127.0.0.1:${portA}/a2a`,
-                    sourceReplyTarget: '5914004682',
+                    sourceReplyTarget: '1234567890',
                     sourceReplyChannel: 'telegram',
                     requestedTarget: '@main',
                     conversationId: 'conv-generic-main',
@@ -570,7 +570,7 @@ describe('two-instance cross-node chat', () => {
     expect(result.session_mode).toBe('session_first');
     expect(result.agent_dispatch).toBe('activated');
     expect(result.openclaw_deliver_locally).toBe(false);
-    expect(result.response_text).toContain('reply:main:discord:channel:1480310282961289216:Hola desde Telegram');
+    expect(result.response_text).toContain('reply:main:discord:channel:1234567890123456789:Hola desde Telegram');
 
     const messageCalls = gateway.invocations.filter((entry) => entry.tool === 'message');
     expect(messageCalls).toEqual([]);
@@ -581,7 +581,7 @@ describe('two-instance cross-node chat', () => {
         sessionId: expect.stringMatching(/^sid-/),
         channel: 'discord',
         deliver: false,
-        replyTo: 'channel:1480310282961289216',
+        replyTo: 'channel:1234567890123456789',
       }),
     ]));
   });

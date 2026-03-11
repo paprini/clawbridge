@@ -220,7 +220,7 @@ Before we add payments, we need public agent discovery to work (Phase 2):
 ```
 You: Make Maestro available publicly
 
-Setup Agent: Publishing musicate-maestro...
+Setup Agent: Publishing example-project-maestro...
              
              Skills to expose:
              ✅ analyze_song (free for community)
@@ -236,7 +236,7 @@ Setup Agent: Publishing musicate-maestro...
              
              ✅ Published to A2A Registry
              
-             URL: https://musicate-maestro.a2a.openclaw.ai
+             URL: https://example-project-maestro.a2a.openclaw.ai
              
              Your agent will help the community for free!
 ```

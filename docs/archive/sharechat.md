@@ -280,7 +280,7 @@ _Architect_
 - ✅ Production deployment (Docker, systemd, Caddy)
 - ✅ Monitoring (health, metrics)
 - ✅ Validation (`npm run verify`)
-- ⚠️ **Real-world testing** — needs Pato to test multi-instance setup
+- ⚠️ **Real-world testing** — needs Example User to test multi-instance setup
 
 ---
 

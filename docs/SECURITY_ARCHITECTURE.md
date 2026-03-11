@@ -1,6 +1,6 @@
 # Security Architecture — clawbridge
 
-## Critical Questions (From Pato)
+## Critical Questions (From Example User)
 
 ### Q1: Data Leaks
 **Question:** If agents are A2A-discoverable by anyone, how do we prevent data leaks?
@@ -160,7 +160,7 @@
 **Use case:** Musicate launches → public "Musicate QA Agent" that other devs can query
 
 **Example:**
-- `musicate-qa.openclaw.ai:9100` → publicly accessible
+- `example-project-qa.openclaw.ai:9100` → publicly accessible
 - Agent Card: `{"skills": ["query_bug_status", "search_docs"]}`
 - Auth: Public bearer token (scoped permissions)
 - No access to internal data (GualiShares, personal convos)
@@ -239,11 +239,11 @@
 - Publish to central A2A registry (e.g., `a2a.directory`)
 - Agent Card becomes publicly searchable
 - Example: "Search for agents that can analyze music"
-- Registry returns: `musicate-qa.openclaw.ai:9100`
+- Registry returns: `example-project-qa.openclaw.ai:9100`
 
 #### Option 3b: DNS + Well-Known URL
-- Public DNS: `musicate-qa.openclaw.ai`
-- Agent Card at: `https://musicate-qa.openclaw.ai/.well-known/agent-card.json`
+- Public DNS: `example-project-qa.openclaw.ai`
+- Agent Card at: `https://example-project-qa.openclaw.ai/.well-known/agent-card.json`
 - Anyone can fetch and discover capabilities
 - Tasks still require bearer token
 

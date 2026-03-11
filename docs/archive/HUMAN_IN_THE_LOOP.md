@@ -1,6 +1,6 @@
 # Human-in-the-Loop: The Killer Feature
 
-## Pato's Insight
+## Example User's Insight
 
 **"Bot interactions with humans in the loop for high-quality jobs."**
 
@@ -47,7 +47,7 @@ logo-designer-ai:
 [Notification to designer Sarah]
 
 New Task from logo-designer-ai:
-├── Client: PM@discord (musicate project)
+├── Client: PM@discord (example-project project)
 ├── Brief: "Music app logo, modern, friendly"
 ├── AI Drafts: [3 variations]
 ├── Budget: $50
@@ -218,7 +218,7 @@ Agent requests code review:
 ├────────────────────────────────────────┤
 │                                        │
 │  🎨 Logo Design Request                │
-│  From: PM@discord (musicate)           │
+│  From: PM@discord (example-project)           │
 │  Budget: $50 • Deadline: 24h           │
 │  AI Draft: [View 3 variations]         │
 │  [Accept] [Pass]                       │

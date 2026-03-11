@@ -9,7 +9,7 @@
 ## Persistent Context
 
 - Repository: `paprini/clawbridge`
-- Local path: `/Users/pato/Documents/Playground/clawbridge`
+- Local path: `/Users/example/Documents/Playground/clawbridge`
 - Shared coordination file: `sharedchat.md`
 - The developer is the coordinating authority for implementation instructions
 

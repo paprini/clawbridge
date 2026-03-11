@@ -109,12 +109,12 @@ describe('client', () => {
       message: 'hello',
       _agentDelivery: {
         activateSession: true,
-        sourceAgentId: 'monti-telegram',
-        requestedTarget: '@guali-discord',
+        sourceAgentId: 'example-telegram-agent',
+        requestedTarget: '@example-discord-agent',
       },
       _relay: {
         hops: 1,
-        visited: ['monti-telegram'],
+        visited: ['example-telegram-agent'],
       },
     });
 
@@ -126,12 +126,12 @@ describe('client', () => {
         message: 'hello',
         _agentDelivery: {
           activateSession: true,
-          sourceAgentId: 'monti-telegram',
-          requestedTarget: '@guali-discord',
+          sourceAgentId: 'example-telegram-agent',
+          requestedTarget: '@example-discord-agent',
         },
         _relay: {
           hops: 1,
-          visited: ['monti-telegram'],
+          visited: ['example-telegram-agent'],
         },
       }) },
     ]);

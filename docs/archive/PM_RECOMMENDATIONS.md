@@ -87,7 +87,7 @@ npm install @a2a-protocol/sdk express body-parser dotenv axios
 
 ### 2. **PM: Create GitHub Repo** (15 minutes)
 **Name:** `openclaw-a2a`
-**Owner:** Pato's account (paprini) OR create openclaw-team org?
+**Owner:** Example User's account (paprini) OR create openclaw-team org?
 **Steps:**
 1. Go to https://github.com/new
 2. Name: `openclaw-a2a`

@@ -8,7 +8,7 @@
 - **Impact:** Timeline: 10-12 days to publish
 
 ### GitHub Repository
-- **Decision:** New repo (not musicate-mvp)
+- **Decision:** New repo (not example-project-mvp)
 - **Name:** `openclaw-a2a` (TBD: user/org)
 - **Rationale:** Separate project, separate audience, cleaner history
 
@@ -118,6 +118,6 @@ None currently. All critical path decisions made.
 
 ## Notes
 
-- All code in **English** (per Pato's directive)
+- All code in **English** (per Example User's directive)
 - Comments, docs, variable names: English only
 - Error messages: English (can i18n later if needed)

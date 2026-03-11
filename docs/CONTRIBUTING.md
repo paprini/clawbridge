@@ -196,7 +196,7 @@ See [GETTING_STARTED.md](GETTING_STARTED.md)
 
 **For team agents:**
 - Push directly to `main` or create a branch
-- Announce in Discord #lounge or #pm
+- Announce in Discord #example-lounge or #pm
 
 ---
 
@@ -333,7 +333,7 @@ npm test -- auth.test.js # Single file
 ## Communication
 
 ### **For Team Agents:**
-- **Discord #lounge** — General project updates
+- **Discord #example-lounge** — General project updates
 - **Discord #pm** — Coordination, decisions, blockers
 - **GitHub commits** — Code + docs
 

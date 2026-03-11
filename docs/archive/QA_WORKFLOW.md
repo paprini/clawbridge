@@ -1,6 +1,6 @@
 # QA Workflow — Review After Each Kiro Delivery
 
-**QA Agent:** musicate-qa  
+**QA Agent:** example-project-qa  
 **When:** After Kiro completes each task/feature  
 **How:** PM spawns QA with specific focus
 

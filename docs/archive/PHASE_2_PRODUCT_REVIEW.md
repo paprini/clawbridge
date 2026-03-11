@@ -296,7 +296,7 @@
   - "Bridge call adds X ms latency overhead"
   - "Orchestration fan-out of 5 agents = Y ms"
 - User acceptance testing:
-  - "Pato tested Phase 1, but Phase 2 not tested by real users yet"
+  - "Example User tested Phase 1, but Phase 2 not tested by real users yet"
 
 **Grade: B-** (Good coverage, but failures are a blocker)
 

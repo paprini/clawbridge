@@ -172,7 +172,7 @@ OpenClaw gateway bridge config. Enabled by default in the tracked repo config an
 ### config/agent.json
 Primary local identity and delivery config.
 ```json
-{"id": "guali-discord", "name": "Guali Discord", "openclaw_agent_id": "main", "default_delivery": {"type": "channel", "target": "1480310282961289216", "channel": "discord"}}
+{"id": "example-discord-agent", "name": "Example Discord Agent", "openclaw_agent_id": "main", "default_delivery": {"type": "channel", "target": "1234567890123456789", "channel": "discord"}}
 ```
 
 - `id` is the ClawBridge peer ID used by other ClawBridge instances.
@@ -189,7 +189,7 @@ Primary local identity and delivery config.
 ### config/contacts.json (optional)
 Alias map for human-friendly names and local channel names used by `chat`. Channel-specific aliases can be declared as `channel:name`. Entries may be simple target strings or relay objects with `peerId`.
 ```json
-{"aliases": {"Pato": "552287292342009884", "#general": "1480310282961289216", "telegram:Pato": {"peerId": "telegram-agent", "target": "5914004682", "channel": "telegram"}}}
+{"aliases": {"Example User": "111111111111111111", "#general": "1234567890123456789", "telegram:Example User": {"peerId": "telegram-agent", "target": "1234567890", "channel": "telegram"}}}
 ```
 
 ### config/helper-agent.json (optional)

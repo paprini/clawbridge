@@ -1,6 +1,6 @@
 # Setup Agent V2 — Intelligent Discovery + Session Integration
 
-## Pato's Key Improvements
+## Example User's Key Improvements
 
 ### 1. **Call from main session (like this conversation)**
 Instead of running a separate script, just ask your current agent:

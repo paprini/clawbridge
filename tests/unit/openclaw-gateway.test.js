@@ -66,7 +66,7 @@ describe('openclaw gateway helpers', () => {
           agentId: 'discord-helper',
           match: {
             channel: 'discord',
-            peer: { kind: 'channel', id: '1480310282961289216' },
+            peer: { kind: 'channel', id: '1234567890123456789' },
           },
         },
       ],
@@ -144,7 +144,7 @@ describe('openclaw gateway helpers', () => {
       tokenPath: openClawConfigPath,
       channel: 'discord',
       peerKind: 'channel',
-      peerId: '1480310282961289216',
+      peerId: '1234567890123456789',
     })).toBe('discord-helper');
   });
 
@@ -154,7 +154,7 @@ describe('openclaw gateway helpers', () => {
       preferredAgentId: 'discord-helper',
       channel: 'discord',
       peerKind: 'channel',
-      peerId: '1480310282961289216',
+      peerId: '1234567890123456789',
     })).toBe('discord-helper');
 
     expect(resolveGatewayAgentId({
@@ -162,7 +162,7 @@ describe('openclaw gateway helpers', () => {
       preferredAgentId: 'missing-agent',
       channel: 'discord',
       peerKind: 'channel',
-      peerId: '1480310282961289216',
+      peerId: '1234567890123456789',
     })).toBe('discord-helper');
 
     expect(resolveGatewayAgentId({
@@ -170,7 +170,7 @@ describe('openclaw gateway helpers', () => {
       preferredAgentId: 'missing-agent',
       channel: 'telegram',
       peerKind: 'direct',
-      peerId: '5914004682',
+      peerId: '1234567890',
     })).toBe('main');
   });
 
@@ -186,9 +186,9 @@ describe('openclaw gateway helpers', () => {
       message: 'Hello from ClawBridge',
       agentId: 'discord-helper',
       sessionId: 'abc-session',
-      target: '1480310282961289216',
+      target: '1234567890123456789',
       channel: 'discord',
-      replyTo: '1480310282961289216',
+      replyTo: '1234567890123456789',
       replyChannel: 'discord',
       replyAccountId: 'default',
       timeoutSeconds: 45,
@@ -207,7 +207,7 @@ describe('openclaw gateway helpers', () => {
         '--channel',
         'discord',
         '--reply-to',
-        '1480310282961289216',
+        '1234567890123456789',
         '--reply-channel',
         'discord',
         '--reply-account',
@@ -236,7 +236,7 @@ describe('openclaw gateway helpers', () => {
       agentId: 'discord-helper',
       sessionId: 'provider-bound-session',
       channel: 'discord',
-      replyTo: '1480310282961289216',
+      replyTo: '1234567890123456789',
       replyChannel: 'discord',
       deliver: false,
       timeoutSeconds: 30,
@@ -253,7 +253,7 @@ describe('openclaw gateway helpers', () => {
       '--channel',
       'discord',
       '--reply-to',
-      '1480310282961289216',
+      '1234567890123456789',
       '--reply-channel',
       'discord',
     ]));
@@ -274,7 +274,7 @@ describe('openclaw gateway helpers', () => {
       agentId: 'main',
       sessionId: 'relay-session',
       channel: 'discord',
-      replyTo: '1480310282961289216',
+      replyTo: '1234567890123456789',
       replyChannel: 'discord',
       deliver: false,
       timeoutSeconds: 30,

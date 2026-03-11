@@ -1,6 +1,6 @@
 # QA Testing Guide — Phase 1 Real Instance Testing
 
-**For:** Pato (manual testing on 3 EC2 instances)  
+**For:** Example User (manual testing on 3 EC2 instances)  
 **Goal:** Verify clawbridge works on real production-like instances before ship  
 **Instances:** Discord (10.0.1.10), WhatsApp (10.0.1.11), Telegram (10.0.1.12)
 
@@ -555,7 +555,7 @@ Test a few error scenarios:
 # QA Test Results — Phase 1 Real Instance Testing
 
 **Date:** 2026-03-09  
-**Tester:** Pato  
+**Tester:** Example User  
 **Instances:** Discord (10.0.1.10), WhatsApp (10.0.1.11), Telegram (10.0.1.12)
 
 ---

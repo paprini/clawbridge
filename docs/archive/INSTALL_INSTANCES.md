@@ -1,6 +1,6 @@
 # Installation Instructions for EC2 Instances
 
-**For Pato:** Manual testing on 3 real instances (Discord, WhatsApp, Telegram)
+**For Example User:** Manual testing on 3 real instances (Discord, WhatsApp, Telegram)
 
 ---
 

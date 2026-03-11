@@ -101,20 +101,20 @@ callPeerSkill('instagram-agent', 'chat', {
 
 // Direct local-platform target ID
 callPeerSkill('discord-agent', 'chat', {
-  target: '552287292342009884',
+  target: '111111111111111111',
   message: 'Hello from Discord!'
 })
 
 // Cross-platform relay via config/contacts.json
 callPeerSkill('discord-agent', 'chat', {
-  target: 'Pato',
+  target: 'Example User',
   message: 'Relay this to Telegram',
   channel: 'telegram'
 })
 
 // Explicit target on a known peer
 callPeerSkill('telegram-agent', 'chat', {
-  target: '5914004682',
+  target: '1234567890',
   message: 'Direct message from another agent',
   channel: 'telegram'
 })
@@ -136,8 +136,8 @@ If `target` is omitted, the receiving agent uses `config/agent.json -> default_d
 ```json
 {
   "success": true,
-  "delivered_to": "Pato",
-  "resolved_target": "5914004682",
+  "delivered_to": "Example User",
+  "resolved_target": "1234567890",
   "relayed_via": "telegram-agent",
   "channel": "telegram",
   "message_length": 20,
@@ -149,7 +149,7 @@ If `target` is omitted, the receiving agent uses `config/agent.json -> default_d
 ```json
 {
   "error": "Failed to relay message to the correct peer",
-  "target": "Pato",
+  "target": "Example User",
   "relay_peer": "telegram-agent",
   "suggestion": "Check the relay peer in config/contacts.json and confirm that peer is reachable."
 }

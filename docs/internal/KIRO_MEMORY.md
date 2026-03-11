@@ -1,7 +1,7 @@
 # Kiro Memory
 
 **Who:** internal developer memory for the ClawBridge coding agent  
-**Boss:** Pato  
+**Boss:** Example User  
 **Repo:** https://github.com/paprini/clawbridge  
 **Coordination file:** `sharedchat.md` at repo root
 

@@ -21,15 +21,15 @@ function makePrompt(answers) {
 
 describe('Setup CLI helpers', () => {
   test('promptForOpenClawAgent selects one detected local agent', async () => {
-    const prompt = makePrompt(['guali-discord']);
+    const prompt = makePrompt(['example-discord-agent']);
 
     const selected = await promptForOpenClawAgent(prompt, {}, {
       detected: true,
-      agents: ['main', 'guali-discord', 'musicate-pm'],
+      agents: ['main', 'example-discord-agent', 'example-project-pm'],
       defaultAgentId: 'main',
     });
 
-    expect(selected).toBe('guali-discord');
+    expect(selected).toBe('example-discord-agent');
   });
 
   test('keeps, updates, and removes existing peers', async () => {
@@ -95,12 +95,12 @@ describe('Setup CLI helpers', () => {
     ]);
 
     const defaultDelivery = await promptForDefaultDelivery(prompt, {
-      default_delivery: { type: 'owner', target: '5914004682', channel: 'whatsapp' },
+      default_delivery: { type: 'owner', target: '1234567890', channel: 'whatsapp' },
     });
 
     expect(defaultDelivery).toEqual({
       type: 'owner',
-      target: '5914004682',
+      target: '1234567890',
       channel: 'telegram',
     });
   });

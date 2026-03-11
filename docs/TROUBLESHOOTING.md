@@ -100,7 +100,7 @@ Fixes:
 Symptoms: `No target found`
 
 Causes:
-- Using a display name like `Pato` instead of a direct target, alias, or `@agent`
+- Using a display name like `Example User` instead of a direct target, alias, or `@agent`
 - Missing alias in `config/contacts.json`
 - Missing `default_delivery` in `config/agent.json` for `@agent` delivery or broadcast landing
 
@@ -109,7 +109,7 @@ Fixes:
 - Use `#channel@agent-name` for a named remote channel
 - Use the platform-specific numeric ID directly
 - Or define an alias in `config/contacts.json`, for example:
-  `{"aliases":{"Pato":"552287292342009884","#general":"1480310282961289216","telegram:Pato":{"peerId":"telegram-agent","target":"5914004682","channel":"telegram"}}}`
+  `{"aliases":{"Example User":"111111111111111111","#general":"1234567890123456789","telegram:Example User":{"peerId":"telegram-agent","target":"1234567890","channel":"telegram"}}}`
 - Configure `config/agent.json -> default_delivery` if this instance should receive target-less chat or broadcasts
 - For Discord, make `default_delivery.type` explicit:
   - `owner` for DMs

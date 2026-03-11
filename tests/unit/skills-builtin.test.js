@@ -73,26 +73,26 @@ describe('Built-in Skills', () => {
       callOpenClawTool.mockResolvedValue({ ok: true });
 
       const result = await chat({
-        target: '5914004682',
+        target: '1234567890',
         message: 'Hello from chat skill'
       });
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
-        to: '5914004682',
-        target: '5914004682',
+        to: '1234567890',
+        target: '1234567890',
         message: 'Hello from chat skill'
       });
 
       expect(result.success).toBe(true);
-      expect(result.delivered_to).toBe('5914004682');
-      expect(result.resolved_target).toBe('5914004682');
+      expect(result.delivered_to).toBe('1234567890');
+      expect(result.resolved_target).toBe('1234567890');
     });
 
     it('uses default delivery when target is omitted', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'local-agent',
-        default_delivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
+        default_delivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
       });
       callOpenClawTool.mockResolvedValue({ ok: true });
 
@@ -102,28 +102,28 @@ describe('Built-in Skills', () => {
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
-        to: '5914004682',
-        target: '5914004682',
+        to: '1234567890',
+        target: '1234567890',
         message: 'Hello from default delivery',
         channel: 'telegram'
       });
       expect(result.success).toBe(true);
-      expect(result.resolved_target).toBe('5914004682');
+      expect(result.resolved_target).toBe('1234567890');
     });
 
     it('includes optional channel parameter', async () => {
       callOpenClawTool.mockResolvedValue({ ok: true });
 
       await chat({
-        target: '5914004682',
+        target: '1234567890',
         message: 'Hello',
         channel: 'discord'
       });
 
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
-        to: '5914004682',
-        target: '5914004682',
+        to: '1234567890',
+        target: '1234567890',
         message: 'Hello',
         channel: 'discord'
       });
@@ -131,7 +131,7 @@ describe('Built-in Skills', () => {
 
     it('rejects unresolved human-readable targets', async () => {
       const result = await chat({
-        target: 'Pato',
+        target: 'Example User',
         message: 'Hello'
       });
 
@@ -144,7 +144,7 @@ describe('Built-in Skills', () => {
       loadBridgeConfig.mockReturnValue({ enabled: false, exposed_tools: ['message'] });
 
       const result = await chat({
-        target: '5914004682',
+        target: '1234567890',
         message: 'Hello'
       });
 
@@ -156,27 +156,27 @@ describe('Built-in Skills', () => {
       loadBridgeConfig.mockReturnValue({ enabled: false, exposed_tools: ['message'] });
       loadContactsConfig.mockReturnValue({
         aliases: {
-          'telegram:Pato': {
+          'telegram:Example User': {
             peerId: 'telegram-agent',
-            target: '5914004682',
+            target: '1234567890',
             channel: 'telegram',
           },
         },
       });
       callPeerSkill.mockResolvedValue({
         success: true,
-        delivered_to: '5914004682',
+        delivered_to: '1234567890',
         channel: 'telegram',
       });
 
       const result = await chat({
-        target: 'Pato',
+        target: 'Example User',
         message: 'Hello',
         channel: 'telegram',
       });
 
       expect(callPeerSkill).toHaveBeenCalledWith('telegram-agent', 'chat', {
-        target: '5914004682',
+        target: '1234567890',
         message: 'Hello',
         channel: 'telegram',
         _relay: { hops: 1, visited: ['local-agent'] },
@@ -184,7 +184,7 @@ describe('Built-in Skills', () => {
       expect(callOpenClawTool).not.toHaveBeenCalled();
       expect(result.success).toBe(true);
       expect(result.relayed_via).toBe('telegram-agent');
-      expect(result.resolved_target).toBe('5914004682');
+      expect(result.resolved_target).toBe('1234567890');
     });
 
     it('relays @agent targets directly to the named peer', async () => {
@@ -252,7 +252,7 @@ describe('Built-in Skills', () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',
         openclaw_agent_id: 'discord-agent',
-        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
       });
 
       const result = await chat({
@@ -265,10 +265,10 @@ describe('Built-in Skills', () => {
       expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
         message: 'Loop prevention',
         agentId: 'discord-agent',
-        target: 'channel:1480310282961289216',
+        target: 'channel:1234567890123456789',
         channel: 'discord',
         deliver: false,
-        replyTo: 'channel:1480310282961289216',
+        replyTo: 'channel:1234567890123456789',
         replyChannel: 'discord',
         timeoutSeconds: 30,
       }));
@@ -292,7 +292,7 @@ describe('Built-in Skills', () => {
     it('fails fast on relay loops', async () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',
-        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
       });
       loadPeersConfig.mockReturnValue([{ id: 'instagram-agent', url: 'http://10.0.1.12:9100', token: 'abc123' }]);
 
@@ -310,22 +310,22 @@ describe('Built-in Skills', () => {
 
     it('delivers locally when a reply relay returns to the source agent', async () => {
       loadAgentConfig.mockReturnValue({
-        id: 'monti-telegram',
+        id: 'example-telegram-agent',
         openclaw_agent_id: 'main',
-        default_delivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
+        default_delivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
       });
       callOpenClawTool.mockResolvedValue({ ok: true });
 
       const result = await chat({
         message: 'Reply from Discord',
-        _relay: { hops: 2, visited: ['monti-telegram', 'guali-discord'] },
+        _relay: { hops: 2, visited: ['example-telegram-agent', 'example-discord-agent'] },
       });
 
       expect(result.success).toBe(true);
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
-        to: '5914004682',
-        target: '5914004682',
+        to: '1234567890',
+        target: '1234567890',
         message: 'Reply from Discord',
         channel: 'telegram',
       });
@@ -333,25 +333,25 @@ describe('Built-in Skills', () => {
 
     it('canonicalizes Discord DM reply targets from source delivery metadata on the final local emit', async () => {
       loadAgentConfig.mockReturnValue({
-        id: 'guali-discord',
+        id: 'example-discord-agent',
         openclaw_agent_id: 'main',
-        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
       });
       callOpenClawTool.mockResolvedValue({ ok: true });
 
       const result = await chat({
-        target: '1480310282961289216',
+        target: '1234567890123456789',
         channel: 'discord',
         message: 'Reply from Telegram',
-        _sourceDelivery: { type: 'owner', target: '1480310282961289216', channel: 'discord' },
-        _relay: { hops: 2, visited: ['guali-discord', 'monti-telegram'] },
+        _sourceDelivery: { type: 'owner', target: '1234567890123456789', channel: 'discord' },
+        _relay: { hops: 2, visited: ['example-discord-agent', 'example-telegram-agent'] },
       });
 
       expect(result.success).toBe(true);
       expect(callOpenClawTool).toHaveBeenCalledWith('message', {
         action: 'send',
-        to: 'user:1480310282961289216',
-        target: 'user:1480310282961289216',
+        to: 'user:1234567890123456789',
+        target: 'user:1234567890123456789',
         message: 'Reply from Telegram',
         channel: 'discord',
       });
@@ -361,15 +361,15 @@ describe('Built-in Skills', () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',
         openclaw_agent_id: 'discord-agent',
-        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
       });
 
       const result = await chat({
         message: 'Hola from Telegram',
         _agentDelivery: {
           activateSession: true,
-          sourceAgentId: 'monti-telegram',
-          sourceReplyTarget: '5914004682',
+          sourceAgentId: 'example-telegram-agent',
+          sourceReplyTarget: '1234567890',
           sourceReplyChannel: 'telegram',
           requestedTarget: '@discord-agent',
         },
@@ -380,10 +380,10 @@ describe('Built-in Skills', () => {
       expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
         message: 'Hola from Telegram',
         agentId: 'discord-agent',
-        target: 'channel:1480310282961289216',
+        target: 'channel:1234567890123456789',
         channel: 'discord',
         deliver: false,
-        replyTo: 'channel:1480310282961289216',
+        replyTo: 'channel:1234567890123456789',
         replyChannel: 'discord',
         timeoutSeconds: 30,
       }));
@@ -396,9 +396,9 @@ describe('Built-in Skills', () => {
 
     it('returns response_text and conversation_id from session-first turns', async () => {
       loadAgentConfig.mockReturnValue({
-        id: 'guali-discord',
+        id: 'example-discord-agent',
         openclaw_agent_id: 'main',
-        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
       });
       runOpenClawAgentTurn.mockResolvedValue({
         result: {
@@ -411,15 +411,15 @@ describe('Built-in Skills', () => {
 
       const result = await chat({
         message: 'Hola from Telegram',
-        _requestPeerId: 'monti-telegram',
+        _requestPeerId: 'example-telegram-agent',
         _agentDelivery: {
           activateSession: true,
-          sourcePeerId: 'monti-telegram',
+          sourcePeerId: 'example-telegram-agent',
           sourceAgentId: 'main',
           sourceUrl: 'http://172.31.30.105:9100/a2a',
-          sourceReplyTarget: '5914004682',
+          sourceReplyTarget: '1234567890',
           sourceReplyChannel: 'telegram',
-          requestedTarget: '@guali-discord',
+          requestedTarget: '@example-discord-agent',
           conversationId: 'conv-123',
         },
       });
@@ -436,7 +436,7 @@ describe('Built-in Skills', () => {
       loadAgentConfig.mockReturnValue({
         id: 'discord-agent',
         openclaw_agent_id: 'discord-agent',
-        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
       });
       runOpenClawAgentTurn.mockRejectedValue(new Error('OpenClaw CLI unavailable'));
 
@@ -444,7 +444,7 @@ describe('Built-in Skills', () => {
         message: 'Hola from Telegram',
         _agentDelivery: {
           activateSession: true,
-          sourceAgentId: 'monti-telegram',
+          sourceAgentId: 'example-telegram-agent',
           requestedTarget: '@discord-agent',
           conversationId: 'conv-fail',
         },
@@ -459,17 +459,17 @@ describe('Built-in Skills', () => {
 
     it('uses openclaw_agent_id instead of the ClawBridge peer id for session-first turns', async () => {
       loadAgentConfig.mockReturnValue({
-        id: 'guali-discord',
+        id: 'example-discord-agent',
         openclaw_agent_id: 'main',
-        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
       });
 
       const result = await chat({
         message: 'Hola from Telegram',
         _agentDelivery: {
           activateSession: true,
-          sourceAgentId: 'monti-telegram',
-          requestedTarget: '@guali-discord',
+          sourceAgentId: 'example-telegram-agent',
+          requestedTarget: '@example-discord-agent',
         },
       });
 
@@ -477,7 +477,7 @@ describe('Built-in Skills', () => {
       expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
         agentId: 'main',
         deliver: false,
-        replyTo: 'channel:1480310282961289216',
+        replyTo: 'channel:1234567890123456789',
       }));
       expect(result.agent_dispatch).toBe('activated');
     });
@@ -486,7 +486,7 @@ describe('Built-in Skills', () => {
       loadAgentConfig.mockReturnValue({
         id: 'telegram-agent',
         openclaw_agent_id: 'main',
-        default_delivery: { type: 'owner', target: '5914004682', channel: 'telegram' },
+        default_delivery: { type: 'owner', target: '1234567890', channel: 'telegram' },
       });
       invokeGatewayTool.mockImplementation(async (toolName) => {
         if (toolName === 'sessions_list') {
@@ -499,11 +499,11 @@ describe('Built-in Skills', () => {
                 lastTo: '9999999999',
               },
               {
-                key: 'agent:main:telegram:direct:5914004682',
-                deliveryContext: { channel: 'telegram', to: '5914004682' },
+                key: 'agent:main:telegram:direct:1234567890',
+                deliveryContext: { channel: 'telegram', to: '1234567890' },
                 sessionId: 'telegram-session-id',
                 lastChannel: 'telegram',
-                lastTo: '5914004682',
+                lastTo: '1234567890',
               },
             ],
           };
@@ -525,10 +525,10 @@ describe('Built-in Skills', () => {
       expect(runOpenClawAgentTurn).toHaveBeenCalledWith(expect.objectContaining({
         sessionId: 'telegram-session-id',
         agentId: 'main',
-        target: '5914004682',
+        target: '1234567890',
         channel: 'telegram',
         deliver: false,
-        replyTo: '5914004682',
+        replyTo: '1234567890',
         replyChannel: 'telegram',
         timeoutSeconds: 30,
       }));
@@ -538,20 +538,20 @@ describe('Built-in Skills', () => {
 
     it('does not switch to a different local OpenClaw agent just because another binding owns the delivery channel', async () => {
       loadAgentConfig.mockReturnValue({
-        id: 'guali-discord',
+        id: 'example-discord-agent',
         openclaw_agent_id: 'main',
-        default_delivery: { type: 'channel', target: '1480310282961289216', channel: 'discord' },
+        default_delivery: { type: 'channel', target: '1234567890123456789', channel: 'discord' },
       });
       invokeGatewayTool.mockImplementation(async (toolName) => {
         if (toolName === 'sessions_list') {
           return {
             sessions: [
               {
-                key: 'agent:musicate-pm:discord:channel:1480310282961289216',
+                key: 'agent:example-project-pm:discord:channel:1234567890123456789',
                 sessionId: 'pm-discord-session',
-                deliveryContext: { channel: 'discord', to: '1480310282961289216' },
+                deliveryContext: { channel: 'discord', to: '1234567890123456789' },
                 lastChannel: 'discord',
-                lastTo: '1480310282961289216',
+                lastTo: '1234567890123456789',
               },
             ],
           };
@@ -564,8 +564,8 @@ describe('Built-in Skills', () => {
         message: 'Hola from Telegram',
         _agentDelivery: {
           activateSession: true,
-          sourceAgentId: 'monti-telegram',
-          requestedTarget: '@guali-discord',
+          sourceAgentId: 'example-telegram-agent',
+          requestedTarget: '@example-discord-agent',
         },
       });
 
@@ -574,7 +574,7 @@ describe('Built-in Skills', () => {
         agentId: 'main',
         sessionId: null,
         deliver: false,
-        replyTo: 'channel:1480310282961289216',
+        replyTo: 'channel:1234567890123456789',
         replyChannel: 'discord',
       }));
       expect(result.agent_dispatch).toBe('activated');
@@ -584,7 +584,7 @@ describe('Built-in Skills', () => {
       callOpenClawTool.mockRejectedValue(new Error('Gateway unavailable'));
 
       const result = await chat({
-        target: '5914004682',
+        target: '1234567890',
         message: 'Hello'
       });
 

@@ -187,10 +187,10 @@ describe('OpenClawExecutor', () => {
       message: 'hello',
       _agentDelivery: {
         activateSession: true,
-        sourceAgentId: 'monti-telegram',
-        requestedTarget: '@guali-discord',
+        sourceAgentId: 'example-telegram-agent',
+        requestedTarget: '@example-discord-agent',
       },
-    }), 'monti-telegram');
+    }), 'example-telegram-agent');
     const bus = makeEventBus();
 
     await executor.execute(ctx, bus);
@@ -199,10 +199,10 @@ describe('OpenClawExecutor', () => {
       message: 'hello',
       _agentDelivery: {
         activateSession: true,
-        sourceAgentId: 'monti-telegram',
-        requestedTarget: '@guali-discord',
+        sourceAgentId: 'example-telegram-agent',
+        requestedTarget: '@example-discord-agent',
       },
-      _requestPeerId: 'monti-telegram',
+      _requestPeerId: 'example-telegram-agent',
     });
     const result = JSON.parse(bus.getEvents()[0].parts[0].text);
     expect(result.success).toBe(true);
@@ -212,14 +212,14 @@ describe('OpenClawExecutor', () => {
     const ctx = makePeerContext([
       { kind: 'text', text: 'chat' },
       { kind: 'text', text: '{"message":"hello"}' },
-    ], 'monti-telegram');
+    ], 'example-telegram-agent');
     const bus = makeEventBus();
 
     await executor.execute(ctx, bus);
 
     expect(chat).toHaveBeenCalledWith({
       message: 'hello',
-      _requestPeerId: 'monti-telegram',
+      _requestPeerId: 'example-telegram-agent',
     });
     const result = JSON.parse(bus.getEvents()[0].parts[0].text);
     expect(result.success).toBe(true);

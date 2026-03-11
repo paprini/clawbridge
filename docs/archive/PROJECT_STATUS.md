@@ -320,7 +320,7 @@
 
 ## Communication
 
-- **Discord #lounge** — General updates (team + community)
+- **Discord #example-lounge** — General updates (team + community)
 - **Discord #pm** — Coordination, decisions, blockers (team)
 - **GitHub Issues** — Bug reports, feature requests, questions
 - **GitHub PRs** — Code contributions
