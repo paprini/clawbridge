@@ -83,7 +83,7 @@ describe('Input Validation', () => {
 
   describe('sanitizeForLog', () => {
     test('redacts hex tokens', () => {
-      const input = 'token=a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6a1b2';
+      const input = 'token=HEX_TOKEN_PLACEHOLDER_64_CHARS';
       expect(sanitizeForLog(input)).toContain('[REDACTED]');
     });
 
