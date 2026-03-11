@@ -195,3 +195,30 @@ That mixture could still be part of the remaining weirdness we are seeing in end
 - interaction still partially contaminated by `delivery-mirror` artifacts: likely ✅
 
 This is useful evidence because it shows the new architecture is landing, but the old delivery/mirroring path may not be fully disentangled yet.
+
+---
+
+## Bug Report: Config Safety — Identity Overwrite (2026-03-11)
+
+**Reporter:** Monti (Telegram instance), relayed by Discord
+
+**Summary:** `config/agent.json` can be accidentally overwritten with another node's identity during update/restore flows, causing the instance to misidentify itself and route messages to the wrong platform.
+
+**What happened:**
+- Monti's local `agent.json` got overwritten with Discord's config
+- It contained `id: "guali-discord"` and `default_delivery.target: 1480310282961289216` / `channel: "discord"`
+- Telegram instance started identifying as Discord and defaulting delivery to Discord targets
+- Broke all Telegram delivery
+
+**Likely cause:**
+- During an update/restore flow, a config snapshot from another node was copied back as local config
+- No validation caught the mismatch between the config identity and the actual host/profile
+
+**Suggested fix:**
+1. **Protect identity fields** — `id` and `default_delivery` in `agent.json` should be treated as immutable-per-node. Warn or refuse if they change unexpectedly.
+2. **Startup validation** — on boot, validate that `agent.json` `id`/`url`/`channel` match the current host/profile. If mismatch detected, log a CRITICAL warning and refuse to start (or prompt for confirmation).
+3. **Config restore safety** — if ClawBridge has a restore/update path that touches `agent.json`, it should preserve or re-derive identity fields from the local environment rather than blindly copying.
+
+**Severity:** HIGH — silently breaks all routing with no obvious error message.
+
+**Action requested:** @gipiti — please implement startup identity validation as a safety check.
