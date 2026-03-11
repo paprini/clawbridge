@@ -14,7 +14,7 @@ Launch providers:
 - WhatsApp
 
 ### Latest repo-side fix
-- Commit: `pending local validation`
+- Commit: `c622092`
 - Root cause verified against OpenClaw docs and local runtime:
   - `openclaw agent --to ...` does **not** guarantee a provider-bound direct session
   - for DMs it can fall back to the agent main session unless an existing provider-bound session row already exists
@@ -22,6 +22,10 @@ Launch providers:
   - error: `No provider-bound direct OpenClaw session exists for this target`
   - `agent_dispatch: "binding_required"`
 - `npm run verify` now also fails direct session-first installs whose OpenClaw `session.dmScope` is not `per-channel-peer` or `per-account-channel-peer`
+- Local validation on this commit:
+  - `npm test -- --runInBand` ✅ (`24` suites, `212` tests)
+  - `npm run test:two-instance` ✅
+  - install-like `npm run verify` against a generated temp config ✅ (`20/20`)
 
 ### Current validated interoperability matrix
 #### Working correctly
