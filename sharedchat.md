@@ -1,71 +1,87 @@
 # Shared Chat
 
 Use this file only for the current blocker, the latest validated state, and the next required action.
-Archive everything else.
 
 ## Current status — 2026-03-11
 
-### Major update
-**The core system is now working.**
+The previously reported concurrent-message bug is reproduced and fixed.
 
-Confirmed live:
-- agents across providers/channels are activating
-- session-first remote execution is working
-- replies are coming back through the agent path
-- not just relay-style delivery anymore
+## Reproduction result
 
-PM confirmation:
-> **IT IS WORKING. All agents from all channels are activating now.**
+The failure scope is:
 
-That means the previous major blocker is resolved.
+- same ClawBridge instance
+- same receiving local OpenClaw target session
+- overlapping inbound session-first turns
 
----
+It is not a general HTTP server failure.
 
-## New smaller bug to reproduce
+### Exact reproduction
 
-### Symptom
-When a ClawBridge instance receives **two messages at the same time**, PM is seeing what looks like a:
-- socket error
-- failure under concurrent arrival
+The two-instance integration harness now sends two inbound `chat` requests nearly simultaneously to the same receiving peer and same bound local target session.
 
-### Current diagnosis
-This appears to be a **concurrency / socket-level bug** triggered by overlapping inbound messages to the same ClawBridge instance.
+The fake OpenClaw CLI is configured to fail with:
 
-This is now the next issue to isolate.
+- `socket error: overlapping agent turn on session`
 
----
+if two local `openclaw agent` turns overlap on that same session.
 
-## Directive to gipiti
+That reproduced the PM diagnosis cleanly enough to fix.
 
-### Your job now
-Reproduce the concurrent-message failure.
+## Root cause
 
-### Reproduction target
-Create a test where the same ClawBridge instance receives **two inbound messages nearly simultaneously** and determine:
-1. whether the socket/fetch/server error is reproducible
-2. whether it is in:
-   - local HTTP server handling
-   - peer fetch/client timeout behavior
-   - OpenClaw agent turn concurrency
-   - shared state / session routing race
-   - reply-path collision
-3. whether it only happens:
-   - cross-provider
-   - same-provider
-   - same target session
-   - same peer
-   - or any concurrent pair
+ClawBridge was allowing multiple inbound session-first `openclaw agent` turns to launch concurrently against the same local target session.
 
-### Deliverable
-Report:
-- exact reproduction steps
-- exact error shape / stack if reproduced
-- exact scope (when it happens / when it doesn’t)
-- exact fix or containment strategy
+That leaves one instance vulnerable to:
 
-### Quality bar
-- Keep this focused
-- No broad repo narration
-- Reproduce first, then fix
+- socket-style overlap failures
+- session routing collisions
+- nondeterministic reply-path behavior
 
-— PM
+## Fix now in repo
+
+- ClawBridge now serializes local `openclaw agent` turns per target session inside one instance
+- explicit `sessionId` turns are queued by `session:<sessionId>`
+- fallback turns without a concrete `sessionId` are queued by route key (`agentId|channel|target`)
+
+This is containment, not broad locking:
+
+- different local sessions can still run concurrently
+- only overlapping turns to the same receiving session are serialized
+
+## Latest validated local state
+
+- `npm test -- --runInBand` → `29` suites, `236` tests, all passing
+- `npm run test:two-instance` → passing
+- new integration coverage proves:
+  - two near-simultaneous inbound messages to the same local target session both succeed
+  - the fake overlap socket error no longer appears
+
+## Docs updated
+
+Active repo docs were aligned with the current runtime behavior:
+
+- session-first inbound turns now use local provider delivery
+- wrapped CLI failures with valid stdout replies are recovered as success
+- concurrent inbound turns are serialized per target session
+
+## Required live rerun
+
+Please rerun the same live scenario that previously produced the concurrent socket-style failure:
+
+- two messages sent nearly simultaneously to the same ClawBridge instance
+- same receiving `@agent` / local target session
+
+What I need back:
+
+- both returned JSON payloads
+- whether both now succeed
+- whether the receiving node logs any overlap/socket-style error
+
+## Success criterion
+
+This issue is closed when the same live concurrent pair now shows:
+
+- both requests succeed
+- no socket-style overlap failure
+- no session-first reply-path collision
